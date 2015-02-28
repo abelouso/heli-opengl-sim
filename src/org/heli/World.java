@@ -100,22 +100,14 @@ public class World
 				startY += 0.05 * BUILDING_SPACE + SIDEWALK_OFFSET;
 				for (int houseIndex = 0; houseIndex < Math.round(HOUSES_PER_BLOCK); ++houseIndex)
 				{
-					if (houseIndex == 0 || houseIndex == 9) // Only one building on ends
-					{
-						Object3D cornerHouse = makeCornerHouse(startX, startY, startZ, houseIndex);
-						worldState.add(cornerHouse);
-					}
-					else
-					{
-						Object3D leftHouse = makeHouse(startX, startY + houseIndex * BUILDING_SPACE, startZ);
-						worldState.add(leftHouse);
-						Object3D rightHouse = makeHouse(startX + 9 * BUILDING_SPACE, startY + houseIndex * BUILDING_SPACE, startZ);
-						worldState.add(rightHouse);
-						Object3D topHouse = makeHouse(startX + houseIndex * BUILDING_SPACE, startY, startZ);
-						worldState.add(topHouse);
-						Object3D bottomHouse = makeHouse(startX  + houseIndex * BUILDING_SPACE, startY + 9 * BUILDING_SPACE, startZ);
-						worldState.add(bottomHouse);
-					}
+					Object3D leftHouse = makeHouse(startX, startY + houseIndex * BUILDING_SPACE, startZ);
+					worldState.add(leftHouse);
+					Object3D rightHouse = makeHouse(startX + 9 * BUILDING_SPACE, startY + houseIndex * BUILDING_SPACE, startZ);
+					worldState.add(rightHouse);
+					Object3D topHouse = makeHouse(startX + houseIndex * BUILDING_SPACE, startY, startZ);
+					worldState.add(topHouse);
+					Object3D bottomHouse = makeHouse(startX  + houseIndex * BUILDING_SPACE, startY + 9 * BUILDING_SPACE, startZ);
+					worldState.add(bottomHouse);
 				}
 			}
 		}
@@ -182,12 +174,6 @@ public class World
 	}
 	
 	public int requestNextChopperID() { return nextChopperID++; }
-	
-	public Object3D makeCornerHouse(double startX, double startY, double startZ, double houseIndex)
-	{
-		Object3D worldObj = makeHouse(startX + houseIndex * BUILDING_SPACE, startY + houseIndex * BUILDING_SPACE, startZ);
-		return worldObj;
-	}
 	
 	public Object3D makeHouse(double posX, double posY, double posZ)
 	{
