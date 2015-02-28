@@ -38,9 +38,13 @@ public class World
 	
 	private static final double FUEL_PER_REVOLUTION = 1.0 / 60.0; // Liters
 	
-	private static final double BLOCK_SIZE = 100.0;
+	private static final double FULL_BLOCK_SIZE = 100.0;
 
-	private static final double SIDEWALK_OFFSET = 3.0;
+	private static final double STREET_OFFSET = 3.0;
+	
+	private static final double SIDEWALK_OFFSET = 2.0;
+	
+	private static final double BLOCK_SIZE = FULL_BLOCK_SIZE - 2.0 * STREET_OFFSET;
 	
 	private static final double SQUARE_SIZE = BLOCK_SIZE - 2.0 * SIDEWALK_OFFSET;
 	
@@ -81,19 +85,19 @@ public class World
 				// TODO: Move to CityBlock class
 				// For now, streets are 6.0 m wide
 				// and Sidewalks are 3.0 m wide
-				double startX = BLOCK_SIZE * col + SIDEWALK_OFFSET;
-				double endX = startX + SQUARE_SIZE;
-				double startY = BLOCK_SIZE * row + SIDEWALK_OFFSET;
-				double endY = startY + SQUARE_SIZE;
+				double startX = FULL_BLOCK_SIZE * col + STREET_OFFSET;
+				double endX = startX + BLOCK_SIZE;
+				double startY = FULL_BLOCK_SIZE * row + STREET_OFFSET;
+				double endY = startY + BLOCK_SIZE;
 				// Sidewalks are 0.1 m above street
 				Point3D sidewalkPos = new Point3D(startX, startY, 0.0);
-				Point3D sidewalkSize = new Point3D(SQUARE_SIZE, SQUARE_SIZE, 0.1);
+				Point3D sidewalkSize = new Point3D(BLOCK_SIZE, BLOCK_SIZE, 0.1);
 				Object3D sidewalk = new Object3D(sidewalkPos, sidewalkSize);
 				double startZ = 0.1;
 				sidewalk.setColor(0.8, 0.8, 0.8, 1.0);
 				worldState.add(sidewalk);
-				startX += 0.05 * BUILDING_SPACE;
-				startY += 0.05 * BUILDING_SPACE;
+				startX += 0.05 * BUILDING_SPACE + SIDEWALK_OFFSET;
+				startY += 0.05 * BUILDING_SPACE + SIDEWALK_OFFSET;
 				for (int houseIndex = 0; houseIndex < Math.round(HOUSES_PER_BLOCK); ++houseIndex)
 				{
 					if (houseIndex == 0 || houseIndex == 9) // Only one building on ends
@@ -292,7 +296,7 @@ public class World
 		// different transformations
         GL2 gl = drawable.getGL().getGL2();
     	camera.tellGL(gl);
-        camera.approach(1.0);
+        camera.approach(0.75);
         gl.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT);
 
 		for (Object3D object : worldState)
@@ -307,16 +311,42 @@ public class World
 			}
 			gl.glColor4dv(objColor, 0);
 			drawRectangles(gl,bufferArray, true);
+			Point3D helipadCenter = new Point3D(objectLoc.m_x + (objectSize.m_x / 2.0), objectLoc.m_y + (objectSize.m_y / 2.0), objectLoc.m_z + objectSize.m_z);
+			drawHelipad(gl, helipadCenter.m_x, helipadCenter.m_y, helipadCenter.m_z, objectSize.m_x + 0.05);
 		}
 		gl.glBegin(gl.GL_QUADS);
-		gl.glColor3d(1.0,  0.8,  0.4);
-		gl.glVertex3d(0.0, 10.0, 0.0);
-		gl.glVertex3d(0.0, 0.0, 0.0);
-		gl.glVertex3d(10.0, 0.0, 0.0);
-		gl.glVertex3d(10.0, 10.0, 0.0);
+		gl.glColor3d(1.0, 0.8, 0.8);
+		gl.glVertex3d(497.0, 503.0,  0.0);
+		gl.glVertex3d(497.0, 497.0, 0.0);
+		gl.glVertex3d(503.0, 497.0, 0.0);
+		gl.glVertex3d(503.0, 503.0, 0.0);
 		gl.glEnd();
+		drawHelipad(gl, 500.0, 500.0, 0.05, 6.0);
 	}
 	
+	public void drawHelipad(GL2 gl, double xCenter, double yCenter, double zHeight, double size)
+	{
+		double sizeIncrement = size / 6.0;
+		gl.glBegin(gl.GL_QUADS);
+		gl.glColor3d(0.0, 0.0, 1.0);
+		// Left Side H
+		gl.glVertex3d(xCenter - 2.0 * sizeIncrement, yCenter + 2.0 * sizeIncrement, zHeight);
+		gl.glVertex3d(xCenter - 2.0 * sizeIncrement, yCenter - 2.0 * sizeIncrement, zHeight);
+		gl.glVertex3d(xCenter - 1.0 * sizeIncrement, yCenter - 2.0 * sizeIncrement, zHeight);
+		gl.glVertex3d(xCenter - 1.0 * sizeIncrement, yCenter + 2.0 * sizeIncrement, zHeight);
+		// Right Side H
+		gl.glVertex3d(xCenter + 1.0 * sizeIncrement, yCenter + 2.0 * sizeIncrement, zHeight);
+		gl.glVertex3d(xCenter + 1.0 * sizeIncrement, yCenter - 2.0 * sizeIncrement, zHeight);
+		gl.glVertex3d(xCenter + 2.0 * sizeIncrement, yCenter - 2.0 * sizeIncrement, zHeight);
+		gl.glVertex3d(xCenter + 2.0 * sizeIncrement, yCenter + 2.0 * sizeIncrement, zHeight);
+		// Middle H
+		gl.glVertex3d(xCenter - 1.0 * sizeIncrement, yCenter + 0.5 * sizeIncrement, zHeight);
+		gl.glVertex3d(xCenter - 1.0 * sizeIncrement, yCenter - 0.5 * sizeIncrement, zHeight);
+		gl.glVertex3d(xCenter + 1.0 * sizeIncrement, yCenter - 0.5 * sizeIncrement, zHeight);
+		gl.glVertex3d(xCenter + 1.0 * sizeIncrement, yCenter + 0.5 * sizeIncrement, zHeight);
+		gl.glEnd();
+	}
+
 	public static void drawRectangles(GL2 gl, float[] bufferArray, boolean doLines)
 	{
 		gl.glBegin(GL2.GL_QUADS);
