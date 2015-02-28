@@ -104,6 +104,10 @@ public class World
 					worldState.add(leftHouse);
 					Object3D rightHouse = makeHouse(startX + 9 * BUILDING_SPACE, startY + houseIndex * BUILDING_SPACE, startZ);
 					worldState.add(rightHouse);
+					if (houseIndex == 0 || houseIndex == 9)
+					{
+						continue;
+					}
 					Object3D topHouse = makeHouse(startX + houseIndex * BUILDING_SPACE, startY, startZ);
 					worldState.add(topHouse);
 					Object3D bottomHouse = makeHouse(startX  + houseIndex * BUILDING_SPACE, startY + 9 * BUILDING_SPACE, startZ);

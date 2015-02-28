@@ -78,7 +78,7 @@ public class Camera {
 	public Camera(GLU theGLU) {
 		source = new Point3D(0.0,0.0,5.0);
 		target = new Point3D();
-		upUnit = new Point3D(0.0,1.0,0.0);
+		upUnit = new Point3D(0.0,0.0,1.0);
 		fovDegrees = 60.0;
 		nearClip = 1.0;
 		farClip = 100.0;
@@ -106,12 +106,18 @@ public class Camera {
 	}
 	
 	public void approach(double approachPercent) {
-		double deltaZ = source.z() - target.z();
-		double deltaY = source.y() - target.y();
-		double deltaX = source.x() - target.x();
-		source.m_x = source.m_x - (approachPercent / 100.0 * deltaX);
-		source.m_y = source.m_y - (approachPercent / 100.0 * deltaY);
-		source.m_z = source.m_z - (approachPercent / 100.0 * deltaZ);
+		double deltaZ = approachPercent / 100.0 * (source.z() - target.z());
+		double deltaY = approachPercent / 100.0 * (source.y() - target.y());
+		double deltaX = approachPercent / 100.0 * (source.x() - target.x());
+		double magnitude = Math.sqrt(deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ);
+		double angle = magnitude / 180.0;
+		double unitX = Math.sin(angle);
+		double unitZ = Math.cos(angle);
+		upUnit.m_x = unitX;
+		upUnit.m_z = unitZ;
+		source.m_x = source.m_x - deltaX;
+		source.m_y = source.m_y - deltaY;
+		source.m_z = source.m_z - deltaZ;
 	}
 	
 	public void orbit(double ticksPerRevolution) {
@@ -141,7 +147,6 @@ public class Camera {
 	
 	public void tellGL(GL2 gl)
 	{
-		show();
 		gl.glMatrixMode(gl.GL_PROJECTION);
 		gl.glLoadIdentity();
 		
