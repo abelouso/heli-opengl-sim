@@ -61,7 +61,7 @@ public class Camera {
 		// TODO: Compute source position such that default field of view
 		// shows the whole thing... By default, camera source is up along
 		// z axis
-		orbitAltitude = 250.0;
+		orbitAltitude = 1200.0;
 		orbitRadius = trgX * 2.0;
 		source = new Point3D((double)(-trgX),(double)trgY,orbitAltitude);
 		target = new Point3D((double)trgX, (double)trgY, (double)trgZ);

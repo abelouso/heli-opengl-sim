@@ -1,4 +1,5 @@
 package org.heli;
+
 import java.util.*;
 import java.awt.BorderLayout;
 import java.awt.Color;
@@ -32,12 +33,6 @@ public class World
 	double curTimeStamp = 0.0;
 	private static final double TICK_TIME = 1.0 / 30.0;
 	
-	private static final double THRUST_PER_RPM = 11.1111; // N (kg * m/s^2)
-	
-	private static final double EARTH_ACCELERATION = -9.80665; // m/s^2
-	
-	private static final double FUEL_PER_REVOLUTION = 1.0 / 60.0; // Liters
-	
 	private static final double FULL_BLOCK_SIZE = 100.0;
 
 	private static final double STREET_OFFSET = 3.0;
@@ -60,7 +55,7 @@ public class World
 	
 	private ArrayList<Object3D> worldState;
 	
-	private ArrayList<StigChopper> myChoppers;
+	private Map<Integer, ChopperAggregator> myChoppers;
 	
 	/**
 	 * @param args
@@ -71,10 +66,15 @@ public class World
 		sizeX = 1000;
 		sizeY = 1000;
 		sizeZ = 200;
-		myChoppers = new ArrayList<StigChopper>();
-		StigChopper myChopper = new StigChopper(requestNextChopperID(), this);
+		myChoppers = new HashMap<Integer, ChopperAggregator>();
+		int chopperID = requestNextChopperID();
+		StigChopper myChopper = new StigChopper(chopperID, this);
+		Point3D startPos = getStartingPosition(chopperID);
+		ChopperInfo chopInfo = new ChopperInfo(this, chopperID, startPos, 0.0);
+		ChopperAggregator myAggregator = new ChopperAggregator(myChopper, chopInfo);
+		myChoppers.put(chopperID, myAggregator);
+		requestSettings(chopperID, ChopperInfo.MAX_MAIN_ROTOR_SPEED, 0.0, ChopperInfo.STABLE_TAIL_ROTOR_SPEED);
 		worldState = new ArrayList<Object3D>();
-		myChoppers.add(myChopper);
 		
 		// Generate the world... TODO: Move to city blocks
 		for (int row = 0; row < 10; ++row)
@@ -172,6 +172,64 @@ public class World
 		System.out.println("Creating world...");
 	}
 
+	// TODO: Provide for random starting positions, but for now, start them
+	// on main street
+	public Point3D getStartingPosition(int chopperID)
+	{
+		Point3D startPos = new Point3D(480.0 + 10.0 * chopperID, 500.0, 0.0);
+		return startPos;
+	}
+	
+	/** Return the chopper with the specified ID
+	 * or null if that chopper doesn't exist
+	 * @param chopperID ID of the desired chopper
+	 * @return
+	 */
+	public StigChopper getChopper(int chopperID) {
+		ChopperAggregator resAggregator = null;
+		StigChopper resChopper = null;
+		if (myChoppers.containsKey(chopperID))
+		{
+			resAggregator = myChoppers.get(chopperID);
+			resChopper = resAggregator.getChopper();
+		}
+		return resChopper;
+	}
+	
+	/** Return the chopper info with the specified ID
+	 * or null if that chopper doesn't exist
+	 * @param chopperID ID of the desired chopper
+	 * @return
+	 */
+	public ChopperInfo getChopInfo(int chopperID)
+	{
+		ChopperAggregator resAggregator = null;
+		ChopperInfo resInfo = null;
+		if (myChoppers.containsKey(chopperID))
+		{
+			resAggregator = myChoppers.get(chopperID);
+			resInfo = resAggregator.getInfo();
+		}
+		return resInfo;
+	}
+	
+	public void requestSettings(double chopperID, double mainRotorSpeed, double tiltAngle, double tailRotorSpeed)
+	{
+		ChopperAggregator resAggregator = null;
+		ChopperInfo resInfo = null;
+		if (myChoppers.containsKey(chopperID))
+		{
+			resAggregator = myChoppers.get(chopperID);
+			resInfo = resAggregator.getInfo();
+			if (resInfo != null)
+			{
+				resInfo.requestMainRotorSpeed(mainRotorSpeed);
+				resInfo.requestTailRotorSpeed(tailRotorSpeed);
+				resInfo.requestTiltLevel(tiltAngle);
+			}
+		}
+		
+	}
 	public void updateCamera(GL2 gl, int width, int height) {
 	    camera.tellGL(gl, width, height);
 	    System.out.println("Updated camera with vp size (" + width + ", " + height + ")");
@@ -216,9 +274,20 @@ public class World
 		boolean outOfTime = false;
 		while (curTimeStamp < maxTime)
 		{
-			for (StigChopper chopper : myChoppers)
+			Iterator it = myChoppers.entrySet().iterator();
+			while (it.hasNext())
 			{
-				// TODO: Iterate over choppers
+				Map.Entry pairs = (Map.Entry)it.next();
+				int id = (int) pairs.getKey();
+				ChopperAggregator locData = (ChopperAggregator) pairs.getValue();
+				if (locData != null)
+				{
+					ChopperInfo chopInfo = locData.getInfo();
+					if (chopInfo != null)
+					{
+						chopInfo.fly(TICK_TIME);
+					}
+				}
 			}
 			Thread.sleep(10);
 			curTimeStamp += TICK_TIME;
@@ -279,6 +348,41 @@ public class World
 		resultArray[25] = yStart + ySize / 2.0f;
 		resultArray[26] = zStart + zSize / 2.0f;
 		return resultArray;
+	}
+	
+	public Point3D gps(int chopperID)
+	{
+		ChopperAggregator thisAg = null;
+		Point3D actPosition = null;
+		if (myChoppers.containsKey(chopperID))
+		{
+			thisAg = myChoppers.get(chopperID);
+			ChopperInfo thisInfo = thisAg.getInfo();
+			actPosition = thisInfo.getPosition();
+		}
+		return actPosition;
+	}
+	
+	/** This method returns heading, pitch, and zero in a single vector
+	 *  Since they're needed in radians for rotations, we'll convert it here
+	 * @param chopperID
+	 * @return
+	 */
+	public Point3D transformations(int chopperID)
+	{
+		Point3D resultVector = new Point3D();
+		ChopperAggregator thisAg = null;
+		Point3D actPosition = null;
+		if (myChoppers.containsKey(chopperID))
+		{
+			thisAg = myChoppers.get(chopperID);
+			ChopperInfo thisInfo = thisAg.getInfo();
+			double heading_radians = thisInfo.getHeading() * Math.PI / 180.0;
+			resultVector.m_x = heading_radians;
+			double pitch_radians = thisInfo.getTilt() * Math.PI / 180.0;
+			resultVector.m_y = pitch_radians;
+		}
+		return resultVector;
 	}
 	
 	public void render(GLAutoDrawable drawable)

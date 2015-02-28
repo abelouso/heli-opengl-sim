@@ -1,5 +1,8 @@
 package org.heli;
 
+import javax.media.opengl.GL2;
+import javax.media.opengl.GLAutoDrawable;
+
 /** This class represents our chopper and its capabilities
  * 
  * @author Daniel LaFuze
@@ -15,15 +18,7 @@ public class StigChopper {
 	
 	int id;
 	
-	private static final double BASE_MASS = 100.0; // kg
-	
-	// Total Capacity can be divided however desired between cargo and fuel
-	private static final double TOTAL_CAPACITY = 300.0; // kg
-	
-	private static final double MAX_MAIN_ROTOR_SPEED = 400.0; // RPM
-	
-	private static final double MAX_TAIL_ROTOR_SPEED = 120.0; // RPM
-	private static final double MIN_TAIL_ROTOR_SPEED = 80.0; // RPM
+	int inventory;
 	
 	private static final double X_SIZE = 2.0;
 	private static final double Y_SIZE = 5.0;
@@ -37,23 +32,20 @@ public class StigChopper {
 	
 	private double currentPitch; // degrees
 	
-	private double cargoMass; // kg
+	private double cargoCapacity; // kg
 	
-	private double fuelMass; // kg
+	private double fuelCapacity; // kg
 
 	private double heading; // degrees
 	
 	private boolean landed;
 	
-	public double currentMass() {
-		return cargoMass + fuelMass + BASE_MASS;
-	}
-	
 	public StigChopper(int chopperID, World theWorld) {
 		id = chopperID;
 		world = theWorld;
-		cargoMass = TOTAL_CAPACITY / 2.0;
-		fuelMass = TOTAL_CAPACITY / 2.0;
+		cargoCapacity = ChopperAggregator.TOTAL_CAPACITY / 2.0;
+		inventory = (int)Math.round(cargoCapacity / ChopperAggregator.ITEM_WEIGHT);
+		fuelCapacity = ChopperAggregator.TOTAL_CAPACITY / 2.0;
 		size = new Point3D(X_SIZE, Y_SIZE, Z_SIZE);
 		mainRotorRPM = 0.0;
 		tailRotorRPM = 0.0;
@@ -62,8 +54,50 @@ public class StigChopper {
 		landed = true;
 	}
 	
+	public double fuelCapacity() {
+		return fuelCapacity;
+	}
+	
+	public int itemCount() {
+		return inventory;
+	}
+	
 	public Point3D getSize() {
 		Point3D result = new Point3D(X_SIZE, Y_SIZE, Z_SIZE);
 		return result;
+	}
+	
+	public void render(GLAutoDrawable drawable, double actHeading, double actTilt, double rotorPos, double tailRotorPos) {
+        GL2 gl = drawable.getGL().getGL2();
+        Point3D myPosition = world.gps(id);
+        // This method returns the bottom center of our chopper, first, get center
+        Point3D centerPos = myPosition;
+        // For now, we need our center point for an axis of rotation (Pitch and heading)
+        // When we start rendering a more realistic chopper, we'll have to do that in addition
+        // to rotating the rotors
+        centerPos.m_z += Z_SIZE / 2.0;
+        // Next, get bounding rectangular prism
+        myPosition.m_x -= X_SIZE / 2.0;
+        myPosition.m_y -= Y_SIZE / 2.0;
+        Point3D mySize = new Point3D(X_SIZE, Y_SIZE, Z_SIZE);
+        Object3D chopperObject = new Object3D(myPosition, mySize);
+        chopperObject.setColor(1.0,  0.0, 0.0, 1.0);
+        // Translate the center of chopper to the origin, so rotation doesn't move chopper
+        gl.glTranslated(-centerPos.m_x, -centerPos.m_y, -centerPos.m_z);
+        Point3D transformation = world.transformations(id);
+        // rotate chopper by heading
+        gl.glRotated(transformation.m_x, 0.0, 0.0, 1.0);
+        // rotate chopper by pitch
+        // TODO: Fix pitch transformation, it actually has to rotate around our rotated axis
+        gl.glRotated(transformation.m_y, 1.0, 0.0, 0.0);
+        gl.glTranslated(centerPos.m_x,  centerPos.m_y,  centerPos.m_z);
+		double objColor[] = chopperObject.getColor();
+		float[] bufferArray = World.makeVertexArray(myPosition, mySize);
+		if (bufferArray != null)
+		{
+			gl.glColor4dv(objColor, 0);
+			World.drawRectangles(gl,bufferArray, true);
+		}
+        
 	}
 }
