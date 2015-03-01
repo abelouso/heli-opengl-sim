@@ -12,23 +12,23 @@ import javax.media.opengl.GLAutoDrawable;
  */
 public class StigChopper {
 	
-	Point3D size;
+	protected Point3D size;
 	
-	World world;
+	protected World world;
 	
-	int id;
+	protected int id;
 	
-	int inventory;
+	protected int inventory;
 	
-	private static final double X_SIZE = 2.0;
-	private static final double Y_SIZE = 5.0;
-	private static final double Z_SIZE = 3.0;
+	protected static final double X_SIZE = 2.0;
+	protected static final double Y_SIZE = 5.0;
+	protected static final double Z_SIZE = 3.0;
 	
-	private double cargoCapacity; // kg
+	protected double cargoCapacity; // kg
 	
-	private double fuelCapacity; // kg
+	protected double fuelCapacity; // kg
 
-	private boolean landed;
+	protected boolean landed;
 	
 	public StigChopper(int chopperID, World theWorld) {
 		id = chopperID;
@@ -49,10 +49,16 @@ public class StigChopper {
 		return inventory;
 	}
 	
+	public int getId()
+	{
+	    return id;
+	}
+	
 	public Point3D getSize() {
 		Point3D result = new Point3D(X_SIZE, Y_SIZE, Z_SIZE);
 		return result;
 	}
+	
 	
 	/** This method renders a chopper.  We'll get the position from the world.
 	 * We need to get information about the chopper's orientation from the

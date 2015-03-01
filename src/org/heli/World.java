@@ -57,6 +57,16 @@ public class World
 	
 	private Map<Integer, ChopperAggregator> myChoppers;
 	
+	public void insertChopper(StigChopper chap)
+	{
+	    int chopperID = chap.getId();
+        Point3D startPos = getStartingPosition(chopperID);
+        ChopperInfo chopInfo = new ChopperInfo(this, chap, chopperID, startPos, 0.0);
+        ChopperAggregator myAggregator = new ChopperAggregator(chap, chopInfo);
+        myChoppers.put(chopperID, myAggregator);
+        //requestSettings(chopperID, 360.0, 1.5, ChopperInfo.STABLE_TAIL_ROTOR_SPEED - 3);
+	}
+	
 	/**
 	 * @param args
 	 * @throws Exception 
@@ -67,13 +77,14 @@ public class World
 		sizeY = 1000;
 		sizeZ = 200;
 		myChoppers = new HashMap<Integer, ChopperAggregator>();
-		int chopperID = requestNextChopperID();
-		StigChopper myChopper = new StigChopper(chopperID, this);
-		Point3D startPos = getStartingPosition(chopperID);
-		ChopperInfo chopInfo = new ChopperInfo(this, myChopper, chopperID, startPos, 0.0);
-		ChopperAggregator myAggregator = new ChopperAggregator(myChopper, chopInfo);
-		myChoppers.put(chopperID, myAggregator);
-		requestSettings(chopperID, 360.0, 1.5, ChopperInfo.STABLE_TAIL_ROTOR_SPEED - 3);
+		
+		//inserting choppers
+        Apachi apChop = new Apachi(requestNextChopperID(),this);
+        insertChopper(apChop);
+		
+		StigChopper myChopper = new StigChopper(requestNextChopperID(), this);
+		insertChopper(myChopper);
+		
 		worldState = new ArrayList<Object3D>();
 		
 		// Generate the world... TODO: Move to city blocks
@@ -412,7 +423,7 @@ public class World
 			gl.glColor4dv(objColor, 0);
 			drawRectangles(gl,bufferArray, true);
 			Point3D helipadCenter = new Point3D(objectLoc.m_x + (objectSize.m_x / 2.0), objectLoc.m_y + (objectSize.m_y / 2.0), objectLoc.m_z + objectSize.m_z);
-			drawHelipad(gl, helipadCenter.m_x, helipadCenter.m_y, helipadCenter.m_z, objectSize.m_x + 0.05);
+			//drawHelipad(gl, helipadCenter.m_x, helipadCenter.m_y, helipadCenter.m_z, objectSize.m_x + 0.02);
 		}
 		gl.glBegin(gl.GL_QUADS);
 		gl.glColor3d(1.0, 0.8, 0.8);

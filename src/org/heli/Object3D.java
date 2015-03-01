@@ -36,6 +36,18 @@ public class Object3D {
 		color[3] = alpha;
 	}
 	
+	public void setColor(Point3D rgb, double alpha)
+	{
+	    if(color == null)
+	    {
+	        color = new double[4];
+	    }
+	    color[3] = alpha;
+	    color[0] = rgb.m_x;
+	    color[1] = rgb.m_y;
+	    color[2] = rgb.m_z;
+	}
+	
 	public double[] getColor() {
 		return color;
 	}
