@@ -61,8 +61,8 @@ public class Camera {
 		// TODO: Compute source position such that default field of view
 		// shows the whole thing... By default, camera source is up along
 		// z axis
-		orbitAltitude = 1200.0;
-		orbitRadius = trgX * 2.0;
+		orbitAltitude = 100.0;
+		orbitRadius = trgX;
 		source = new Point3D((double)(-trgX),(double)trgY,orbitAltitude);
 		target = new Point3D((double)trgX, (double)trgY, (double)trgZ);
 		upUnit = new Point3D(0.0,0.0,1.0);
@@ -72,6 +72,7 @@ public class Camera {
 		glu = theGLU;
 		System.out.println("Camera at " + source.info() + " looking at " + target.info());
 	}
+	
 	/** This constructor for a camera sets the defaults
 	 * 
 	 */
@@ -105,16 +106,40 @@ public class Camera {
 		source = newPoint;
 	}
 	
+	public void chase(Point3D newTarget, double minDistance)
+	{
+		if (minDistance < nearClip)
+		{
+			minDistance = nearClip;
+		}
+		target = newTarget;
+		double actDistance = eyeDistance();
+		if (actDistance > minDistance * 1.1)
+		{
+			approach(0.5 * (actDistance / minDistance));
+		}
+	}
+	
+	public void chase(Point3D newTarget)
+	{
+		target = newTarget;
+		approach(1.0);
+	}
+	
+	double eyeDistance()
+	{
+		double deltaZ = source.z() - target.z();
+		double deltaY = source.y() - target.y();
+		double deltaX = source.x() - target.x();
+		double magnitude = Math.sqrt(deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ);
+		return magnitude;
+	}
+	
 	public void approach(double approachPercent) {
 		double deltaZ = approachPercent / 100.0 * (source.z() - target.z());
 		double deltaY = approachPercent / 100.0 * (source.y() - target.y());
 		double deltaX = approachPercent / 100.0 * (source.x() - target.x());
 		double magnitude = Math.sqrt(deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ);
-		double angle = magnitude / 180.0;
-		double unitX = Math.sin(angle);
-		double unitZ = Math.cos(angle);
-		upUnit.m_x = unitX;
-		upUnit.m_z = unitZ;
 		source.m_x = source.m_x - deltaX;
 		source.m_y = source.m_y - deltaY;
 		source.m_z = source.m_z - deltaZ;

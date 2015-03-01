@@ -14,13 +14,15 @@ public class ChopperInfo {
 	
 	int chopperID;
 	
-	double currentFuel_kg;
+	double mainRotorPosition_Degrees; // This is needed to draw the rotor
+	
+	double tailRotorPosition_Degrees; // This is needed to draw the rotor
 	
 	private static final double THRUST_PER_RPM = 11.1111; // N (kg * m/s^2)
 	
 	public static final double MAX_MAIN_ROTOR_SPEED = 400.0; // RPM
 	
-	private static final double EARTH_ACCELERATION = -9.80665; // m/s^2
+	private static final double EARTH_ACCELERATION = 9.80665; // m/s^2
 	
 	public static final double MAX_TAIL_ROTOR_SPEED = 120.0; // RPM
 	public static final double STABLE_TAIL_ROTOR_SPEED = 100.0; // RPM
@@ -30,7 +32,7 @@ public class ChopperInfo {
 	
 	private static final double MAX_MAIN_ROTOR_DELTA = 60.0; // RPM per Second
 	
-	private static final double MAX_TAIL_ROTOR_DELTA = 15.0; // RPM per Second
+	private static final double MAX_TAIL_ROTOR_DELTA = 30.0; // RPM per Second
 	
 	private static final double MAX_TILT_DELTA = 3.0; // Degrees per second
 	
@@ -72,11 +74,13 @@ public class ChopperInfo {
 	 * @param startPos Where will the chopper start
 	 * @param startHeading Which way is chopper facing?
 	 */
-	public ChopperInfo(World world, int id, Point3D startPos, double startHeading) {
+	public ChopperInfo(World world, StigChopper chop, int id, Point3D startPos, double startHeading) {
 		myWorld = world;
 		chopperID = id;
 		actPosition_m = startPos;
 		heading_Degrees = startHeading;
+		mainRotorPosition_Degrees = 0.0;
+		tailRotorPosition_Degrees = 0.0;
 		actMainRotorSpeed_RPM = 0.0;
 		actTailRotorSpeed_RPM = 0.0;
 		actTilt_Degrees = 0.0;
@@ -85,12 +89,19 @@ public class ChopperInfo {
 		desTilt_Degrees = 0.0;
 		actAcceleration_ms2 = new Point3D(0.0, 0.0, 0.0);
 		actVelocity_ms = new Point3D(0.0, 0.0, 0.0);
-		StigChopper thisChopper = myWorld.getChopper(chopperID);
 		remainingFuel_kg = 0.0;
-		if (thisChopper != null)
-		{
-			remainingFuel_kg = thisChopper.fuelCapacity();
-		}
+		remainingFuel_kg = chop.fuelCapacity();
+		System.out.println("Chop Info -- Created chopper ID " + chopperID + " Fuel level: " + remainingFuel_kg);
+	}
+	
+	public double getMainRotorPosition()
+	{
+		return mainRotorPosition_Degrees;
+	}
+	
+	public double getTailRotorPosition()
+	{
+		return tailRotorPosition_Degrees;
 	}
 	
 	public Point3D getPosition()
@@ -146,6 +157,12 @@ public class ChopperInfo {
 				actMainRotorSpeed_RPM = desMainRotorSpeed_RPM;
 			}
 		}
+		// 1 RPM = 6 degrees per second
+		mainRotorPosition_Degrees += actMainRotorSpeed_RPM * elapsedTime / 60.0;
+		if (mainRotorPosition_Degrees >= 360.0)
+		{
+			mainRotorPosition_Degrees -= 360.0; // Just for drawing
+		}
 	}
 	
 	public void updateTailRotorSpeed(double elapsedTime)
@@ -170,6 +187,12 @@ public class ChopperInfo {
 			{
 				actTailRotorSpeed_RPM = desTailRotorSpeed_RPM;
 			}
+		}
+		// 1 RPM = 6 degrees per second
+		tailRotorPosition_Degrees += actTailRotorSpeed_RPM * elapsedTime / 60.0;
+		if (tailRotorPosition_Degrees >= 360.0)
+		{
+			tailRotorPosition_Degrees -= 360.0; // Just for drawing
 		}
 	}
 	
@@ -207,9 +230,11 @@ public class ChopperInfo {
 	{
 		boolean outOfGas = false;
 		double rotorRevolutions = actMainRotorSpeed_RPM * elapsedTime;
-		currentFuel_kg -= rotorRevolutions * FUEL_PER_REVOLUTION;
-		if (currentFuel_kg < 0)
+		double fuelBurned = rotorRevolutions * FUEL_PER_REVOLUTION;
+		remainingFuel_kg -= fuelBurned;
+		if (remainingFuel_kg < 0)
 		{
+			System.out.println("Out of Gas!");
 			outOfGas = true;
 		}
 		return outOfGas;
@@ -231,7 +256,7 @@ public class ChopperInfo {
 		heading_Degrees += (rotorSetting * ROTATION_PER_TAIL_RPM) * elapsedTime;
 	}
 	
-	public void fly(double elapsedTime)
+	public void fly(double currentTime, double elapsedTime)
 	{
 		boolean outOfGas = updateFuelRemaining(elapsedTime);
 		if (outOfGas)
@@ -249,19 +274,21 @@ public class ChopperInfo {
 		{
 			cargoMass_kg = ChopperAggregator.ITEM_WEIGHT * thisChopper.itemCount();
 		}
-		double totalMass_kg = cargoMass_kg + currentFuel_kg + ChopperAggregator.BASE_MASS;
+		double totalMass_kg = cargoMass_kg + remainingFuel_kg + ChopperAggregator.BASE_MASS;
 		double downForce_N = totalMass_kg * EARTH_ACCELERATION;
 		double actTilt_radians = actTilt_Degrees * Math.PI / 180.0;
 		double liftForce_N = actMainRotorSpeed_RPM * THRUST_PER_RPM * Math.cos(actTilt_radians);
 		// lateral force will only be used when off the ground (See below)
 		double lateralForce_N = actMainRotorSpeed_RPM * THRUST_PER_RPM * Math.sin(actTilt_radians);
+		double lateralAcceleration = lateralForce_N / totalMass_kg;
 		double deltaForce_N = liftForce_N - downForce_N;
 		if (deltaForce_N > 0.0) // We have enough force to ascend
 		{
 			// We know vertical force, we'll compute lateral forces next
-			actAcceleration_ms2.m_z = deltaForce_N;
+			actAcceleration_ms2.m_z = deltaForce_N / totalMass_kg;
 			if (takenOff == false)
 			{
+				System.out.println("We have lift off!");
 				takenOff = true;
 			}
 		}
@@ -283,8 +310,8 @@ public class ChopperInfo {
 			updateCurrentHeading(elapsedTime);
 			// Now that we have our heading, we can compute the direction of our thrust
 			double heading_radians = heading_Degrees * Math.PI / 180.0;
-			actAcceleration_ms2.m_x = Math.cos(heading_radians);
-			actAcceleration_ms2.m_y = Math.sin(heading_radians);
+			actAcceleration_ms2.m_x = lateralAcceleration * Math.sin(heading_radians);
+			actAcceleration_ms2.m_y = lateralAcceleration * Math.cos(heading_radians);
 		}
 		else
 		{
@@ -300,12 +327,13 @@ public class ChopperInfo {
 		actPosition_m.m_x += (actVelocity_ms.m_x * elapsedTime);
 		actPosition_m.m_y += (actVelocity_ms.m_y * elapsedTime);
 		actPosition_m.m_z += (actVelocity_ms.m_z * elapsedTime);
-		show();
+		show(currentTime);
 	}
 	
-	public void show()
+	public void show(double curTime)
 	{
-		System.out.println("Main Rotor RPM: " + actMainRotorSpeed_RPM);
-		System.out.println("Acceleration: " + actAcceleration_ms2.info());
+		System.out.println("World Time: " + curTime + ", Acceleration: " + actAcceleration_ms2.info());
+		System.out.println("Actual Heading: " + heading_Degrees + " Degrees, Velocity: " + actVelocity_ms.info());;
+		System.out.println("Actual Tilt: " + actTilt_Degrees + " Degrees, Position: " + actPosition_m.info());
 	}
 }

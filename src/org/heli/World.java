@@ -70,10 +70,10 @@ public class World
 		int chopperID = requestNextChopperID();
 		StigChopper myChopper = new StigChopper(chopperID, this);
 		Point3D startPos = getStartingPosition(chopperID);
-		ChopperInfo chopInfo = new ChopperInfo(this, chopperID, startPos, 0.0);
+		ChopperInfo chopInfo = new ChopperInfo(this, myChopper, chopperID, startPos, 0.0);
 		ChopperAggregator myAggregator = new ChopperAggregator(myChopper, chopInfo);
 		myChoppers.put(chopperID, myAggregator);
-		requestSettings(chopperID, ChopperInfo.MAX_MAIN_ROTOR_SPEED, 0.0, ChopperInfo.STABLE_TAIL_ROTOR_SPEED);
+		requestSettings(chopperID, 340.0, 0.0, ChopperInfo.STABLE_TAIL_ROTOR_SPEED);
 		worldState = new ArrayList<Object3D>();
 		
 		// Generate the world... TODO: Move to city blocks
@@ -176,7 +176,8 @@ public class World
 	// on main street
 	public Point3D getStartingPosition(int chopperID)
 	{
-		Point3D startPos = new Point3D(480.0 + 10.0 * chopperID, 500.0, 0.0);
+		//Point3D startPos = new Point3D(480.0 + 10.0 * chopperID, 500.0, 0.0);
+		Point3D startPos = new Point3D(500.0, 500.0, 0.0);
 		return startPos;
 	}
 	
@@ -213,7 +214,7 @@ public class World
 		return resInfo;
 	}
 	
-	public void requestSettings(double chopperID, double mainRotorSpeed, double tiltAngle, double tailRotorSpeed)
+	public void requestSettings(int chopperID, double mainRotorSpeed, double tiltAngle, double tailRotorSpeed)
 	{
 		ChopperAggregator resAggregator = null;
 		ChopperInfo resInfo = null;
@@ -226,6 +227,8 @@ public class World
 				resInfo.requestMainRotorSpeed(mainRotorSpeed);
 				resInfo.requestTailRotorSpeed(tailRotorSpeed);
 				resInfo.requestTiltLevel(tiltAngle);
+				resAggregator.setInfo(resInfo);
+				myChoppers.put(chopperID, resAggregator);
 			}
 		}
 		
@@ -285,11 +288,14 @@ public class World
 					ChopperInfo chopInfo = locData.getInfo();
 					if (chopInfo != null)
 					{
-						chopInfo.fly(TICK_TIME);
+						chopInfo.fly(curTimeStamp, TICK_TIME);
+						locData.setInfo(chopInfo);
+						myChoppers.put(id, locData);
+						//pairs.setValue(locData);
 					}
 				}
 			}
-			Thread.sleep(10);
+			Thread.sleep(50);
 			curTimeStamp += TICK_TIME;
 		}
 		return outOfTime;
@@ -363,7 +369,7 @@ public class World
 		return actPosition;
 	}
 	
-	/** This method returns heading, pitch, and zero in a single vector
+	/** This method returns heading, tilt, and zero in a single vector
 	 *  Since they're needed in radians for rotations, we'll convert it here
 	 * @param chopperID
 	 * @return
@@ -390,7 +396,8 @@ public class World
 		// different transformations
         GL2 gl = drawable.getGL().getGL2();
     	camera.tellGL(gl);
-        camera.approach(0.75);
+    	Point3D chopperPos = gps(0);
+        camera.chase(chopperPos, 20.0);
         gl.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT);
 
 		for (Object3D object : worldState)
@@ -416,6 +423,23 @@ public class World
 		gl.glVertex3d(503.0, 503.0, 0.0);
 		gl.glEnd();
 		drawHelipad(gl, 500.0, 500.0, 0.05, 6.0);
+		Iterator it = myChoppers.entrySet().iterator();
+		while (it.hasNext())
+		{
+			Map.Entry pairs = (Map.Entry)it.next();
+			int id = (int) pairs.getKey();
+			ChopperAggregator locData = (ChopperAggregator) pairs.getValue();
+			if (locData != null)
+			{
+				StigChopper theChopper = locData.getChopper();
+				ChopperInfo theInfo = locData.getInfo();
+				double curHeading = theInfo.getHeading();
+				double curTilt = theInfo.getTilt();
+				double rotorPos = theInfo.getMainRotorPosition();
+				double tailRotorPos = theInfo.getTailRotorPosition();
+				theChopper.render(drawable, curHeading, curTilt, rotorPos, tailRotorPos);
+			}
+		}
 	}
 	
 	public void drawHelipad(GL2 gl, double xCenter, double yCenter, double zHeight, double size)

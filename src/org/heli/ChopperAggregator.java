@@ -31,4 +31,8 @@ public class ChopperAggregator {
 	public StigChopper getChopper() { return theChopper; }
 	
 	public ChopperInfo getInfo() { return chopInfo; }
+	
+	public void setInfo(ChopperInfo newInfo) { chopInfo = newInfo; }
+	
+	public void setChopper(StigChopper newChopper) { theChopper = newChopper; }
 }
