@@ -28,7 +28,7 @@ public class ChopperInfo {
 	public static final double STABLE_TAIL_ROTOR_SPEED = 100.0; // RPM
 	public static final double MIN_TAIL_ROTOR_SPEED = 80.0; // RPM
 	
-	public static final double MAX_TILT_MAGNITUDE = 5.0; // Degrees
+	public static final double MAX_TILT_MAGNITUDE = 10.0; // Degrees
 	
 	private static final double MAX_MAIN_ROTOR_DELTA = 60.0; // RPM per Second
 	
@@ -158,8 +158,8 @@ public class ChopperInfo {
 			}
 		}
 		// 1 RPM = 6 degrees per second
-		mainRotorPosition_Degrees += actMainRotorSpeed_RPM * elapsedTime / 60.0;
-		if (mainRotorPosition_Degrees >= 360.0)
+		mainRotorPosition_Degrees += actMainRotorSpeed_RPM * elapsedTime * 60.0;
+		while (mainRotorPosition_Degrees >= 360.0)
 		{
 			mainRotorPosition_Degrees -= 360.0; // Just for drawing
 		}
@@ -190,7 +190,7 @@ public class ChopperInfo {
 		}
 		// 1 RPM = 6 degrees per second
 		tailRotorPosition_Degrees += actTailRotorSpeed_RPM * elapsedTime / 60.0;
-		if (tailRotorPosition_Degrees >= 360.0)
+		while (tailRotorPosition_Degrees >= 360.0)
 		{
 			tailRotorPosition_Degrees -= 360.0; // Just for drawing
 		}
@@ -229,12 +229,13 @@ public class ChopperInfo {
 	public boolean updateFuelRemaining(double elapsedTime)
 	{
 		boolean outOfGas = false;
-		double rotorRevolutions = actMainRotorSpeed_RPM * elapsedTime;
+		double rotorRevolutions = actMainRotorSpeed_RPM / 60.0 * elapsedTime;
 		double fuelBurned = rotorRevolutions * FUEL_PER_REVOLUTION;
 		remainingFuel_kg -= fuelBurned;
 		if (remainingFuel_kg < 0)
 		{
 			System.out.println("Out of Gas!");
+			remainingFuel_kg = 0.0;
 			outOfGas = true;
 		}
 		return outOfGas;
@@ -254,6 +255,14 @@ public class ChopperInfo {
 		}
 		double rotorSetting = rotationCalculator - STABLE_TAIL_ROTOR_SPEED;
 		heading_Degrees += (rotorSetting * ROTATION_PER_TAIL_RPM) * elapsedTime;
+		while (heading_Degrees > 360.0)
+		{
+			heading_Degrees -= 360.0;
+		}
+		while (heading_Degrees < 0.0)
+		{
+			heading_Degrees += 360.0;
+		}
 	}
 	
 	public void fly(double currentTime, double elapsedTime)
@@ -291,6 +300,15 @@ public class ChopperInfo {
 				System.out.println("We have lift off!");
 				takenOff = true;
 			}
+			// HACK here to favor level flight (Until controllers are implemented)
+			else if (actAcceleration_ms2.m_z > 0.015)
+			{
+				desMainRotorSpeed_RPM -= 0.55;
+			}
+			else if (actAcceleration_ms2.m_z < -0.015)
+			{
+				desMainRotorSpeed_RPM += 0.55;
+			}
 		}
 		else
 		{
@@ -327,13 +345,21 @@ public class ChopperInfo {
 		actPosition_m.m_x += (actVelocity_ms.m_x * elapsedTime);
 		actPosition_m.m_y += (actVelocity_ms.m_y * elapsedTime);
 		actPosition_m.m_z += (actVelocity_ms.m_z * elapsedTime);
-		show(currentTime);
+		if (takenOff)
+		{
+			show(currentTime);
+		}
 	}
 	
+	/** No behavior is guaranteed by this method.
+	 * Just display that in which you are interested.
+	 * @param curTime
+	 */
 	public void show(double curTime)
 	{
-		System.out.println("World Time: " + curTime + ", Acceleration: " + actAcceleration_ms2.info());
-		System.out.println("Actual Heading: " + heading_Degrees + " Degrees, Velocity: " + actVelocity_ms.info());;
-		System.out.println("Actual Tilt: " + actTilt_Degrees + " Degrees, Position: " + actPosition_m.info());
+		System.out.println("Heading: " + heading_Degrees + " deg, desired rotor speed: " + desMainRotorSpeed_RPM);
+		//System.out.println("World Time: " + curTime + ", Acceleration: " + actAcceleration_ms2.info());
+		//System.out.println("Actual Heading: " + heading_Degrees + " Degrees, Velocity: " + actVelocity_ms.info());;
+		//System.out.println("Actual Tilt: " + actTilt_Degrees + " Degrees, Position: " + actPosition_m.info());
 	}
 }

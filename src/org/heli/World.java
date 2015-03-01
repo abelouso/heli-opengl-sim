@@ -31,7 +31,7 @@ public class World
 	private double[] chop1Color;
 	private double[] chop2Color;
 	double curTimeStamp = 0.0;
-	private static final double TICK_TIME = 1.0 / 30.0;
+	private static final double TICK_TIME = 1.0 / 50.0;
 	
 	private static final double FULL_BLOCK_SIZE = 100.0;
 
@@ -73,7 +73,7 @@ public class World
 		ChopperInfo chopInfo = new ChopperInfo(this, myChopper, chopperID, startPos, 0.0);
 		ChopperAggregator myAggregator = new ChopperAggregator(myChopper, chopInfo);
 		myChoppers.put(chopperID, myAggregator);
-		requestSettings(chopperID, 340.0, 0.0, ChopperInfo.STABLE_TAIL_ROTOR_SPEED);
+		requestSettings(chopperID, 360.0, 1.5, ChopperInfo.STABLE_TAIL_ROTOR_SPEED - 3);
 		worldState = new ArrayList<Object3D>();
 		
 		// Generate the world... TODO: Move to city blocks
@@ -295,7 +295,7 @@ public class World
 					}
 				}
 			}
-			Thread.sleep(50);
+			Thread.sleep(1);
 			curTimeStamp += TICK_TIME;
 		}
 		return outOfTime;
@@ -359,18 +359,19 @@ public class World
 	public Point3D gps(int chopperID)
 	{
 		ChopperAggregator thisAg = null;
-		Point3D actPosition = null;
+		Point3D retPosition = null;
 		if (myChoppers.containsKey(chopperID))
 		{
 			thisAg = myChoppers.get(chopperID);
 			ChopperInfo thisInfo = thisAg.getInfo();
-			actPosition = thisInfo.getPosition();
+			Point3D actPosition = thisInfo.getPosition();
+			retPosition = new Point3D(actPosition.m_x, actPosition.m_y, actPosition.m_z);
 		}
-		return actPosition;
+		return retPosition;
 	}
 	
 	/** This method returns heading, tilt, and zero in a single vector
-	 *  Since they're needed in radians for rotations, we'll convert it here
+	 *  They're returned in degrees
 	 * @param chopperID
 	 * @return
 	 */
@@ -383,10 +384,8 @@ public class World
 		{
 			thisAg = myChoppers.get(chopperID);
 			ChopperInfo thisInfo = thisAg.getInfo();
-			double heading_radians = thisInfo.getHeading() * Math.PI / 180.0;
-			resultVector.m_x = heading_radians;
-			double pitch_radians = thisInfo.getTilt() * Math.PI / 180.0;
-			resultVector.m_y = pitch_radians;
+			resultVector.m_x = thisInfo.getHeading();
+			resultVector.m_y = thisInfo.getTilt();
 		}
 		return resultVector;
 	}

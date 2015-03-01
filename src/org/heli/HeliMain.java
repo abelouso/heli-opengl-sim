@@ -45,7 +45,7 @@ public class HeliMain
         canvas.addGLEventListener(glWin);
         
         // FPSAnimator can be used with desired frames per second as well
-        FPSAnimator animator = new FPSAnimator(canvas,30);
+        FPSAnimator animator = new FPSAnimator(canvas,50);
         animator.start();
 
 		try

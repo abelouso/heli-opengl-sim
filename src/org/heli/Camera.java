@@ -61,9 +61,9 @@ public class Camera {
 		// TODO: Compute source position such that default field of view
 		// shows the whole thing... By default, camera source is up along
 		// z axis
-		orbitAltitude = 100.0;
+		orbitAltitude = 200.0;
 		orbitRadius = trgX;
-		source = new Point3D((double)(-trgX),(double)trgY,orbitAltitude);
+		source = new Point3D((double)trgX,(double)(-trgY/2),orbitAltitude);
 		target = new Point3D((double)trgX, (double)trgY, (double)trgZ);
 		upUnit = new Point3D(0.0,0.0,1.0);
 		fovDegrees = 60.0;
@@ -113,10 +113,15 @@ public class Camera {
 			minDistance = nearClip;
 		}
 		target = newTarget;
+		// Don't look up -- always look down :)
+		if (source.m_z < (target.m_z + 10.0))
+		{
+			source.m_z = target.m_z + 10.0;
+		}
 		double actDistance = eyeDistance();
 		if (actDistance > minDistance * 1.1)
 		{
-			approach(0.5 * (actDistance / minDistance));
+			approach(0.25 * (actDistance / minDistance));
 		}
 	}
 	

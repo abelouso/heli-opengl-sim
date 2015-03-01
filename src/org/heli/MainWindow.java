@@ -104,10 +104,10 @@ public class MainWindow extends JFrame implements ActionListener, GLEventListene
         gl.glEnable(GL2.GL_FOG);
         gl2.glFogi(GL2.GL_FOG_MODE, GL2.GL_LINEAR);
         gl2.glHint(GL2.GL_FOG_HINT, GL2.GL_NICEST);
-        float fogColor[] = {0.0f, 0.0f, 0.0f, 0.1f };
+        float fogColor[] = {0.0f, 0.0f, 0.0f, 0.05f };
         gl2.glFogfv( GL2.GL_FOG_COLOR, fogColor, 0 );
         gl2.glFogf(GL2.GL_FOG_START, 0.0f); // Fog Start Depth 
-        gl2.glFogf(GL2.GL_FOG_END, 100.0f); // Fog End Depth
+        gl2.glFogf(GL2.GL_FOG_END, 200.0f); // Fog End Depth
         //gl2.glHint(GL2.GL_FOG_HINT, GL2.GL_FASTEST);
         /*
         // TODO: Add options for faster or nicer

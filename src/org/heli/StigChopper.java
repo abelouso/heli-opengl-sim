@@ -65,29 +65,28 @@ public class StigChopper {
 	 */
 	public void render(GLAutoDrawable drawable, double actHeading, double actTilt, double rotorPos, double tailRotorPos) {
         GL2 gl = drawable.getGL().getGL2();
-        gl.glPushMatrix();
         Point3D myPosition = world.gps(id);
         // This method returns the bottom center of our chopper, first, get center
-        Point3D centerPos = myPosition;
+        Point3D centerPos = new Point3D(myPosition.m_x, myPosition.m_y, myPosition.m_z);
         // For now, we need our center point for an axis of rotation (Pitch and heading)
         // When we start rendering a more realistic chopper, we'll have to do that in addition
         // to rotating the rotors
-        //centerPos.m_z += Z_SIZE / 2.0;
+        centerPos.m_z += Z_SIZE / 2.0;
         // Next, get bounding rectangular prism
-        //myPosition.m_x -= X_SIZE / 2.0;
-        //myPosition.m_y -= Y_SIZE / 2.0;
+        myPosition.m_x -= X_SIZE / 2.0;
+        myPosition.m_y -= Y_SIZE / 2.0;
         Point3D mySize = new Point3D(X_SIZE, Y_SIZE, Z_SIZE);
         Object3D chopperObject = new Object3D(myPosition, mySize);
         chopperObject.setColor(1.0,  0.0, 0.0, 1.0);
         // Translate the center of chopper to the origin, so rotation doesn't move chopper
-        gl.glTranslated(-centerPos.m_x, -centerPos.m_y, -centerPos.m_z);
+        gl.glPushMatrix();
+        gl.glTranslated(centerPos.m_x, centerPos.m_y, centerPos.m_z);
         Point3D transformation = world.transformations(id);
         // rotate chopper by heading
-        gl.glRotated(transformation.m_x, 0.0, 0.0, 1.0);
-        // rotate chopper by pitch
-        // TODO: Fix pitch transformation, it actually has to rotate around our rotated axis
-        gl.glRotated(transformation.m_y, 1.0, 0.0, 0.0);
-        gl.glTranslated(centerPos.m_x,  centerPos.m_y,  centerPos.m_z);
+        gl.glRotated(transformation.m_x, 0.0, 0.0, -1.0);
+        // rotate chopper by tilt
+        gl.glRotated(transformation.m_y, -1.0, 0.0, 0.0);
+        gl.glTranslated(-centerPos.m_x,  -centerPos.m_y, -centerPos.m_z);
 		double objColor[] = chopperObject.getColor();
 		float[] bufferArray = World.makeVertexArray(myPosition, mySize);
 		if (bufferArray != null)
@@ -95,6 +94,22 @@ public class StigChopper {
 			gl.glColor4dv(objColor, 0);
 			World.drawRectangles(gl,bufferArray, true);
 		}
+		// Move center position to center of top rotor
+		centerPos.m_z += 1.55;
+		gl.glTranslated(centerPos.m_x, centerPos.m_y, centerPos.m_z);
+		gl.glRotated(rotorPos, 0.0, 0.0, 1.0);
+		gl.glTranslated(-centerPos.m_x, -centerPos.m_y, -centerPos.m_z);
+		// Draw main rotor
+		gl.glBegin(gl.GL_LINES);
+		gl.glColor3d(0.7, 0.7, 0.7);
+		// All 3 rotor blades start in the center
+		gl.glVertex3d(centerPos.m_x, centerPos.m_y, centerPos.m_z);
+		gl.glVertex3d(centerPos.m_x, centerPos.m_y + 1.5, centerPos.m_z);
+		gl.glVertex3d(centerPos.m_x, centerPos.m_y, centerPos.m_z);
+		gl.glVertex3d(centerPos.m_x - 1.3, centerPos.m_y - 1.0, centerPos.m_z);
+		gl.glVertex3d(centerPos.m_x, centerPos.m_y, centerPos.m_z);
+		gl.glVertex3d(centerPos.m_x + 1.3, centerPos.m_y - 1.0, centerPos.m_z);
+		gl.glEnd();
         gl.glPopMatrix();
 	}
 }
