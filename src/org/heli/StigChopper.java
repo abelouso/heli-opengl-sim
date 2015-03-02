@@ -86,7 +86,7 @@ public class StigChopper {
         myPosition.m_y -= Y_SIZE / 2.0;
         Point3D mySize = new Point3D(X_SIZE, Y_SIZE, Z_SIZE);
         Object3D chopperObject = new Object3D(myPosition, mySize);
-        chopperObject.setColor(1.0,  0.0, 0.0, 1.0);
+        chopperObject.setColor(1.0 - 0.2 * id,  0.0, 0.0 + 0.2 * id, 1.0);
         // Translate the center of chopper to the origin, so rotation doesn't move chopper
         gl.glPushMatrix();
         gl.glTranslated(centerPos.m_x, centerPos.m_y, centerPos.m_z);

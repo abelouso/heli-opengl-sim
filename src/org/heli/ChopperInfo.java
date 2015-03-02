@@ -300,15 +300,6 @@ public class ChopperInfo {
 				System.out.println("We have lift off!");
 				takenOff = true;
 			}
-			// HACK here to favor level flight (Until controllers are implemented)
-			else if (actAcceleration_ms2.m_z > 0.015)
-			{
-				desMainRotorSpeed_RPM -= 0.55;
-			}
-			else if (actAcceleration_ms2.m_z < -0.015)
-			{
-				desMainRotorSpeed_RPM += 0.55;
-			}
 		}
 		else
 		{
@@ -347,7 +338,7 @@ public class ChopperInfo {
 		actPosition_m.m_z += (actVelocity_ms.m_z * elapsedTime);
 		if (takenOff)
 		{
-			show(currentTime);
+			//show(currentTime);
 		}
 	}
 	
