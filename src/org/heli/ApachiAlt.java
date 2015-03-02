@@ -70,11 +70,18 @@ public class ApachiAlt extends Thread
             {
                 pos = m_world.gps(m_chopper.getId());
             }
+            try
+            {
             System.out.println("alt: " + pos.m_z + ", target: " + m_target);
             if(Math.abs(m_target - pos.m_z) > m_tol)
             {
                 //need to adjust
                 adjustRotorSpeed(pos.m_z);
+            }
+            }
+            catch(Exception e)
+            {
+                System.out.println("ApachiAlt: Unable to get position: " + e.toString());
             }
             try
             {
