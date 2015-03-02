@@ -44,9 +44,9 @@ public class ApachiHeading extends Thread
     protected double m_target;
     protected Apachi m_chopper;
     protected double m_tol = 0.02; //degrees
-    protected double m_inc = 1.0; //speed increment in rpm
+    protected double m_inc = 0.2; //speed increment in rpm
     
-    protected int m_tick_ms = 500;
+    protected int m_tick_ms = 90;
     
     public ApachiHeading(Apachi chop, World world)
     {
@@ -58,18 +58,42 @@ public class ApachiHeading extends Thread
     public void run()
     {
         //simple feedback loop
+        boolean firstAfterTakeOff = true;
         while(true)
         {
+            Point3D dir = null;
             Point3D pos = null;
             synchronized (m_world)
             {
-                pos = m_world.transformations(m_chopper.getId());
+                dir = m_world.transformations(m_chopper.getId());
+                pos = m_world.gps(m_chopper.getId());
             }
-            if(Math.abs(m_target - pos.m_x) > m_tol)
+            try
             {
-                //need to adjust
-                adjustStabilizerSpeed(pos.m_x);
+                if(pos.m_z > 0.0)
+                {
+                    if(firstAfterTakeOff)
+                    {
+                        m_chopper.setDesiredStabilizerSpeed(ChopperInfo.STABLE_TAIL_ROTOR_SPEED);
+                        firstAfterTakeOff = false;
+                    }
+                    //only in flight
+                    if(Math.abs(m_target - dir.m_x) > m_tol)
+                    {
+                        //need to adjust
+                        //adjustStabilizerSpeed(dir.m_x);
+                    }
+                }
+                else
+                {
+                    firstAfterTakeOff = true;
+                }
             }
+            catch(Exception e)
+            {
+                System.out.println("ApachiHeading: unable to get info: " + e.toString());
+            }
+
             try
             {
                 Thread.sleep(m_tick_ms);
@@ -92,12 +116,13 @@ public class ApachiHeading extends Thread
         //TODO figure out which way here
         if(head > m_target)
         {
-            newSpeed -= m_inc;
+            newSpeed += m_inc;
         }
         else
         {
-            newSpeed += m_inc;
+            newSpeed -= m_inc;
         }
+        System.out.println("ApachiHeading: adjusting Tail " + newSpeed);
         m_chopper.setDesiredStabilizerSpeed(newSpeed);
     }
 }

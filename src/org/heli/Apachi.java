@@ -58,19 +58,18 @@ public class Apachi extends StigChopper
         super(id,world);
         System.out.println("Apachi: Construuctor");
         m_alt = new ApachiAlt(this,world);
-        m_alt.setTarget(20);
         System.out.println("Apachi: Starting alt loop");
         m_alt.start();
         
         m_heading = new ApachiHeading(this, world);
-        m_heading.setTarget(360);
+        m_heading.setTarget(0.0);
         m_heading.start();
 
         m_speed = new ApachiSpeed(this, world);
         m_speed.setTarget(0.0);
         m_speed.start();
         
-        hover(100);
+        hover(20);
         //world.requestSettings(id, m_rotSpeedR, m_tiltR, m_stabSpeedR);
         inventory = 16;
     }
@@ -116,7 +115,7 @@ public class Apachi extends StigChopper
     
     synchronized public double getCurrentRotorSpeed()
     {
-        return 0;
+        return m_rotSpeedR;
     }
     
     synchronized public void setDesiredRotorSpeed(double newSpeed)
@@ -127,7 +126,7 @@ public class Apachi extends StigChopper
     
     synchronized public double getStabilizerSpeed()
     {
-        return 0;
+        return m_stabSpeedR;
     }
     
     synchronized public void setDesiredStabilizerSpeed(double newSpeed)
