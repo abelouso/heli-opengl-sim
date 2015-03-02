@@ -280,7 +280,6 @@ public class World
 				resInfo.requestTailRotorSpeed(tailRotorSpeed);
 				resInfo.requestTiltLevel(tiltAngle);
 				resAggregator.setInfo(resInfo);
-				System.out.println("Chopper " + chopperID + " set values -- rotor: " + mainRotorSpeed + ", tilt: " + tiltAngle + ", tail rotor: " + tailRotorSpeed);
 				myChoppers.put(chopperID, resAggregator);
 			}
 		}

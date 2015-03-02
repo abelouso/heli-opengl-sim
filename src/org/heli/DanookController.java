@@ -18,7 +18,7 @@ public class DanookController extends Thread
 	private int APPROACHING_TARGET = 2;
 	private int STATE_DESCENDING = 3;
 	
-	private static final double VERT_CONTROL_FACTOR = 3.0;
+	private static final double VERT_CONTROL_FACTOR = 3.07;
 	
 	private Danook myChopper;
 	private World myWorld;
@@ -74,7 +74,7 @@ public class DanookController extends Thread
     		try
     		{
     			// Do smart stuff...
-    			Thread.sleep(5);
+    			Thread.sleep(6);
     			if (currentDestination == null)
     			{
     				currentDestination = findClosestDestination();
@@ -95,7 +95,7 @@ public class DanookController extends Thread
     					System.out.println("DC: No physics estimate?");
     				}
     			}
-    			lastPosition = actualPosition;
+    			lastPosition = actualPosition.copy();
     			lastTime = currTime;
     		}
     		catch (Exception e)
@@ -138,7 +138,7 @@ public class DanookController extends Thread
      */
     public Point3D estimateVelocity( Point3D lastPos, double deltaTime)
     {
-    	Point3D oldVelocity = estimatedVelocity;
+    	Point3D oldVelocity = estimatedVelocity.copy();
     	estimatedVelocity.m_x = (actualPosition.m_x - lastPos.m_x) / deltaTime;
     	estimatedVelocity.m_y = (actualPosition.m_y - lastPos.m_y) / deltaTime;
     	estimatedVelocity.m_z = (actualPosition.m_z - lastPos.m_z) / deltaTime;
@@ -150,10 +150,10 @@ public class DanookController extends Thread
     
     public Point3D estimateAcceleration(Point3D oldVelocity, double deltaTime)
     {
-    	Point3D oldAcceleration = estimatedAcceleration;
-    	estimatedAcceleration.m_x = (estimatedVelocity.m_x - oldAcceleration.m_x) / deltaTime;
-    	estimatedAcceleration.m_y = (estimatedVelocity.m_y - oldAcceleration.m_y) / deltaTime;
-    	estimatedAcceleration.m_z = (estimatedVelocity.m_z - oldAcceleration.m_z) / deltaTime;
+    	Point3D oldAcceleration = estimatedAcceleration.copy();
+    	estimatedAcceleration.m_x = (estimatedVelocity.m_x - oldVelocity.m_x) / deltaTime;
+    	estimatedAcceleration.m_y = (estimatedVelocity.m_y - oldVelocity.m_y) / deltaTime;
+    	estimatedAcceleration.m_z = (estimatedVelocity.m_z - oldVelocity.m_z) / deltaTime;
     	return oldAcceleration;
     }
     
@@ -173,25 +173,23 @@ public class DanookController extends Thread
     		{
     			setDesiredTilt(-distance/5.0);
     		}
+    		double myVelocity = estimatedVelocity.length();
+    		// Limit how fast we'll go!
+    		if (myVelocity > 10.0)
+    		{
+    			setDesiredTilt(0.0);
+    		}
     		else
     		{
-    			double myVelocity = estimatedVelocity.length();
-    			System.out.println("DC: Estimated velocity: " + myVelocity + ", ground distance to target: " + distance);
-    			// Limit how fast we'll go!
-    			if (myVelocity > 10.0)
-    			{
-    				setDesiredTilt(0.0);
-    			}
-    			else
-    			{
-    				setDesiredTilt((distance - 25.0) / 300.0 * 10.0);
-    			}
+    			setDesiredTilt((distance - 25.0) / 300.0 * 10.0);
     		}
     	}
     	else
     	{
-    		controlAltitude();
+    		// Don't keep accelerating wrong direction
+    		setDesiredTilt(0.0);
     	}
+		controlAltitude();
     }
     
     public void controlAltitude()
@@ -203,18 +201,14 @@ public class DanookController extends Thread
     	double targetVerticalAcceleration = 0.0;
     	if (actualPosition.m_z < desiredAltitude)
     	{
-    		targetVerticalAcceleration = 0.25;
+    		targetVerticalAcceleration = 0.20;
     	}
     	if (actualPosition.m_z > desiredAltitude)
     	{
-    		targetVerticalAcceleration = -0.25;
+    		targetVerticalAcceleration = -0.20;
     	}
     	double deltaAcceleration = targetVerticalAcceleration - estimatedAcceleration.m_z;
-    	if (Math.abs(deltaAcceleration) > 1.0)
-    	{
-    		System.out.println("Ignoring weird delta accel: " + deltaAcceleration + " = " + targetVerticalAcceleration + " - " + estimatedAcceleration.m_z);
-    	}
-    	else
+    	if (!(Math.abs(deltaAcceleration) > 10.0))
     	{
     		desMainRotorSpeed_RPM += deltaAcceleration * VERT_CONTROL_FACTOR;
     		myWorld.requestSettings(myChopper.getId(), desMainRotorSpeed_RPM, desTilt_Degrees, desTailRotorSpeed_RPM);
