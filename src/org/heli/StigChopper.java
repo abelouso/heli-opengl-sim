@@ -41,7 +41,8 @@ public class StigChopper {
 		System.out.println("StigChopper " + id + " created -- fuel capacity: " + fuelCapacity);
 	}
 	
-	public double fuelCapacity() {
+	public double fuelCapacity()
+	{
 		return fuelCapacity;
 	}
 	
@@ -54,7 +55,8 @@ public class StigChopper {
 	    return id;
 	}
 	
-	public Point3D getSize() {
+	public Point3D getSize()
+	{
 		Point3D result = new Point3D(X_SIZE, Y_SIZE, Z_SIZE);
 		return result;
 	}
@@ -69,7 +71,8 @@ public class StigChopper {
 	 * @param rotorPos Rotation of the rotor (0 - 360) so we can draw it
 	 * @param tailRotorPos Rotation of the rotor (0 - 360) so we can draw it
 	 */
-	public void render(GLAutoDrawable drawable, double actHeading, double actTilt, double rotorPos, double tailRotorPos) {
+	public void render(GLAutoDrawable drawable, double actHeading, double actTilt, double rotorPos, double tailRotorPos)
+	{
         GL2 gl = drawable.getGL().getGL2();
         Point3D myPosition = world.gps(id);
         // This method returns the bottom center of our chopper, first, get center

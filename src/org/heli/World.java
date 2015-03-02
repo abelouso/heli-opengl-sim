@@ -30,7 +30,7 @@ public class World
 	private GLU glu;
 	private double[] chop1Color;
 	private double[] chop2Color;
-	double curTimeStamp = 0.0;
+	private double curTimeStamp = 0.0;
 	private static final double TICK_TIME = 1.0 / 50.0;
 	
 	private static final double FULL_BLOCK_SIZE = 100.0;
@@ -64,7 +64,6 @@ public class World
         ChopperInfo chopInfo = new ChopperInfo(this, chap, chopperID, startPos, 0.0);
         ChopperAggregator myAggregator = new ChopperAggregator(chap, chopInfo);
         myChoppers.put(chopperID, myAggregator);
-        //requestSettings(chopperID, 360.0, 1.5, ChopperInfo.STABLE_TAIL_ROTOR_SPEED - 3);
 	}
 	
 	/**
@@ -82,7 +81,7 @@ public class World
         Apachi apChop = new Apachi(requestNextChopperID(),this);
         insertChopper(apChop);
 		
-		StigChopper myChopper = new StigChopper(requestNextChopperID(), this);
+		Danook myChopper = new Danook(requestNextChopperID(), this);
 		insertChopper(myChopper);
 		
 		worldState = new ArrayList<Object3D>();
@@ -183,12 +182,20 @@ public class World
 		System.out.println("Creating world...");
 	}
 
+	/** This method returns the number of seconds that have passed since
+	 * time started.
+	 * @return
+	 */
+	public double getTimestamp()
+	{
+		return curTimeStamp;
+	}
+	
 	// TODO: Provide for random starting positions, but for now, start them
 	// on main street
 	public Point3D getStartingPosition(int chopperID)
 	{
-		//Point3D startPos = new Point3D(480.0 + 10.0 * chopperID, 500.0, 0.0);
-		Point3D startPos = new Point3D(500.0, 500.0, 0.0);
+		Point3D startPos = new Point3D(500.0, 495.0 + 10.0 * chopperID, 0.0);
 		return startPos;
 	}
 	
@@ -239,6 +246,7 @@ public class World
 				resInfo.requestTailRotorSpeed(tailRotorSpeed);
 				resInfo.requestTiltLevel(tiltAngle);
 				resAggregator.setInfo(resInfo);
+				System.out.println("Chopper " + chopperID + " set values -- rotor: " + mainRotorSpeed + ", tilt: " + tiltAngle + ", tail rotor: " + tailRotorSpeed);
 				myChoppers.put(chopperID, resAggregator);
 			}
 		}
@@ -302,11 +310,10 @@ public class World
 						chopInfo.fly(curTimeStamp, TICK_TIME);
 						locData.setInfo(chopInfo);
 						myChoppers.put(id, locData);
-						//pairs.setValue(locData);
 					}
 				}
 			}
-			Thread.sleep(1);
+			Thread.sleep(5);
 			curTimeStamp += TICK_TIME;
 		}
 		return outOfTime;
