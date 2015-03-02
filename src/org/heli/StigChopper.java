@@ -39,7 +39,8 @@ public class StigChopper {
 	protected ArrayList<Point3D> targetWaypoints;
 	
 	// Complication -- homeBase isn't known yet -- we need chopperInfo constructed first
-	public StigChopper(int chopperID, World theWorld) {
+	public StigChopper(int chopperID, World theWorld)
+	{
 		id = chopperID;
 		world = theWorld;
 		cargoCapacity = ChopperAggregator.TOTAL_CAPACITY / 2.0;

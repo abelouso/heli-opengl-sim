@@ -284,9 +284,10 @@ public class World
 				myChoppers.put(chopperID, resAggregator);
 			}
 		}
-		
 	}
-	public void updateCamera(GL2 gl, int width, int height) {
+	
+	public void updateCamera(GL2 gl, int width, int height)
+	{
 	    camera.tellGL(gl, width, height);
 	    System.out.println("Updated camera with vp size (" + width + ", " + height + ")");
 	}

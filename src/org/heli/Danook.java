@@ -4,6 +4,8 @@
 
 package org.heli;
 
+import java.util.ArrayList;
+
 import javax.media.opengl.GL;
 import javax.media.opengl.GL2;
 import javax.media.opengl.GLAutoDrawable;
@@ -24,4 +26,12 @@ public class Danook extends StigChopper
         return world.transformations(id).m_y;
     }
     
+    /** Provide our controller access to our waypoints.
+     * 
+     * @return the list of waypoints
+     */
+    synchronized public ArrayList<Point3D> getWaypoints()
+    {
+    	return targetWaypoints;
+    }
 }
