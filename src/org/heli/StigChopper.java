@@ -1,10 +1,12 @@
 package org.heli;
 
+import java.util.ArrayList;
+
 import javax.media.opengl.GL2;
 import javax.media.opengl.GLAutoDrawable;
 
 /** This class represents our chopper and its capabilities
- * 
+ *  Derive fromt this class if you want special features.
  * @author Daniel LaFuze
  * Copyright 2015
  * All Rights Reserved
@@ -30,6 +32,13 @@ public class StigChopper {
 
 	protected boolean landed;
 	
+	// This is the chopper's home base.  For now, it is defined
+	// as the location at which it appeared in the world.
+	protected Point3D homeBase;
+	
+	protected ArrayList<Point3D> targetWaypoints;
+	
+	// Complication -- homeBase isn't known yet -- we need chopperInfo constructed first
 	public StigChopper(int chopperID, World theWorld) {
 		id = chopperID;
 		world = theWorld;
@@ -38,7 +47,20 @@ public class StigChopper {
 		fuelCapacity = ChopperAggregator.TOTAL_CAPACITY / 2.0;
 		size = new Point3D(X_SIZE, Y_SIZE, Z_SIZE);
 		landed = true;
+		homeBase = null;
+		targetWaypoints = new ArrayList<Point3D>();
+				
 		System.out.println("StigChopper " + id + " created -- fuel capacity: " + fuelCapacity);
+	}
+	
+	/** This method sets the chopper's waypoints.  Eventually, we will deliver
+	 * packages by reaching a waypoint, and notifying the world of our intent
+	 * to drop off a package.  Land at a waypoint to enable delivery.
+	 * @param newWaypoints
+	 */
+	public void setWaypoints(ArrayList<Point3D> newWaypoints)
+	{
+		targetWaypoints = newWaypoints;
 	}
 	
 	public double fuelCapacity()
@@ -46,7 +68,8 @@ public class StigChopper {
 		return fuelCapacity;
 	}
 	
-	public int itemCount() {
+	public int itemCount()
+	{
 		return inventory;
 	}
 	
@@ -75,6 +98,11 @@ public class StigChopper {
 	{
         GL2 gl = drawable.getGL().getGL2();
         Point3D myPosition = world.gps(id);
+        // Capture our first position reading as our home base
+        if (homeBase == null)
+        {
+        	homeBase = myPosition;
+        }
         // This method returns the bottom center of our chopper, first, get center
         Point3D centerPos = new Point3D(myPosition.m_x, myPosition.m_y, myPosition.m_z);
         // For now, we need our center point for an axis of rotation (Pitch and heading)

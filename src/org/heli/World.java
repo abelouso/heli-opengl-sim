@@ -66,6 +66,40 @@ public class World
         myChoppers.put(chopperID, myAggregator);
 	}
 	
+	/** This method gives the choppers some random locations to deliver
+	 * packages to.  For now, I'm selecting easy to reach places within
+	 * the center of blocks
+	 */
+	private void setChopperWaypoints()
+	{
+		Iterator it = myChoppers.entrySet().iterator();
+		while (it.hasNext())
+		{
+			Map.Entry pairs = (Map.Entry)it.next();
+			int id = (int) pairs.getKey();
+			ChopperAggregator locData = (ChopperAggregator) pairs.getValue();
+			if (locData != null)
+			{
+				StigChopper theChopper = locData.getChopper();
+				ArrayList targetPoints = new ArrayList<Point3D>();
+				for (int i = 0; i < theChopper.itemCount(); ++i)
+				{
+					long whichRow = Math.round(Math.floor(Math.random() * 10.0));
+					long whichCol = Math.round(Math.floor(Math.random() * 10.0));
+					// Open space mid block extends from about 20 to 80
+					double inBlockX = 20.0 + Math.random() * 60.0;
+					double inBlockY = 20.0 + Math.random() * 60.0;
+					double targetX = 100.0 * whichCol + inBlockX;
+					double targetY = 100.0 * whichRow + inBlockY;
+					double targetZ = 0.1; // There's a curb height
+					Point3D targetPoint = new Point3D(targetX, targetY, targetZ);
+					targetPoints.add(targetPoint);
+				}
+				theChopper.setWaypoints(targetPoints);
+			}
+		}
+	}
+	
 	/**
 	 * @param args
 	 * @throws Exception 
@@ -178,8 +212,8 @@ public class World
 		}
 		glu = new GLU();
 		camera = new Camera(sizeX/2, sizeY/2,0, glu);
-		System.out.println("World Size (" + sizeX + ", " + sizeY + ", " + sizeZ + ")");
-		System.out.println("Creating world...");
+		// Give the choppers somewhere to go
+		setChopperWaypoints();
 	}
 
 	/** This method returns the number of seconds that have passed since
@@ -414,7 +448,15 @@ public class World
         GL2 gl = drawable.getGL().getGL2();
     	camera.tellGL(gl);
     	Point3D chopperPos = gps(0);
-        camera.chase(chopperPos, 20.0);
+    	if (chopperPos.m_z < 0.0)
+    	{
+    		Point3D otherPos = gps(1);
+    		camera.chase(otherPos, 20.0);
+    	}
+    	else
+    	{
+    		camera.chase(chopperPos, 20.0);
+    	}
         gl.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT);
 
 		for (Object3D object : worldState)

@@ -7,6 +7,7 @@ package org.heli;
  * about a chopper.
  * @author Daniel LaFuze
  *
+ * Features implemented so far: pseudo realistic flight physics.
  */
 public class ChopperInfo {
 	
