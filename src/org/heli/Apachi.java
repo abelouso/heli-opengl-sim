@@ -82,7 +82,8 @@ public class Apachi extends StigChopper
      * @param rotorPos Rotation of the rotor (0 - 360) so we can draw it
      * @param tailRotorPos Rotation of the rotor (0 - 360) so we can draw it
      */
-    /* public void render(GLAutoDrawable drawable, double actHeading, double actTilt, double rotorPos, double tailRotorPos) 
+    /*
+    public void render(GLAutoDrawable drawable, double actHeading, double actTilt, double rotorPos, double tailRotorPos) 
     {
         GL2 gl = drawable.getGL().getGL2();
         Point3D myPosition = world.gps(id);
@@ -111,7 +112,8 @@ public class Apachi extends StigChopper
         m_agl.box(gl,0.98f,myPosition,new Point3D(0.0,0.0,0.0),X_SIZE);
         gl.glEnd();
         gl.glPopMatrix();
-    } */
+    } 
+    */
     
     synchronized public double getCurrentRotorSpeed()
     {
@@ -153,6 +155,7 @@ public class Apachi extends StigChopper
     
     public void hover(double alt)
     {
+        setDesiredStabilizerSpeed(ChopperInfo.STABLE_TAIL_ROTOR_SPEED);
         m_alt.setTarget(alt);
         m_speed.setTarget(0.0);
     }

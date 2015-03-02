@@ -72,6 +72,8 @@ public class ApachiSpeed extends Thread
                 pos = m_world.gps(m_chopper.getId());
                 stamp = new Date().getTime();
             }
+            try
+            {
             if(m_lastPos == null)
             {
                 m_lastPos = pos;
@@ -88,15 +90,13 @@ public class ApachiSpeed extends Thread
                     //need to adjust
                     adjustTilt(speed);
                 }
-                try
-                {
-                    Thread.sleep(m_tick_ms);
-                }
-                catch(Exception e)
-                {
-                    //no prob
-                }
             }
+            }
+            catch(Exception e)
+            {
+                System.out.println("ApachiSpeed: unable to get chooper info: " + e.toString());
+            }
+            try { Thread.sleep(m_tick_ms);} catch(Exception e){}
         }
     }
     

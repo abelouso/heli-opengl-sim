@@ -44,19 +44,20 @@ package org.heli;
 public class ApachiAlt extends Thread
 {
     //TODO create neural network which learns rotor speed for alt
-    public static final double CHANGE_INC = 1.0;
-    public static final double HOLD_INC = 1.0;
-    public static final double INIT_SPEED = 359.0;
+    public static final double CHANGE_INC = 10.0;
+    public static final double HOLD_INC = 2.0;
+    public static final double INIT_SPEED = 10.0;
     protected World m_world;
     protected double m_target = 0.0;
     protected Apachi m_chopper;
     protected double m_tol = 2.0; //meters
     protected double m_inc = CHANGE_INC; //speed increment in rpm
-    protected double m_lastDelta = 1000.0;
-    protected boolean m_up = true;
-    protected double m_takeOffSpeed = -1.0;
     
-    protected int m_tick_ms = 500;
+    protected double m_lastAlt = -1.0;
+    protected double m_lastDelta = m_target;
+    protected boolean m_up = true;
+    
+    protected int m_tick_ms = 200;
     
     public ApachiAlt(Apachi chop, World world)
     {
@@ -84,6 +85,7 @@ public class ApachiAlt extends Thread
                 boolean pastLevel = m_up?(alt > m_target):(m_target > alt);
                 boolean atAlt = delta <= m_tol;
                 System.out.println("ApachiAlt: alt: " + alt 
+                        + ", lastAlt: " + m_lastAlt
                         + ", target: " + m_target
                         + ", diff: " + diff
                         + ", delta: " + delta
@@ -97,11 +99,12 @@ public class ApachiAlt extends Thread
                 }
                 else
                 {
-                    if(pastLevel && !atAlt)
+                    if(!atAlt)
                     {
                         adjustRotorSpeed(alt,HOLD_INC);
                     }
                 }
+                m_lastAlt = alt;
                 m_lastDelta = delta;
             }
             catch(Exception e)
@@ -122,9 +125,12 @@ public class ApachiAlt extends Thread
     synchronized void setTarget(double alt)
     {
         m_up = (alt > m_target)?true:false;
+        m_lastDelta = Math.abs(alt - m_target);
         m_target = alt;
     }
     
+    boolean m_falling = false;
+    boolean m_raising = false;
     void adjustRotorSpeed(double alt, double inc)
     {
         double newSpeed = m_chopper.getCurrentRotorSpeed();
@@ -133,11 +139,38 @@ public class ApachiAlt extends Thread
             System.out.print("ApachiAlt: Current rotor speed " + newSpeed + ", ");
             if(alt > m_target)
             {
-                newSpeed -= inc;
+                //this is dangerous, if rotor speed is too slow
+                //crash can occur
+                //check the last alt if falling, don't do it
+                m_raising = true;
+                if(m_lastAlt >= 0.0 && m_lastAlt < alt)
+                {
+                    newSpeed -= inc;
+                }
+                else
+                {
+                    if(!m_falling)
+                    {
+                        newSpeed += 3.0 * inc;
+                        m_falling = true;
+                    }
+                }
             }
             else
             {
-                newSpeed += inc;
+                m_falling = false;
+                if(m_lastAlt >= 0.0 && m_lastAlt >= alt)
+                {
+                    newSpeed += inc;
+                }
+                else
+                {
+                    if(!m_raising)
+                    {
+                        newSpeed -= 2.0 * inc;
+                        m_raising = true;
+                    }
+                }
             }
         }
         else

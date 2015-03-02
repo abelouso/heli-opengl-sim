@@ -74,7 +74,6 @@ public class ApachiHeading extends Thread
                 {
                     if(firstAfterTakeOff)
                     {
-                        m_chopper.setDesiredStabilizerSpeed(ChopperInfo.STABLE_TAIL_ROTOR_SPEED);
                         firstAfterTakeOff = false;
                     }
                     //only in flight
