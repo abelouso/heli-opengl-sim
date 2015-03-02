@@ -85,7 +85,6 @@ public class DanookController extends Thread
     			currTime = myWorld.getTimestamp();
     			if (lastPosition != null && lastTime < currTime)
     			{
-        			System.out.println("DC:Got pos " + actualPosition.info() + " at time: " + currTime);
     				boolean updated = estimatePhysics(currTime, lastPosition, lastTime);
     				if (updated)
     				{
@@ -97,6 +96,7 @@ public class DanookController extends Thread
     				}
     			}
     			lastPosition = actualPosition;
+    			lastTime = currTime;
     		}
     		catch (Exception e)
     		{
@@ -117,7 +117,7 @@ public class DanookController extends Thread
     	final double EPSILON = 0.001;
     	boolean updated = false;
     	double deltaTime = currTime - lastTime;
-    	if (Math.abs(deltaTime) < EPSILON)
+    	if (deltaTime < EPSILON)
     	{
     		return updated; // Can't update estimates
     	}
@@ -142,6 +142,9 @@ public class DanookController extends Thread
     	estimatedVelocity.m_x = (actualPosition.m_x - lastPos.m_x) / deltaTime;
     	estimatedVelocity.m_y = (actualPosition.m_y - lastPos.m_y) / deltaTime;
     	estimatedVelocity.m_z = (actualPosition.m_z - lastPos.m_z) / deltaTime;
+    	double newVel = estimatedVelocity.length();
+    	double oldVel = oldVelocity.length();
+    	double deltaPos = actualPosition.distanceXY(lastPos);
     	return oldVelocity;
     }
     
@@ -162,9 +165,9 @@ public class DanookController extends Thread
     	{
     		// Work on approaching target
     		double distance = actualPosition.distanceXY(currentDestination);
-    		if (distance > 225.0)
+    		if (distance > 325.0)
     		{
-    			distance = 225.0; // 225 meters or more causes maximum tilt
+    			distance = 325.0; // 325 meters or more causes maximum tilt
     		}
     		if (distance < 25.0) // Last 25 meters, slow down
     		{
@@ -172,12 +175,22 @@ public class DanookController extends Thread
     		}
     		else
     		{
-    			setDesiredTilt((distance - 25.0) / 200.0 * 10.0);
+    			double myVelocity = estimatedVelocity.length();
+    			System.out.println("DC: Estimated velocity: " + myVelocity + ", ground distance to target: " + distance);
+    			// Limit how fast we'll go!
+    			if (myVelocity > 10.0)
+    			{
+    				setDesiredTilt(0.0);
+    			}
+    			else
+    			{
+    				setDesiredTilt((distance - 25.0) / 300.0 * 10.0);
+    			}
     		}
     	}
     	else
     	{
-    		//controlAltitude();
+    		controlAltitude();
     	}
     }
     
@@ -246,8 +259,16 @@ public class DanookController extends Thread
     	}
     	else
     	{
-    		System.out.println("DC: Want heading: " + desiredHeading + ", current Heading: " + actHeading + " delta: " + deltaHeading);
-    		double deltaRotor = (deltaHeading / 180.0) * 20.0;
+    		// Anything over 30 degrees off gets max rotor speed
+    		double deltaRotor = (deltaHeading / 30.0) * 20.0;
+    		if (deltaRotor > 20.0)
+    		{
+    			deltaRotor = 20.0;
+    		}
+    		else if (deltaRotor < -20.0)
+    		{
+    			deltaRotor = -20.0;
+    		}
     		desTailRotorSpeed_RPM = 100.0 + deltaRotor;
     		myWorld.requestSettings(myChopper.getId(), desMainRotorSpeed_RPM, desTilt_Degrees, desTailRotorSpeed_RPM);
     	}
