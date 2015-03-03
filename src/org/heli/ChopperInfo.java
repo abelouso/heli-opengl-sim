@@ -21,11 +21,11 @@ public class ChopperInfo
 	
 	double tailRotorPosition_Degrees; // This is needed to draw the rotor
 	
-	private static final double THRUST_PER_RPM = 11.1111; // N (kg * m/s^2)
+	public static final double THRUST_PER_RPM = 11.1111; // N (kg * m/s^2)
 	
 	public static final double MAX_MAIN_ROTOR_SPEED = 400.0; // RPM
 	
-	private static final double EARTH_ACCELERATION = 9.80665; // m/s^2
+	public static final double EARTH_ACCELERATION = 9.80665; // m/s^2
 	
 	public static final double MAX_TAIL_ROTOR_SPEED = 120.0; // RPM
 	public static final double STABLE_TAIL_ROTOR_SPEED = 100.0; // RPM

@@ -47,7 +47,7 @@ public class ApachiAlt extends Thread
     public static final String TAG = "ApachiAlt";
     public static final long DBG = 0x10;
     public static final double CHANGE_INC = 10.0;
-    public static final double HOLD_INC = 2.0;
+    public static final double HOLD_INC = 0.1;
     public static final double INIT_SPEED = 10.0;
     protected World m_world;
     protected double m_target = 0.0;
@@ -56,10 +56,12 @@ public class ApachiAlt extends Thread
     protected double m_inc = CHANGE_INC; //speed increment in rpm
     
     protected double m_lastAlt = -1.0;
+    protected double m_lastVel = -1.0;
     protected double m_lastDelta = m_target;
     protected boolean m_up = true;
     
     protected int m_tick_ms = 200;
+    protected double tS = 0.001 * m_tick_ms;
     
     public ApachiAlt(Apachi chop, World world)
     {
@@ -86,26 +88,49 @@ public class ApachiAlt extends Thread
                 double diff = Math.abs(delta - m_lastDelta);
                 boolean pastLevel = m_up?(alt > m_target):(m_target > alt);
                 boolean atAlt = delta <= m_tol;
-                World.dbg(TAG,"alt: " + alt 
-                        + ", lastAlt: " + m_lastAlt
-                        + ", target: " + m_target
-                        + ", diff: " + diff
-                        + ", delta: " + delta
-                        + ", lastD: " + m_lastDelta
+                double vVel = (alt - m_lastAlt) / (tS);
+                double cAcc = (vVel - m_lastVel) / tS;
+                double tm = 0.08 * tS;
+                double estAlt = alt + tm * vVel + 0.5 * cAcc * tm * tm;
+                World.dbg(TAG,"vel: " + Apachi.f(vVel) + " acc: " + Apachi.f(cAcc) + ", est alt: " + Apachi.f(estAlt),DBG);
+                World.dbg(TAG,"alt: " + Apachi.f(alt)
+                        + ", lastAlt: " + Apachi.f(m_lastAlt)
+                        + ", target: " + Apachi.f(m_target)
+                        + ", diff: " + Apachi.f(diff)
+                        + ", delta: " + Apachi.f(delta)
+                        + ", lastD: " + Apachi.f(m_lastDelta)
                         + ", pastLevel: " + pastLevel
                         + ", atAlt: " + atAlt,DBG);
-                if(diff < 0.001)
+
+                double newSpeed = m_chopper.estHoverSpeed();
+                if(diff < 0.001 && Math.abs(alt) < 0.001)
                 {
                     //adjust speed until differences is felt
-                    adjustRotorSpeed(alt, CHANGE_INC);
+                    //adjustRotorSpeed(alt, CHANGE_INC);
+                    m_chopper.setDesiredRotorSpeed(newSpeed + 20);
                 }
-                else
-                {
+                else 
+                {                        
+                    World.dbg(TAG, "Setting RPM: " + Apachi.f(newSpeed), DBG);
+
+                    m_chopper.setDesiredRotorSpeed(newSpeed);
+                    /*
+                    if(Math.abs(estAlt - m_target) < (2.0 * m_tol))
+                    {
+                        World.dbg(TAG, "Setting RPM: " + Apachi.f(newSpeed), DBG);
+                        m_chopper.setDesiredRotorSpeed(newSpeed);
+                    }
                     if(!atAlt)
                     {
-                        adjustRotorSpeed(alt,HOLD_INC);
+                        adjustRotorSpeed(alt, HOLD_INC);
                     }
+                    else
+                    {
+                        m_chopper.setDesiredRotorSpeed(newSpeed);
+                    }
+                */
                 }
+                m_lastVel = vVel;
                 m_lastAlt = alt;
                 m_lastDelta = delta;
             }
@@ -131,47 +156,33 @@ public class ApachiAlt extends Thread
         m_target = alt;
     }
     
-    boolean m_falling = false;
-    boolean m_raising = false;
     void adjustRotorSpeed(double alt, double inc)
     {
         double newSpeed = m_chopper.getCurrentRotorSpeed();
         if(newSpeed > 0.0)
         {
-            World.dbg(TAG,"Current rotor speed " + newSpeed + ", ",DBG);
+            World.dbg(TAG,"Current rotor speed " + Apachi.f(newSpeed) + ", ",DBG);
             if(alt > m_target)
             {
                 //this is dangerous, if rotor speed is too slow
                 //crash can occur
                 //check the last alt if falling, don't do it
-                m_raising = true;
                 if(m_lastAlt >= 0.0 && m_lastAlt < alt)
                 {
                     newSpeed -= inc;
                 }
                 else
                 {
-                    if(!m_falling)
-                    {
-                        newSpeed += 3.0 * inc;
-                        m_falling = true;
-                    }
                 }
             }
             else
             {
-                m_falling = false;
                 if(m_lastAlt >= 0.0 && m_lastAlt >= alt)
                 {
                     newSpeed += inc;
                 }
                 else
                 {
-                    if(!m_raising)
-                    {
-                        newSpeed -= 2.0 * inc;
-                        m_raising = true;
-                    }
                 }
             }
         }
@@ -179,8 +190,14 @@ public class ApachiAlt extends Thread
         {
             newSpeed = INIT_SPEED;
         }
-        World.dbg(TAG,"desired " + newSpeed,DBG);
+        World.dbg(TAG,"desired " + Apachi.f(newSpeed),DBG);
         m_chopper.setDesiredRotorSpeed(newSpeed);
-
+    }
+    public void changeSpeed(boolean faster, double inc)
+    {
+        double delta = faster?(inc):(-1.0 * inc);
+        World.dbg(TAG,"Adjust speed by " + Apachi.f(delta),DBG);
+        m_chopper.setDesiredRotorSpeed(m_chopper.getCurrentRotorSpeed() + delta);
+                
     }
 }

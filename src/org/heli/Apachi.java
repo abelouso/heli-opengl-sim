@@ -36,6 +36,8 @@
 
 package org.heli;
 
+import java.util.Date;
+
 import javax.media.opengl.GL;
 import javax.media.opengl.GL2;
 import javax.media.opengl.GLAutoDrawable;
@@ -54,6 +56,12 @@ public class Apachi extends StigChopper
     private double m_stabSpeedR = 0.0;
     
     private double m_airSpeed = 0.0;
+    
+    private double m_sumActSpeed = 0.0;
+    
+    private double m_actSpeedCnt = 0.0;
+    
+    private long m_rotStamp = -1;
     
     public Apachi(int id, World world)
     {
@@ -125,6 +133,12 @@ public class Apachi extends StigChopper
     synchronized public void setDesiredRotorSpeed(double newSpeed)
     {
         m_rotSpeedR = newSpeed;
+        if(m_rotSpeedR > 0.0 && m_rotStamp < 0)
+        {
+            m_rotStamp = new Date().getTime();
+        }
+        m_sumActSpeed += m_rotSpeedR;
+        m_actSpeedCnt += 1.0;
         world.requestSettings(id,m_rotSpeedR,m_tiltR,m_stabSpeedR);
     }
     
@@ -155,10 +169,38 @@ public class Apachi extends StigChopper
         m_airSpeed = speed;
     }
     
+    synchronized public double estHoverSpeed()
+    {
+        double den = 1.0;
+        if(m_actSpeedCnt > 0.0)
+        {
+            den = m_actSpeedCnt;
+        }
+        double avgR = m_sumActSpeed / den;
+        double eT_min = 0.001 * (double)(new Date().getTime() - m_rotStamp) / 60.0;
+        double revs = avgR * eT_min;
+        double cf = 0.6 / eT_min;
+        if(cf < 0.0) cf = 1.0;
+        double fuel = fuelCapacity - cf * revs * (1.0 / 60.0);
+        World.dbg(TAG,"RPM: " + f(avgR) + ",revs " + f(revs) 
+                + ", cor: " + f(cf)
+                + ", min: " + f(eT_min)
+                + ", fuel: " + f(fuel),DBG);
+        double wt = ChopperAggregator.ITEM_WEIGHT * itemCount() + ChopperAggregator.BASE_MASS + fuel;
+        double res = wt * ChopperInfo.EARTH_ACCELERATION / ChopperInfo.THRUST_PER_RPM;
+        World.dbg(TAG,"Total weight: " + f(wt) + " kg, desired: " + f(res) + " rpm",DBG);
+        return res;
+    }
+    
     public void hover(double alt)
     {
         setDesiredStabilizerSpeed(ChopperInfo.STABLE_TAIL_ROTOR_SPEED);
         m_alt.setTarget(alt);
         m_speed.setTarget(0.0);
+    }
+    
+    static public String f(double n)
+    {
+        return String.format("%.2f",n);
     }
 }
