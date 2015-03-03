@@ -42,6 +42,8 @@ import javax.media.opengl.GLAutoDrawable;
 
 public class Apachi extends StigChopper
 {
+    public static final String TAG = "Apachi";
+    public static final long DBG = 0x20;
     private ApachiAlt m_alt;
     private ApachiHeading m_heading;
     private ApachiSpeed m_speed;
@@ -56,9 +58,9 @@ public class Apachi extends StigChopper
     public Apachi(int id, World world)
     {
         super(id,world);
-        System.out.println("Apachi: Construuctor");
+        World.dbg(TAG,"Construuctor",DBG);
         m_alt = new ApachiAlt(this,world);
-        System.out.println("Apachi: Starting alt loop");
+        World.dbg(TAG,"Starting alt loop",DBG);
         m_alt.start();
         
         m_heading = new ApachiHeading(this, world);

@@ -23,6 +23,10 @@ import javax.swing.JScrollPane;
  */
 public class World
 {
+    static public final String TAG = "World";
+    static public long m_dbgMask = 0;
+    static public final long WORLD_DBG = 0x10000000;
+    private int m_camToFollow = 0;
 	private int nextChopperID = 0;
 	private int sizeX;
 	private int sizeY;
@@ -56,6 +60,38 @@ public class World
 	private ArrayList<Object3D> worldState;
 	
 	private Map<Integer, ChopperAggregator> myChoppers;
+	
+
+    static public String mName()
+    {
+        try
+        {
+            return Thread.currentThread().getStackTrace()[2].getMethodName() + ": ";
+        }
+        catch(Exception e)
+        {
+            return "unk. method: ";
+        }
+    }
+    static public String mName(int depth)
+    {
+        try
+        {
+            return Thread.currentThread().getStackTrace()[depth].getMethodName() + ": ";
+        }
+        catch(Exception e)
+        {
+            return "unk. method: ";
+        }
+    }
+
+    static public void dbg(String tag, String msg, long bit)
+    {
+        if((m_dbgMask & bit) != 0)
+        {
+            System.out.println(tag + ":" + mName(3) + msg);
+        }
+    }
 	
 	public void insertChopper(StigChopper chap)
 	{
@@ -197,6 +233,12 @@ public class World
 			case 'z':
 				sizeZ = Integer.parseInt(splits[1]);
 				break;
+			case 'd':
+			    m_dbgMask = Integer.parseInt(splits[1].replaceAll("0x",""),16);
+			    break;
+			case 'c':
+			    m_camToFollow = Integer.parseInt(splits[1]);
+			    break;
 			case 'h':
 				System.out.println("Command Line Arguments:");
 				System.out.println("-----------------------");
@@ -204,6 +246,8 @@ public class World
 				System.out.println("y:Number (Y World Size   -- default 1000)");
 				System.out.println("z:Number (z World Size   -- default 1000)");
 				System.out.println("h        (This Help Message");
+				System.out.println("d:msk debug mask 0xF - dan, 0xF0 sasha, 0xF000000 world");
+				System.out.println("c:idx index of chopper for camera to follow");
 				break;
 			default:
 				System.out.println("Unhandled command line argument '" + thisArg + "'");
@@ -288,7 +332,7 @@ public class World
 	public void updateCamera(GL2 gl, int width, int height)
 	{
 	    camera.tellGL(gl, width, height);
-	    System.out.println("Updated camera with vp size (" + width + ", " + height + ")");
+	    dbg(TAG,"Updated camera with vp size (" + width + ", " + height + ")", WORLD_DBG);
 	}
 	
 	public int requestNextChopperID() { return nextChopperID++; }
@@ -447,7 +491,7 @@ public class World
 		// different transformations
         GL2 gl = drawable.getGL().getGL2();
     	camera.tellGL(gl);
-    	Point3D chopperPos = gps(1);
+    	Point3D chopperPos = gps(m_camToFollow);
     	camera.chase(chopperPos, 20.0);
     	/* if (chopperPos.m_z < 0.0)
     	{

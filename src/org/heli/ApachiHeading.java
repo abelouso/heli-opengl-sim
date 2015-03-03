@@ -38,7 +38,8 @@ package org.heli;
 
 public class ApachiHeading extends Thread
 {
-
+    public static final String TAG = "ApachiHeading";
+    public static final long DBG = 0x10;
     //TODO create neural network which learns rotor speed for alt
     protected World m_world;
     protected double m_target;
@@ -90,7 +91,7 @@ public class ApachiHeading extends Thread
             }
             catch(Exception e)
             {
-                System.out.println("ApachiHeading: unable to get info: " + e.toString());
+                World.dbg(TAG,"unable to get info: " + e.toString(),DBG);
             }
 
             try
@@ -121,7 +122,7 @@ public class ApachiHeading extends Thread
         {
             newSpeed -= m_inc;
         }
-        System.out.println("ApachiHeading: adjusting Tail " + newSpeed);
+        World.dbg(TAG,"adjusting Tail " + newSpeed,DBG);
         m_chopper.setDesiredStabilizerSpeed(newSpeed);
     }
 }

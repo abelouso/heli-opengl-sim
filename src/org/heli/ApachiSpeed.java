@@ -41,6 +41,8 @@ import java.util.Date;
 public class ApachiSpeed extends Thread
 {
 
+    public static final String TAG = "ApachiSpeed";
+    public static final long DBG = 0x10;
     //TODO create neural network which learns rotor speed for alt
     protected World m_world;
     protected double m_target;
@@ -94,7 +96,7 @@ public class ApachiSpeed extends Thread
             }
             catch(Exception e)
             {
-                System.out.println("ApachiSpeed: unable to get chooper info: " + e.toString());
+                World.dbg(TAG,"unable to get chooper info: " + e.toString(),DBG);
             }
             try { Thread.sleep(m_tick_ms);} catch(Exception e){}
         }

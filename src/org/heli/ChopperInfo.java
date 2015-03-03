@@ -9,8 +9,10 @@ package org.heli;
  *
  * Features implemented so far: pseudo realistic flight physics.
  */
-public class ChopperInfo {
-	
+public class ChopperInfo 
+{
+	public static final String TAG = "ChopperInfo";
+	public static final long CI_DBG = 0x20000000;
 	private World myWorld;
 	
 	int chopperID;
@@ -92,7 +94,7 @@ public class ChopperInfo {
 		actVelocity_ms = new Point3D(0.0, 0.0, 0.0);
 		remainingFuel_kg = 0.0;
 		remainingFuel_kg = chop.fuelCapacity();
-		System.out.println("Chop Info -- Created chopper ID " + chopperID + " Fuel level: " + remainingFuel_kg);
+		World.dbg(TAG,"Chop Info -- Created chopper ID " + chopperID + " Fuel level: " + remainingFuel_kg,CI_DBG);
 	}
 	
 	public double getMainRotorPosition()
@@ -235,7 +237,7 @@ public class ChopperInfo {
 		remainingFuel_kg -= fuelBurned;
 		if (remainingFuel_kg < 0)
 		{
-			System.out.println("Out of Gas!");
+			World.dbg(TAG,"Out of Gas!",CI_DBG);
 			remainingFuel_kg = 0.0;
 			outOfGas = true;
 		}
@@ -298,7 +300,7 @@ public class ChopperInfo {
 			actAcceleration_ms2.m_z = deltaForce_N / totalMass_kg;
 			if (takenOff == false)
 			{
-				System.out.println("We have lift off!");
+				World.dbg(TAG,"We have lift off!",CI_DBG);
 				takenOff = true;
 			}
 		}
@@ -349,9 +351,9 @@ public class ChopperInfo {
 	 */
 	public void show(double curTime)
 	{
-		System.out.println("Heading: " + heading_Degrees + " deg, desired rotor speed: " + desMainRotorSpeed_RPM);
-		//System.out.println("World Time: " + curTime + ", Acceleration: " + actAcceleration_ms2.info());
-		//System.out.println("Actual Heading: " + heading_Degrees + " Degrees, Velocity: " + actVelocity_ms.info());;
-		//System.out.println("Actual Tilt: " + actTilt_Degrees + " Degrees, Position: " + actPosition_m.info());
+		World.dbg(TAG,"Heading: " + heading_Degrees + " deg, desired rotor speed: " + desMainRotorSpeed_RPM,CI_DBG);
+		//World.dbg(TAG,"World Time: " + curTime + ", Acceleration: " + actAcceleration_ms2.info(),CI_DBG);
+		//World.dbg(TAG,"Actual Heading: " + heading_Degrees + " Degrees, Velocity: " + actVelocity_ms.info(),CI_DBG);;
+		//World.dbg(TAG,"Actual Tilt: " + actTilt_Degrees + " Degrees, Position: " + actPosition_m.info(),CI_DBG);
 	}
 }

@@ -44,6 +44,8 @@ package org.heli;
 public class ApachiAlt extends Thread
 {
     //TODO create neural network which learns rotor speed for alt
+    public static final String TAG = "ApachiAlt";
+    public static final long DBG = 0x10;
     public static final double CHANGE_INC = 10.0;
     public static final double HOLD_INC = 2.0;
     public static final double INIT_SPEED = 10.0;
@@ -63,7 +65,7 @@ public class ApachiAlt extends Thread
     {
         m_world = world;
         m_chopper = chop;
-        System.out.println("Staring altitude loop");
+        World.dbg(TAG,"Staring altitude loop",DBG);
     }
     
     @Override
@@ -84,14 +86,14 @@ public class ApachiAlt extends Thread
                 double diff = Math.abs(delta - m_lastDelta);
                 boolean pastLevel = m_up?(alt > m_target):(m_target > alt);
                 boolean atAlt = delta <= m_tol;
-                System.out.println("ApachiAlt: alt: " + alt 
+                World.dbg(TAG,"alt: " + alt 
                         + ", lastAlt: " + m_lastAlt
                         + ", target: " + m_target
                         + ", diff: " + diff
                         + ", delta: " + delta
                         + ", lastD: " + m_lastDelta
                         + ", pastLevel: " + pastLevel
-                        + ", atAlt: " + atAlt);
+                        + ", atAlt: " + atAlt,DBG);
                 if(diff < 0.001)
                 {
                     //adjust speed until differences is felt
@@ -109,7 +111,7 @@ public class ApachiAlt extends Thread
             }
             catch(Exception e)
             {
-                System.out.println("ApachiAlt: Unable to get position: " + e.toString());
+                World.dbg(TAG,"Unable to get position: " + e.toString(),DBG);
             }
             try
             {
@@ -136,7 +138,7 @@ public class ApachiAlt extends Thread
         double newSpeed = m_chopper.getCurrentRotorSpeed();
         if(newSpeed > 0.0)
         {
-            System.out.print("ApachiAlt: Current rotor speed " + newSpeed + ", ");
+            World.dbg(TAG,"Current rotor speed " + newSpeed + ", ",DBG);
             if(alt > m_target)
             {
                 //this is dangerous, if rotor speed is too slow
@@ -177,7 +179,7 @@ public class ApachiAlt extends Thread
         {
             newSpeed = INIT_SPEED;
         }
-        System.out.println("desired " + newSpeed);
+        World.dbg(TAG,"desired " + newSpeed,DBG);
         m_chopper.setDesiredRotorSpeed(newSpeed);
 
     }

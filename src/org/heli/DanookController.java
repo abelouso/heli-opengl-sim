@@ -13,6 +13,8 @@ import java.util.ArrayList;
 public class DanookController extends Thread
 {
 	// TODO: Implement a state machine
+    public static final String TAG = "DanookController";
+    public static final long DC_DBG = 0x2;
 	private int STATE_LANDED = 0;
 	private int STATE_CLIMBING = 1;
 	private int APPROACHING_TARGET = 2;
@@ -64,7 +66,7 @@ public class DanookController extends Thread
 		}
 		catch (Exception e)
 		{
-			System.out.println("Caught an exception");
+			World.dbg(TAG,"Caught an exception",DC_DBG);
 		}
 		Point3D lastPosition = null;
 		double currTime = 0.0;
@@ -81,7 +83,7 @@ public class DanookController extends Thread
     			if (currentDestination == null)
     			{
     				//currentDestination = findClosestDestination();
-    				//System.out.println("DC:Got a destination: " + currentDestination.info());
+    				//World.dbg(TAG,"DC:Got a destination: " + currentDestination.info(),DC_DBG);
     			}
     			if (lastPosition != null && lastTime < currTime)
     			{
@@ -92,7 +94,7 @@ public class DanookController extends Thread
     				}
     				else
     				{
-    					System.out.println("DC: No physics estimate?");
+    					World.dbg(TAG,"DC: No physics estimate?",DC_DBG);
     				}
     			}
     			lastPosition = actualPosition.copy();
@@ -100,7 +102,7 @@ public class DanookController extends Thread
     		}
     		catch (Exception e)
     		{
-    			System.out.println("Caught an exception: " + e.toString());
+    			World.dbg(TAG,"Caught an exception: " + e.toString(),DC_DBG);
     		}
     	}
     }
@@ -246,9 +248,9 @@ public class DanookController extends Thread
     	{
     		desMainRotorSpeed_RPM += deltaAcceleration * VERT_CONTROL_FACTOR;
     		myWorld.requestSettings(myChopper.getId(), desMainRotorSpeed_RPM, desTilt_Degrees, desTailRotorSpeed_RPM);
-    		System.out.println("DC:Want Alt: " + desiredAltitude + ", Act Alt: " + actualPosition.m_z + ", target accel: "
+    		World.dbg(TAG,"DC:Want Alt: " + desiredAltitude + ", Act Alt: " + actualPosition.m_z + ", target accel: "
     				+ targetVerticalAcceleration + ", Actual: " + estimatedAcceleration.m_z + ", Target Rotor Sped: "
-    				+ desMainRotorSpeed_RPM);
+    				+ desMainRotorSpeed_RPM,DC_DBG);
     	}
     }
     

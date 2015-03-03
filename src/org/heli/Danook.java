@@ -12,6 +12,9 @@ import javax.media.opengl.GLAutoDrawable;
 
 public class Danook extends StigChopper
 {
+    public static final String TAG = "Danook";
+    public static final long D_DBG = 0x1;
+    
 	private DanookController myThread;
 	
     public Danook(int id, World world)

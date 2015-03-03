@@ -11,7 +11,8 @@ package org.heli;
  * @author Daniel
  *
  */
-public class ChopperAggregator {
+public class ChopperAggregator 
+{
 	private StigChopper theChopper;
 	private ChopperInfo chopInfo;
 	
