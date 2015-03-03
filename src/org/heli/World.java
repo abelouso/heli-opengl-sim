@@ -347,7 +347,7 @@ public class World
 					}
 				}
 			}
-			Thread.sleep(5);
+			Thread.sleep(2);
 			curTimeStamp += TICK_TIME;
 		}
 		return outOfTime;
@@ -447,8 +447,9 @@ public class World
 		// different transformations
         GL2 gl = drawable.getGL().getGL2();
     	camera.tellGL(gl);
-    	Point3D chopperPos = gps(0);
-    	if (chopperPos.m_z < 0.0)
+    	Point3D chopperPos = gps(1);
+    	camera.chase(chopperPos, 20.0);
+    	/* if (chopperPos.m_z < 0.0)
     	{
     		Point3D otherPos = gps(1);
     		camera.chase(otherPos, 20.0);
@@ -456,7 +457,7 @@ public class World
     	else
     	{
     		camera.chase(chopperPos, 20.0);
-    	}
+    	} */
         gl.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT);
 
 		for (Object3D object : worldState)

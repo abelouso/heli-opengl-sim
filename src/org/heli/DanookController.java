@@ -18,7 +18,7 @@ public class DanookController extends Thread
 	private int APPROACHING_TARGET = 2;
 	private int STATE_DESCENDING = 3;
 	
-	private static final double VERT_CONTROL_FACTOR = 3.07;
+	private static final double VERT_CONTROL_FACTOR = 6.0;
 	
 	private Danook myChopper;
 	private World myWorld;
@@ -74,15 +74,15 @@ public class DanookController extends Thread
     		try
     		{
     			// Do smart stuff...
-    			Thread.sleep(6);
-    			if (currentDestination == null)
-    			{
-    				currentDestination = findClosestDestination();
-    				System.out.println("DC:Got a destination: " + currentDestination.info());
-    			}
+    			Thread.sleep(2);
     			// TODO: Make these two methods atomic
     			actualPosition = myWorld.gps(myChopper.getId());
     			currTime = myWorld.getTimestamp();
+    			if (currentDestination == null)
+    			{
+    				//currentDestination = findClosestDestination();
+    				//System.out.println("DC:Got a destination: " + currentDestination.info());
+    			}
     			if (lastPosition != null && lastTime < currTime)
     			{
     				boolean updated = estimatePhysics(currTime, lastPosition, lastTime);
@@ -159,8 +159,7 @@ public class DanookController extends Thread
     
     public void controlTheShip()
     {
-    	selectDesiredAltitude();
-    	boolean headingOK = adjustHeading();
+    	/* boolean headingOK = adjustHeading();
     	if (headingOK)
     	{
     		// Work on approaching target
@@ -171,7 +170,7 @@ public class DanookController extends Thread
     		}
     		if (distance < 25.0) // Last 25 meters, slow down
     		{
-    			setDesiredTilt(-distance/5.0);
+    			slowDown();
     		}
     		double myVelocity = estimatedVelocity.length();
     		// Limit how fast we'll go!
@@ -187,9 +186,25 @@ public class DanookController extends Thread
     	else
     	{
     		// Don't keep accelerating wrong direction
-    		setDesiredTilt(0.0);
-    	}
+    		slowDown();
+    	} */
+    	selectDesiredAltitude();
 		controlAltitude();
+    }
+    
+    public void slowDown()
+    { // Warning, this method assumes chopper is moving forward! -- it will speed up if chopper's going backward
+    	double realSpeed = estimatedVelocity.length();
+    	double mySpeed = realSpeed;
+    	if (mySpeed > 20.0)
+    	{
+    		mySpeed = 20.0;
+    	}
+    	else if (mySpeed < -20.0)
+    	{
+    		mySpeed = -20.0;
+    	}
+    	setDesiredTilt(-mySpeed / 2.0);
     }
     
     public void controlAltitude()
@@ -199,19 +214,41 @@ public class DanookController extends Thread
     		return; // can't continue if we don't know
     	}
     	double targetVerticalAcceleration = 0.0;
+    	double targetVerticalVelocity = 0.0;
     	if (actualPosition.m_z < desiredAltitude)
     	{
-    		targetVerticalAcceleration = 0.20;
+    		targetVerticalVelocity = 1.0;
+    		if (estimatedVelocity.m_z < targetVerticalVelocity)
+    		{
+    			double velocityProportion = (targetVerticalVelocity - estimatedVelocity.m_z) / targetVerticalVelocity;
+    			targetVerticalAcceleration = 0.15 * velocityProportion;
+    		}
+    		else
+    		{
+    			targetVerticalAcceleration = 0.0;
+    		}
     	}
     	if (actualPosition.m_z > desiredAltitude)
     	{
-    		targetVerticalAcceleration = -0.20;
+    		targetVerticalVelocity = -1.0;
+    		if (estimatedVelocity.m_z > targetVerticalVelocity)
+    		{
+    			double velocityProportion = (targetVerticalVelocity - estimatedVelocity.m_z) / targetVerticalVelocity;
+    			targetVerticalAcceleration = -0.15 * velocityProportion;
+    		}
+    		else
+    		{
+    			targetVerticalAcceleration = 0.0;
+    		}
     	}
     	double deltaAcceleration = targetVerticalAcceleration - estimatedAcceleration.m_z;
     	if (!(Math.abs(deltaAcceleration) > 10.0))
     	{
     		desMainRotorSpeed_RPM += deltaAcceleration * VERT_CONTROL_FACTOR;
     		myWorld.requestSettings(myChopper.getId(), desMainRotorSpeed_RPM, desTilt_Degrees, desTailRotorSpeed_RPM);
+    		System.out.println("DC:Want Alt: " + desiredAltitude + ", Act Alt: " + actualPosition.m_z + ", target accel: "
+    				+ targetVerticalAcceleration + ", Actual: " + estimatedAcceleration.m_z + ", Target Rotor Sped: "
+    				+ desMainRotorSpeed_RPM);
     	}
     }
     
@@ -282,10 +319,16 @@ public class DanookController extends Thread
     			desiredAltitude = 0.1;
     		}
     	}
+    	else
+    	{
+    		//desiredAltitude = 50.0 + 10.0 * (myWorld.getTimestamp() / 100.0);
+    		desiredAltitude = 25.0;
+    	}
     }
     synchronized public Point3D findClosestDestination()
     {
     	Point3D resultPoint = null;
+    	/*
     	ArrayList<Point3D> targetWaypoints = myChopper.getWaypoints();
     	double minDistance = 10000.0;
     	for(Point3D testPoint: targetWaypoints)
@@ -296,7 +339,8 @@ public class DanookController extends Thread
     			resultPoint = testPoint;
     			minDistance = curDistance;
     		}
-    	}
+    	} */
+    	resultPoint = actualPosition;
     	return resultPoint;
     }
     

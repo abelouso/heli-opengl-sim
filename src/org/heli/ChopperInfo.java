@@ -308,7 +308,7 @@ public class ChopperInfo {
 			// This means that once you take off, you can go under the world
 			if (takenOff == true)
 			{
-				actAcceleration_ms2.m_z = deltaForce_N;
+				actAcceleration_ms2.m_z = deltaForce_N / totalMass_kg;
 			}
 			else
 			{
