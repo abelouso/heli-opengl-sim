@@ -79,7 +79,7 @@ public class Apachi extends StigChopper
         m_speed.setTarget(0.0);
         m_speed.start();
         
-        hover(20);
+        hover(30);
         //world.requestSettings(id, m_rotSpeedR, m_tiltR, m_stabSpeedR);
         inventory = 16;
     }
@@ -92,9 +92,48 @@ public class Apachi extends StigChopper
      * @param rotorPos Rotation of the rotor (0 - 360) so we can draw it
      * @param tailRotorPos Rotation of the rotor (0 - 360) so we can draw it
      */
-    /*
+    
     public void render(GLAutoDrawable drawable, double actHeading, double actTilt, double rotorPos, double tailRotorPos) 
     {
+        
+        double wts = world.getTimestamp();
+        if(wts > 20 && wts < 60)
+        {
+            maintainAlt(90);
+            if(wts > 20) setDesiredStabilizerSpeed(m_stabSpeedR - 2);
+            if(wts > 21)
+            {
+               setDesiredStabilizerSpeed(ChopperInfo.STABLE_TAIL_ROTOR_SPEED);
+            }
+            setDesiredTilt(1.0);
+            if(wts > 40)
+            {
+                setDesiredStabilizerSpeed(m_stabSpeedR + 2);
+            }
+            if(wts > 41)
+            {
+               setDesiredStabilizerSpeed(ChopperInfo.STABLE_TAIL_ROTOR_SPEED);
+            }
+            if(wts > 54) 
+                setDesiredTilt(-6.4);
+            if(wts > 59)
+            {
+                setDesiredTilt(0.0);
+            }
+        }
+        else if(wts >= 60 && wts < 80)
+        {
+            setDesiredTilt(0.0);
+            maintainAlt(12);
+            setDesiredStabilizerSpeed(ChopperInfo.STABLE_TAIL_ROTOR_SPEED);
+        }
+        else if(wts >= 80)
+        {
+            hover(-1.0);
+        }
+        
+        super.render(drawable, actHeading, actTilt, rotorPos, tailRotorPos);
+        /*
         GL2 gl = drawable.getGL().getGL2();
         Point3D myPosition = world.gps(id);
         // This method returns the bottom center of our chopper, first, get center
@@ -122,15 +161,16 @@ public class Apachi extends StigChopper
         m_agl.box(gl,0.98f,myPosition,new Point3D(0.0,0.0,0.0),X_SIZE);
         gl.glEnd();
         gl.glPopMatrix();
+        */
     } 
-    */
+    
     
     synchronized public double getCurrentRotorSpeed()
     {
         return m_rotSpeedR;
     }
     
-    synchronized public void setDesiredRotorSpeed(double newSpeed)
+    synchronized public double setDesiredRotorSpeed(double newSpeed)
     {
         m_rotSpeedR = newSpeed;
         if(m_rotSpeedR > 0.0 && m_rotStamp < 0)
@@ -140,6 +180,7 @@ public class Apachi extends StigChopper
         m_sumActSpeed += m_rotSpeedR;
         m_actSpeedCnt += 1.0;
         world.requestSettings(id,m_rotSpeedR,m_tiltR,m_stabSpeedR);
+        return m_rotSpeedR;
     }
     
     synchronized public double getStabilizerSpeed()
@@ -169,8 +210,9 @@ public class Apachi extends StigChopper
         m_airSpeed = speed;
     }
     
-    synchronized public double estHoverSpeed()
+    synchronized public double estHoverSpeed(double revs)
     {
+        /*
         double den = 1.0;
         if(m_actSpeedCnt > 0.0)
         {
@@ -183,26 +225,36 @@ public class Apachi extends StigChopper
             eT_min = 0.00001;
         }
         double revs = avgR * eT_min;
-        double cf = 0.9 / eT_min;
+        */
+        double cf = 1.0;//0.9 / eT_min;
         if(cf < 0.0) cf = 1.0;
         double burnt = cf * revs * (1.0 / 60.0);
         double fuel = fuelCapacity - burnt;
-        World.dbg(TAG,"RPM: " + f(avgR) + ",revs " + f(revs) 
+        
+        World.dbg(TAG,"RPM: " 
+                //+ f(avgR) 
+                + ",revs " + f(revs) 
                 + ", cor: " + f(cf)
                 + ", burnt: " + f(burnt)
-                + ", min: " + f(eT_min)
-                + ", fuel: " + f(fuel),DBG);
+               // + ", min: " + f(eT_min)
+                + ", rem: " + f(fuel),0);
+                
         double wt = ChopperAggregator.ITEM_WEIGHT * itemCount() + ChopperAggregator.BASE_MASS + fuel;
         double res = wt * ChopperInfo.EARTH_ACCELERATION / ChopperInfo.THRUST_PER_RPM;
-        World.dbg(TAG,"Total weight: " + f(wt) + " kg, desired: " + f(res) + " rpm",DBG);
+        World.dbg(TAG,"Total weight: " + f(wt) + " kg, desired: " + f(res) + " rpm",0);
         return res;
     }
     
     public void hover(double alt)
     {
         setDesiredStabilizerSpeed(ChopperInfo.STABLE_TAIL_ROTOR_SPEED);
-        m_alt.setTarget(alt);
+        maintainAlt(alt);
         m_speed.setTarget(0.0);
+    }
+    
+    public void maintainAlt(double alt)
+    {
+        m_alt.setTarget(alt);
     }
     
     static public String f(double n)

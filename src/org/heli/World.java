@@ -391,7 +391,7 @@ public class World
 					}
 				}
 			}
-			Thread.sleep(2);
+			Thread.sleep((long)(TICK_TIME * 1000));
 			curTimeStamp += TICK_TIME;
 		}
 		return outOfTime;
