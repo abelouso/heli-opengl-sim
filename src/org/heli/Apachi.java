@@ -178,12 +178,18 @@ public class Apachi extends StigChopper
         }
         double avgR = m_sumActSpeed / den;
         double eT_min = 0.001 * (double)(new Date().getTime() - m_rotStamp) / 60.0;
+        if(m_rotStamp < 0)
+        {
+            eT_min = 0.00001;
+        }
         double revs = avgR * eT_min;
-        double cf = 0.6 / eT_min;
+        double cf = 0.9 / eT_min;
         if(cf < 0.0) cf = 1.0;
-        double fuel = fuelCapacity - cf * revs * (1.0 / 60.0);
+        double burnt = cf * revs * (1.0 / 60.0);
+        double fuel = fuelCapacity - burnt;
         World.dbg(TAG,"RPM: " + f(avgR) + ",revs " + f(revs) 
                 + ", cor: " + f(cf)
+                + ", burnt: " + f(burnt)
                 + ", min: " + f(eT_min)
                 + ", fuel: " + f(fuel),DBG);
         double wt = ChopperAggregator.ITEM_WEIGHT * itemCount() + ChopperAggregator.BASE_MASS + fuel;
@@ -201,6 +207,6 @@ public class Apachi extends StigChopper
     
     static public String f(double n)
     {
-        return String.format("%.2f",n);
+        return String.format("%.4f",n);
     }
 }

@@ -107,7 +107,7 @@ public class ApachiAlt extends Thread
                 {
                     //adjust speed until differences is felt
                     //adjustRotorSpeed(alt, CHANGE_INC);
-                    m_chopper.setDesiredRotorSpeed(newSpeed + 20);
+                    m_chopper.setDesiredRotorSpeed(newSpeed);
                 }
                 else 
                 {                        
