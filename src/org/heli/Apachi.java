@@ -121,13 +121,13 @@ public class Apachi extends StigChopper
                 setDesiredTilt(0.0);
             }
         }
-        else if(wts >= 60 && wts < 80)
+        else if(wts >= 60 && wts < 90)
         {
             setDesiredTilt(0.0);
-            maintainAlt(12);
+            maintainAlt(15);
             setDesiredStabilizerSpeed(ChopperInfo.STABLE_TAIL_ROTOR_SPEED);
         }
-        else if(wts >= 80)
+        else if(wts >= 90)
         {
             hover(-1.0);
         }
