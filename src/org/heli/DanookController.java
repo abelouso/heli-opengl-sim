@@ -13,14 +13,14 @@ import java.util.ArrayList;
 public class DanookController extends Thread
 {
 	// TODO: Implement a state machine
-    public static final String TAG = "DanookController";
+    public static final String TAG = "DC:";
     public static final long DC_DBG = 0x2;
 	private int STATE_LANDED = 0;
 	private int STATE_CLIMBING = 1;
 	private int APPROACHING_TARGET = 2;
 	private int STATE_DESCENDING = 3;
 	
-	private static final double VERT_CONTROL_FACTOR = 6.0;
+	private static final double VERT_CONTROL_FACTOR = 1.25;
 	
 	private Danook myChopper;
 	private World myWorld;
@@ -77,9 +77,11 @@ public class DanookController extends Thread
     		{
     			// Do smart stuff...
     			Thread.sleep(2);
-    			// TODO: Make these two methods atomic
-    			actualPosition = myWorld.gps(myChopper.getId());
-    			currTime = myWorld.getTimestamp();
+    			synchronized(myWorld)
+    			{
+    				actualPosition = myWorld.gps(myChopper.getId());
+    			}
+    			currTime = actualPosition.t();
     			if (currentDestination == null)
     			{
     				//currentDestination = findClosestDestination();
@@ -146,7 +148,6 @@ public class DanookController extends Thread
     	estimatedVelocity.m_z = (actualPosition.m_z - lastPos.m_z) / deltaTime;
     	double newVel = estimatedVelocity.length();
     	double oldVel = oldVelocity.length();
-    	double deltaPos = actualPosition.distanceXY(lastPos);
     	return oldVelocity;
     }
     
@@ -209,11 +210,32 @@ public class DanookController extends Thread
     	setDesiredTilt(-mySpeed / 2.0);
     }
     
+    /** Call this method to check if vertical velocity and acceleration are
+     * both exactly zero.  The only way that happens is if we're on the ground.
+     * @return
+     */
+    public boolean checkForLanded()
+    {
+    	boolean onGround = false;
+    	final double EPSILON = 0.001;
+    	if ((Math.abs(estimatedVelocity.m_z) < EPSILON) &&
+    		(Math.abs(estimatedAcceleration.m_z) < EPSILON))
+    	{
+    		onGround = true;
+    	}
+    	return onGround;
+    }
+    
     public void controlAltitude()
     {
-    	if (estimatedAcceleration == null)
+    	if (estimatedAcceleration == null || estimatedVelocity == null)
     	{
     		return; // can't continue if we don't know
+    	}
+    	boolean onGround = checkForLanded();
+    	if (onGround)
+    	{
+    		return;
     	}
     	double targetVerticalAcceleration = 0.0;
     	double targetVerticalVelocity = 0.0;
@@ -222,8 +244,7 @@ public class DanookController extends Thread
     		targetVerticalVelocity = 1.0;
     		if (estimatedVelocity.m_z < targetVerticalVelocity)
     		{
-    			double velocityProportion = (targetVerticalVelocity - estimatedVelocity.m_z) / targetVerticalVelocity;
-    			targetVerticalAcceleration = 0.15 * velocityProportion;
+    			targetVerticalAcceleration = 0.25;
     		}
     		else
     		{
@@ -235,8 +256,7 @@ public class DanookController extends Thread
     		targetVerticalVelocity = -1.0;
     		if (estimatedVelocity.m_z > targetVerticalVelocity)
     		{
-    			double velocityProportion = (targetVerticalVelocity - estimatedVelocity.m_z) / targetVerticalVelocity;
-    			targetVerticalAcceleration = -0.15 * velocityProportion;
+    			targetVerticalAcceleration = -0.25;
     		}
     		else
     		{
@@ -247,9 +267,17 @@ public class DanookController extends Thread
     	if (!(Math.abs(deltaAcceleration) > 10.0))
     	{
     		desMainRotorSpeed_RPM += deltaAcceleration * VERT_CONTROL_FACTOR;
+    		int msTime = (int)Math.floor(myWorld.getTimestamp() * 1000);
+    		int desHeight_mm = (int)Math.floor(desiredAltitude * 1000);
+    		int actHeight_mm = (int)Math.floor(actualPosition.m_z * 1000);
+    		int desVel = (int)Math.floor(targetVerticalVelocity * 1000);
+    		int actVel = (int)Math.floor(estimatedVelocity.m_z * 1000);
+    		int desAcc = (int)Math.floor(targetVerticalAcceleration * 1000);
+    		int actAcc = (int)Math.floor(estimatedAcceleration.m_z * 1000);
     		myWorld.requestSettings(myChopper.getId(), desMainRotorSpeed_RPM, desTilt_Degrees, desTailRotorSpeed_RPM);
-    		World.dbg(TAG,"DC:Want Alt: " + desiredAltitude + ", Act Alt: " + actualPosition.m_z + ", target accel: "
-    				+ targetVerticalAcceleration + ", Actual: " + estimatedAcceleration.m_z + ", Target Rotor Sped: "
+    		World.dbg(TAG," Time: " + msTime + ", Want mm: " + desHeight_mm + ", Alt mm: " + actHeight_mm + ", target vel: "
+    				+ desVel + ", Actual: " + actVel + ", target accel: "
+    				+ desAcc + ", Actual: " + actAcc + ", Target Rotor Sped: "
     				+ desMainRotorSpeed_RPM,DC_DBG);
     	}
     }

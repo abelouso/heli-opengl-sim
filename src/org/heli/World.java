@@ -362,8 +362,6 @@ public class World
 		return buildingHeight;
 	}
 	
-	public double getTick() { return curTimeStamp; }
-	
 	/** This method returns true if you're out of time
 	 * 
 	 * @return
@@ -374,25 +372,28 @@ public class World
 		boolean outOfTime = false;
 		while (curTimeStamp < maxTime)
 		{
-			Iterator it = myChoppers.entrySet().iterator();
-			while (it.hasNext())
+			synchronized(this)
 			{
-				Map.Entry pairs = (Map.Entry)it.next();
-				int id = (int) pairs.getKey();
-				ChopperAggregator locData = (ChopperAggregator) pairs.getValue();
-				if (locData != null)
+				Iterator it = myChoppers.entrySet().iterator();
+				while (it.hasNext())
 				{
-					ChopperInfo chopInfo = locData.getInfo();
-					if (chopInfo != null)
+					Map.Entry pairs = (Map.Entry)it.next();
+					int id = (int) pairs.getKey();
+					ChopperAggregator locData = (ChopperAggregator) pairs.getValue();
+					if (locData != null)
 					{
-						chopInfo.fly(curTimeStamp, TICK_TIME);
-						locData.setInfo(chopInfo);
-						myChoppers.put(id, locData);
+						ChopperInfo chopInfo = locData.getInfo();
+						if (chopInfo != null)
+						{
+							chopInfo.fly(curTimeStamp, TICK_TIME);
+							locData.setInfo(chopInfo);
+							myChoppers.put(id, locData);
+						}
 					}
 				}
 			}
-			Thread.sleep(2);
 			curTimeStamp += TICK_TIME;
+			Thread.sleep(2);
 		}
 		return outOfTime;
 	}
@@ -461,7 +462,7 @@ public class World
 			thisAg = myChoppers.get(chopperID);
 			ChopperInfo thisInfo = thisAg.getInfo();
 			Point3D actPosition = thisInfo.getPosition();
-			retPosition = new Point3D(actPosition.m_x, actPosition.m_y, actPosition.m_z);
+			retPosition = new Point3D(actPosition.m_x, actPosition.m_y, actPosition.m_z, curTimeStamp);
 		}
 		return retPosition;
 	}

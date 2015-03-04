@@ -55,7 +55,7 @@ public class HeliMain
 		}
 		catch (Exception e)
 		{
-			System.out.println("Rule Broken -- timestamp: " + myWorld.getTick() + ", msg: "+ e.toString());
+			System.out.println("Rule Broken -- timestamp: " + myWorld.getTimestamp() + ", msg: "+ e.toString());
 			System.exit(-1);
 		}
 		// Execute the World
