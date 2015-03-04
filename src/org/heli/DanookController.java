@@ -22,6 +22,14 @@ public class DanookController extends Thread
 	
 	private static final double VERT_CONTROL_FACTOR = 1.25;
 	
+	private static final double MAX_VERT_VELOCITY = 1.0;
+	
+	private static final double MAX_VERT_ACCEL = 0.25;
+	
+	private static final double DECEL_DISTANCE = 10.0;
+	
+	private static final double DECEL_SPEED = 0.5;
+	
 	private Danook myChopper;
 	private World myWorld;
 	
@@ -237,32 +245,8 @@ public class DanookController extends Thread
     	{
     		return;
     	}
-    	double targetVerticalAcceleration = 0.0;
-    	double targetVerticalVelocity = 0.0;
-    	if (actualPosition.m_z < desiredAltitude)
-    	{
-    		targetVerticalVelocity = 1.0;
-    		if (estimatedVelocity.m_z < targetVerticalVelocity)
-    		{
-    			targetVerticalAcceleration = 0.25;
-    		}
-    		else
-    		{
-    			targetVerticalAcceleration = 0.0;
-    		}
-    	}
-    	if (actualPosition.m_z > desiredAltitude)
-    	{
-    		targetVerticalVelocity = -1.0;
-    		if (estimatedVelocity.m_z > targetVerticalVelocity)
-    		{
-    			targetVerticalAcceleration = -0.25;
-    		}
-    		else
-    		{
-    			targetVerticalAcceleration = 0.0;
-    		}
-    	}
+    	double targetVerticalVelocity = computeDesiredVelocity(actualPosition.m_z,desiredAltitude);
+    	double targetVerticalAcceleration = computeDesiredAcceleration(estimatedVelocity.m_z, targetVerticalVelocity);
     	double deltaAcceleration = targetVerticalAcceleration - estimatedAcceleration.m_z;
     	if (!(Math.abs(deltaAcceleration) > 10.0))
     	{
@@ -275,11 +259,41 @@ public class DanookController extends Thread
     		int desAcc = (int)Math.floor(targetVerticalAcceleration * 1000);
     		int actAcc = (int)Math.floor(estimatedAcceleration.m_z * 1000);
     		myWorld.requestSettings(myChopper.getId(), desMainRotorSpeed_RPM, desTilt_Degrees, desTailRotorSpeed_RPM);
-    		World.dbg(TAG," Time: " + msTime + ", Want mm: " + desHeight_mm + ", Alt mm: " + actHeight_mm + ", target vel: "
+    		/* World.dbg(TAG," Time: " + msTime + ", Want mm: " + desHeight_mm + ", Alt mm: " + actHeight_mm + ", target vel: "
     				+ desVel + ", Actual: " + actVel + ", target accel: "
     				+ desAcc + ", Actual: " + actAcc + ", Target Rotor Sped: "
-    				+ desMainRotorSpeed_RPM,DC_DBG);
+    				+ desMainRotorSpeed_RPM,DC_DBG); */
     	}
+    }
+    
+    public double computeDesiredVelocity(double actAlt, double desAlt)
+    {
+    	double targetVelocity = MAX_VERT_VELOCITY;
+    	double deltaValue = Math.abs(desAlt - actAlt);
+    	if (deltaValue < DECEL_DISTANCE)
+    	{
+    		targetVelocity = deltaValue / DECEL_DISTANCE;
+    	}
+    	if (actAlt > desAlt)
+    	{
+    		targetVelocity *= -1.0;
+    	}
+    	return targetVelocity;
+    }
+    
+    public double computeDesiredAcceleration(double actVel, double desVel)
+    {
+    	double targetAccel = MAX_VERT_ACCEL;
+    	double deltaValue = Math.abs(desVel - actVel);
+    	if (deltaValue < DECEL_SPEED)
+    	{
+    		targetAccel = deltaValue / DECEL_SPEED;
+    	}
+    	if (actVel > desVel)
+    	{
+    		targetAccel *= -1.0;
+    	}
+    	return targetAccel;
     }
     
     public boolean adjustHeading()
@@ -351,8 +365,7 @@ public class DanookController extends Thread
     	}
     	else
     	{
-    		//desiredAltitude = 50.0 + 10.0 * (myWorld.getTimestamp() / 100.0);
-    		desiredAltitude = 25.0;
+    		desiredAltitude = 20.0 + 20.0 * Math.floor(myWorld.getTimestamp() / 100.0);
     	}
     }
     synchronized public Point3D findClosestDestination()
