@@ -137,7 +137,7 @@ public class MainWindow extends JFrame implements ActionListener, GLEventListene
 	    long deltaTime = currentTime - lastDisplayedTime;
 	    if (deltaTime > 1000000000)
 	    {
-	    	this.setTitle("Elapsed Time: " + (Math.round(theWorld.getTick() * 1000.0) / 1000.0) + " s");
+	    	this.setTitle("Elapsed Time: " + (Math.round(theWorld.getTimestamp() * 1000.0) / 1000.0) + " s");
 		    lastDisplayedTime = currentTime;
 	    }
 	}

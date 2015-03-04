@@ -13,17 +13,33 @@ import java.util.ArrayList;
 public class DanookController extends Thread
 {
 	// TODO: Implement a state machine
-    public static final String TAG = "DanookController";
+    public static final String TAG = "DC:";
     public static final long DC_DBG = 0x2;
-	private int STATE_LANDED = 0;
-	private int STATE_CLIMBING = 1;
-	private int APPROACHING_TARGET = 2;
-	private int STATE_DESCENDING = 3;
+	private static final int STATE_LANDED = 0;
+	private static final int FINDING_HEADING = 1;
+	private static final int APPROACHING_TARGET_ROUGH = 2;
+	private static final int TURN_TOWARD = 3;
+	private static final int SLOWING = 4;
+	private static final int FINE_TUNE_HEADING = 5;
+	private static final int APPROACHING_TARGET_FINE = 6;
+	private static final int DESCENDING = 7;
 	
-	private static final double VERT_CONTROL_FACTOR = 6.0;
+	private static final double VERT_CONTROL_FACTOR = 1.25;
+	
+	private static final double MAX_VERT_VELOCITY = 1.0;
+	
+	private static final double MAX_HORZ_VELOCITY = 10.0;
+	
+	private static final double MAX_VERT_ACCEL = 0.25;
+	
+	private static final double DECEL_DISTANCE = 10.0;
+	
+	private static final double DECEL_SPEED = 0.5;
 	
 	private Danook myChopper;
 	private World myWorld;
+	private int myState = STATE_LANDED;
+	private int stateCounter = 0;
 	
     private double desMainRotorSpeed_RPM = 0.0;
     private double desTailRotorSpeed_RPM = 0.0;
@@ -77,13 +93,15 @@ public class DanookController extends Thread
     		{
     			// Do smart stuff...
     			Thread.sleep(2);
-    			// TODO: Make these two methods atomic
-    			actualPosition = myWorld.gps(myChopper.getId());
-    			currTime = myWorld.getTimestamp();
+    			synchronized(myWorld)
+    			{
+    				actualPosition = myWorld.gps(myChopper.getId());
+    			}
+    			currTime = actualPosition.t();
     			if (currentDestination == null)
     			{
-    				//currentDestination = findClosestDestination();
-    				//World.dbg(TAG,"DC:Got a destination: " + currentDestination.info(),DC_DBG);
+    				currentDestination = findClosestDestination();
+    				World.dbg(TAG,"Got a destination: " + currentDestination.info(),DC_DBG);
     			}
     			if (lastPosition != null && lastTime < currTime)
     			{
@@ -146,7 +164,6 @@ public class DanookController extends Thread
     	estimatedVelocity.m_z = (actualPosition.m_z - lastPos.m_z) / deltaTime;
     	double newVel = estimatedVelocity.length();
     	double oldVel = oldVelocity.length();
-    	double deltaPos = actualPosition.distanceXY(lastPos);
     	return oldVelocity;
     }
     
@@ -161,100 +178,301 @@ public class DanookController extends Thread
     
     public void controlTheShip()
     {
-    	/* boolean headingOK = adjustHeading();
-    	if (headingOK)
+    	int nextState = myState;
+    	++stateCounter;
+    	switch(myState)
     	{
-    		// Work on approaching target
+    	case FINDING_HEADING:
+    	{
+    		boolean headingOK = adjustHeading(false);
+    		if (headingOK)
+    		{
+    			nextState = APPROACHING_TARGET_ROUGH;
+    		}
+    		if (stateCounter > 500)
+    		{
+    			nextState = TURN_TOWARD;
+    		}
+    		break;
+    	}
+    	case APPROACHING_TARGET_ROUGH:
+    	{
     		double distance = actualPosition.distanceXY(currentDestination);
-    		if (distance > 325.0)
+    		World.dbg(TAG,"Approaching? " + distance,DC_DBG);
+    		if (distance > 25.0)
     		{
-    			distance = 325.0; // 325 meters or more causes maximum tilt
-    		}
-    		if (distance < 25.0) // Last 25 meters, slow down
-    		{
-    			slowDown();
-    		}
-    		double myVelocity = estimatedVelocity.length();
-    		// Limit how fast we'll go!
-    		if (myVelocity > 10.0)
-    		{
-    			setDesiredTilt(0.0);
+    			approachTarget(true);
     		}
     		else
     		{
-    			setDesiredTilt((distance - 25.0) / 300.0 * 10.0);
+    			nextState = TURN_TOWARD;
     		}
+    		if (stateCounter > 500)
+    		{
+    			nextState = FINDING_HEADING;
+    		}
+    		break;
     	}
-    	else
+    	case TURN_TOWARD:
     	{
-    		// Don't keep accelerating wrong direction
-    		slowDown();
-    	} */
+    		boolean turnComplete = adjustHeading(true);
+    		if (turnComplete)
+    		{
+    			nextState = SLOWING;
+    		}
+    		break;
+    	}
+    	case SLOWING:
+    	{
+    		boolean stopped = slowDown();
+    		double distance = actualPosition.distanceXY(currentDestination);
+    		if (stopped)
+    		{
+    			if (distance < 25.0)
+    			{
+        			nextState = FINE_TUNE_HEADING;
+    			}
+    			else
+    			{
+    				nextState = FINDING_HEADING;
+    			}
+    		}
+    		break;
+    	}
+    	case DanookController.FINE_TUNE_HEADING:
+    	{
+    		boolean headingOK = adjustHeading(false);
+    		if (headingOK)
+    		{
+    			nextState = APPROACHING_TARGET_FINE;
+    		}
+    		break;
+    	}
+    	case APPROACHING_TARGET_FINE:
+    	{
+    		boolean headingOK = adjustHeading(false);
+    		double distance = actualPosition.distanceXY(currentDestination);
+    		if (distance > 25.0)
+    		{
+    			nextState = APPROACHING_TARGET_ROUGH;
+    		}
+    		else if (distance > 1.0)
+    		{
+    			approachTarget(false);
+    		}
+    		else
+    		{
+    			nextState = DESCENDING;
+    		}
+    		break;
+    	}
+    	}
+		World.dbg(TAG,"Old State: " + myState + ", New State: " + nextState + ", state counter: " + stateCounter,DC_DBG);
+		if (nextState != myState)
+		{
+			stateCounter = 0;
+		}
+    	myState = nextState;
     	selectDesiredAltitude();
 		controlAltitude();
     }
     
-    public void slowDown()
-    { // Warning, this method assumes chopper is moving forward! -- it will speed up if chopper's going backward
-    	double realSpeed = estimatedVelocity.length();
+    public void approachTarget(boolean highSpeedOK)
+    {
+		// Work on approaching target
+		double distance = actualPosition.distanceXY(currentDestination);
+		double maxVelocity = 0.5;
+		if (highSpeedOK)
+		{
+			maxVelocity = 5.0;
+			if (distance > 525.0)
+			{
+				distance = 525.0; // 525 meters or more causes maximum tilt
+			}
+		}
+		Point3D zeroVelocity = new Point3D(0.0, 0.0, 0.0);
+		double lateralVelocity = estimatedVelocity.distanceXY(zeroVelocity);
+		// Limit how fast we'll go!
+		if (lateralVelocity > maxVelocity)
+		{
+			setDesiredTilt(0.0);
+		}
+		else if (highSpeedOK)
+		{
+			setDesiredTilt((distance - 25.0) / 500.0 * 10.0);
+		}
+		else
+		{
+			setDesiredTilt(0.1);
+		}
+    	Point3D transformation = myWorld.transformations(myChopper.getId());
+    	double heading = 0.0;
+    	if (transformation != null)
+    	{
+    		heading = transformation.m_x;
+    	}
+		int msTime = (int)Math.floor(myWorld.getTimestamp() * 1000);
+		long deltaX_mm = (long)Math.floor((actualPosition.m_x - currentDestination.m_x) * 1000);
+		long deltaY_mm = (long)Math.floor((actualPosition.m_y - currentDestination.m_y) * 1000);
+		long actVelX_mm = (long)Math.floor(estimatedVelocity.m_x * 1000);
+		long actVelY_mm = (long)Math.floor(estimatedVelocity.m_y * 1000);
+		/* World.dbg(TAG,"Time: " + msTime + ", Delta mm: (" + deltaX_mm + ", " + deltaY_mm + "), velocity mm: ("
+		+ actVelX_mm + ", " + actVelY_mm + "), heading: " + heading,DC_DBG); */
+    }
+    
+    public boolean slowDown()
+    {
+    	boolean allStopped = false;
+    	boolean movingForward = false;
+    	Point3D transformation = myWorld.transformations(myChopper.getId());
+    	if (transformation == null)
+    	{
+    		return allStopped; // Can't do anything
+    	}
+    	double actHeading = transformation.m_x;
+
+    	if (actHeading >= 0 && actHeading < 90.0) // Q1
+    	{
+    		if (estimatedVelocity.m_x >= 0 && estimatedVelocity.m_y >= 0)
+    		{
+    			movingForward = true;
+    		}
+    	}
+    	else if (actHeading >= 90 && actHeading < 180.0) // Q2
+    	{
+    		if (estimatedVelocity.m_x >= 0 && estimatedVelocity.m_y <= 0)
+    		{
+    			movingForward = true;
+    		}
+    	}
+    	else if (actHeading >= 180 && actHeading < 270.0) // Q3
+    	{
+    		if (estimatedVelocity.m_x <= 0 && estimatedVelocity.m_y <= 0)
+    		{
+    			movingForward = true;
+    		}
+    	}
+    	else if (actHeading >= 270 && actHeading < 360.0) // Q3
+    	{
+    		if (estimatedVelocity.m_x <= 0 && estimatedVelocity.m_y >= 0)
+    		{
+    			movingForward = true;
+    		}
+    	}
+
+    	Point3D zeroVelocity = new Point3D(0.0, 0.0, 0.0);
+    	double realSpeed = estimatedVelocity.distanceXY(zeroVelocity);
     	double mySpeed = realSpeed;
-    	if (mySpeed > 20.0)
+    	if (mySpeed > 40.0)
     	{
-    		mySpeed = 20.0;
+    		mySpeed = 40.0;
     	}
-    	else if (mySpeed < -20.0)
+    	if (!movingForward)
     	{
-    		mySpeed = -20.0;
+    		mySpeed *= -1.0;
     	}
-    	setDesiredTilt(-mySpeed / 2.0);
+    	setDesiredTilt(-mySpeed / 4.0);
+		int msTime = (int)Math.floor(myWorld.getTimestamp() * 1000);
+		long deltaX_mm = (long)Math.floor((actualPosition.m_x - currentDestination.m_x) * 1000);
+		long deltaY_mm = (long)Math.floor((actualPosition.m_y - currentDestination.m_y) * 1000);
+		long actVelX_mm = (long)Math.floor(estimatedVelocity.m_x * 1000);
+		long actVelY_mm = (long)Math.floor(estimatedVelocity.m_y * 1000);
+		// TODO: May need to ignore vertical velocity considered elsewhere
+		if (estimatedVelocity.length() < 0.25)
+		{
+			allStopped = true;
+		}
+		//World.dbg(TAG,"Time: " + msTime + ", Slowing Down fwd? " + movingForward + ", want tilt: " + desTilt_Degrees,DC_DBG);
+		return allStopped;
+    }
+    
+    /** Call this method to check if vertical velocity and acceleration are
+     * both exactly zero.  The only way that happens is if we're on the ground.
+     * @return
+     */
+    public boolean checkForLanded()
+    {
+    	boolean onGround = false;
+    	final double EPSILON = 0.001;
+    	if ((Math.abs(estimatedVelocity.m_z) < EPSILON) &&
+    		(Math.abs(estimatedAcceleration.m_z) < EPSILON))
+    	{
+    		onGround = true;
+    	}
+    	return onGround;
     }
     
     public void controlAltitude()
     {
-    	if (estimatedAcceleration == null)
+    	if (estimatedAcceleration == null || estimatedVelocity == null)
     	{
     		return; // can't continue if we don't know
     	}
-    	double targetVerticalAcceleration = 0.0;
-    	double targetVerticalVelocity = 0.0;
-    	if (actualPosition.m_z < desiredAltitude)
+    	boolean onGround = checkForLanded();
+    	if (onGround)
     	{
-    		targetVerticalVelocity = 1.0;
-    		if (estimatedVelocity.m_z < targetVerticalVelocity)
+    		if (myState == DESCENDING)
     		{
-    			double velocityProportion = (targetVerticalVelocity - estimatedVelocity.m_z) / targetVerticalVelocity;
-    			targetVerticalAcceleration = 0.15 * velocityProportion;
+    			myState = STATE_LANDED;
     		}
-    		else
-    		{
-    			targetVerticalAcceleration = 0.0;
-    		}
+    		return;
     	}
-    	if (actualPosition.m_z > desiredAltitude)
+    	if (myState == STATE_LANDED)
     	{
-    		targetVerticalVelocity = -1.0;
-    		if (estimatedVelocity.m_z > targetVerticalVelocity)
-    		{
-    			double velocityProportion = (targetVerticalVelocity - estimatedVelocity.m_z) / targetVerticalVelocity;
-    			targetVerticalAcceleration = -0.15 * velocityProportion;
-    		}
-    		else
-    		{
-    			targetVerticalAcceleration = 0.0;
-    		}
+    		myState = FINDING_HEADING;
     	}
+    	double targetVerticalVelocity = computeDesiredVelocity(actualPosition.m_z,desiredAltitude);
+    	double targetVerticalAcceleration = computeDesiredAcceleration(estimatedVelocity.m_z, targetVerticalVelocity);
     	double deltaAcceleration = targetVerticalAcceleration - estimatedAcceleration.m_z;
     	if (!(Math.abs(deltaAcceleration) > 10.0))
     	{
     		desMainRotorSpeed_RPM += deltaAcceleration * VERT_CONTROL_FACTOR;
+    		int msTime = (int)Math.floor(myWorld.getTimestamp() * 1000);
+    		int desHeight_mm = (int)Math.floor(desiredAltitude * 1000);
+    		int actHeight_mm = (int)Math.floor(actualPosition.m_z * 1000);
+    		int desVel = (int)Math.floor(targetVerticalVelocity * 1000);
+    		int actVel = (int)Math.floor(estimatedVelocity.m_z * 1000);
+    		int desAcc = (int)Math.floor(targetVerticalAcceleration * 1000);
+    		int actAcc = (int)Math.floor(estimatedAcceleration.m_z * 1000);
     		myWorld.requestSettings(myChopper.getId(), desMainRotorSpeed_RPM, desTilt_Degrees, desTailRotorSpeed_RPM);
-    		World.dbg(TAG,"DC:Want Alt: " + desiredAltitude + ", Act Alt: " + actualPosition.m_z + ", target accel: "
-    				+ targetVerticalAcceleration + ", Actual: " + estimatedAcceleration.m_z + ", Target Rotor Sped: "
-    				+ desMainRotorSpeed_RPM,DC_DBG);
+    		/* World.dbg(TAG," Time: " + msTime + ", Want mm: " + desHeight_mm + ", Alt mm: " + actHeight_mm + ", target vel: "
+    				+ desVel + ", Actual: " + actVel + ", target accel: "
+    				+ desAcc + ", Actual: " + actAcc + ", Target Rotor Sped: "
+    				+ desMainRotorSpeed_RPM,DC_DBG); */
     	}
     }
     
-    public boolean adjustHeading()
+    public double computeDesiredVelocity(double actAlt, double desAlt)
+    {
+    	double targetVelocity = MAX_VERT_VELOCITY;
+    	double deltaValue = Math.abs(desAlt - actAlt);
+    	if (deltaValue < DECEL_DISTANCE)
+    	{
+    		targetVelocity = deltaValue / DECEL_DISTANCE;
+    	}
+    	if (actAlt > desAlt)
+    	{
+    		targetVelocity *= -1.0;
+    	}
+    	return targetVelocity;
+    }
+    
+    public double computeDesiredAcceleration(double actVel, double desVel)
+    {
+    	double targetAccel = MAX_VERT_ACCEL;
+    	double deltaValue = Math.abs(desVel - actVel);
+    	if (deltaValue < DECEL_SPEED)
+    	{
+    		targetAccel = deltaValue / DECEL_SPEED;
+    	}
+    	if (actVel > desVel)
+    	{
+    		targetAccel *= -1.0;
+    	}
+    	return targetAccel;
+    }
+    
+    public boolean adjustHeading(boolean useVelocity)
     {
     	boolean headingOK = false;
     	if (currentDestination == null)
@@ -269,11 +487,19 @@ public class DanookController extends Thread
     	double actHeading = transformation.m_x;
     	double deltaY = currentDestination.m_y - actualPosition.m_y;
     	double deltaX = currentDestination.m_x - actualPosition.m_x;
-    	double desiredHeading = Math.toDegrees(Math.atan2(deltaY,deltaX));
+    	if (useVelocity) // Strike that
+    	{
+    		deltaY = estimatedVelocity.y();
+    		deltaX = estimatedVelocity.x();
+    	}
+    	double desiredHeading = Math.toDegrees(Math.atan2(deltaX,deltaY));
     	if (desiredHeading < 0.0) // NOTE, returns -180 to +180
     	{
     		desiredHeading += 360.0;
     	}
+		int msTime = (int)Math.floor(myWorld.getTimestamp() * 1000);
+		/* World.dbg(TAG,"Time: " + msTime + ", Want Pos (" + currentDestination.m_x + ", " + currentDestination.m_y + 
+		") Act Pos (" + actualPosition.m_x + ", " + actualPosition.m_y + ") desired: " + desiredHeading,DC_DBG); */
     	double deltaHeading = desiredHeading - actHeading;
     	if (deltaHeading < -180.0)
     	{
@@ -283,7 +509,7 @@ public class DanookController extends Thread
     	{
     		deltaHeading -= 360.0;
     	}
-    	if (Math.abs(deltaHeading) < 0.1)
+    	if (Math.abs(deltaHeading) < 0.03)
     	{
     		desTailRotorSpeed_RPM = 100.0;
     		// TODO: Future optimization -- don't do this every tick?
@@ -292,17 +518,17 @@ public class DanookController extends Thread
     	}
     	else
     	{
-    		// Anything over 30 degrees off gets max rotor speed
-    		double deltaRotor = (deltaHeading / 30.0) * 20.0;
-    		if (deltaRotor > 20.0)
+    		// Anything over 10 degrees off gets max rotor speed
+    		double deltaRotor = (deltaHeading / 10.0) * 20.0;
+    		if (deltaRotor > 5.0)
     		{
-    			deltaRotor = 20.0;
+    			deltaRotor = 5.0;
     		}
-    		else if (deltaRotor < -20.0)
+    		else if (deltaRotor < -5.0)
     		{
-    			deltaRotor = -20.0;
+    			deltaRotor = -5.0;
     		}
-    		desTailRotorSpeed_RPM = 100.0 + deltaRotor;
+    		desTailRotorSpeed_RPM = ChopperInfo.STABLE_TAIL_ROTOR_SPEED + deltaRotor;
     		myWorld.requestSettings(myChopper.getId(), desMainRotorSpeed_RPM, desTilt_Degrees, desTailRotorSpeed_RPM);
     	}
     	return headingOK;
@@ -312,9 +538,13 @@ public class DanookController extends Thread
     {
     	if (currentDestination != null)
     	{
-    		if (actualPosition.distanceXY(currentDestination) > 10.0)
+    		if (actualPosition.distanceXY(currentDestination) > 5.0)
     		{
     			desiredAltitude = 125.0; // High enough to clear buildings
+    			if (myState == DESCENDING)
+    			{
+    				myState = FINDING_HEADING;
+    			}
     		}
     		else
     		{
@@ -323,14 +553,12 @@ public class DanookController extends Thread
     	}
     	else
     	{
-    		//desiredAltitude = 50.0 + 10.0 * (myWorld.getTimestamp() / 100.0);
-    		desiredAltitude = 25.0;
+    		desiredAltitude = 50.0 + 50.0 * (Math.floor(myWorld.getTimestamp() / 100.0)%2);
     	}
     }
     synchronized public Point3D findClosestDestination()
     {
     	Point3D resultPoint = null;
-    	/*
     	ArrayList<Point3D> targetWaypoints = myChopper.getWaypoints();
     	double minDistance = 10000.0;
     	for(Point3D testPoint: targetWaypoints)
@@ -341,8 +569,7 @@ public class DanookController extends Thread
     			resultPoint = testPoint;
     			minDistance = curDistance;
     		}
-    	} */
-    	resultPoint = actualPosition;
+    	}
     	return resultPoint;
     }
     

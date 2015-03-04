@@ -124,17 +124,26 @@ public class ChopperInfo
 	
 	public void requestMainRotorSpeed(double newSpeed)
 	{
-		desMainRotorSpeed_RPM = newSpeed;
+		if (remainingFuel_kg > 0.0)
+		{
+			desMainRotorSpeed_RPM = newSpeed;
+		}
 	}
 	
 	public void requestTailRotorSpeed(double newSpeed)
 	{
-		desTailRotorSpeed_RPM = newSpeed;
+		if (remainingFuel_kg > 0.0)
+		{
+			desTailRotorSpeed_RPM = newSpeed;
+		}
 	}
 	
 	public void requestTiltLevel(double newTilt)
 	{
-		desTilt_Degrees = newTilt;
+		if (remainingFuel_kg > 0.0)
+		{
+			desTilt_Degrees = newTilt;
+		}
 	}
 	
 	private void updateMainRotorSpeed(double elapsedTime)
@@ -273,9 +282,9 @@ public class ChopperInfo
 		boolean outOfGas = updateFuelRemaining(elapsedTime);
 		if (outOfGas)
 		{
-			desMainRotorSpeed_RPM = 0.0;
-			desTailRotorSpeed_RPM = 0.0;
-			desTilt_Degrees = 0.0;
+			desMainRotorSpeed_RPM *= 0.99;
+			desTailRotorSpeed_RPM *= 0.99;
+			desTilt_Degrees += -1.0 + 2.0 * Math.random();
 		}
 		updateMainRotorSpeed(elapsedTime);
 		updateTailRotorSpeed(elapsedTime);
@@ -287,7 +296,7 @@ public class ChopperInfo
 			cargoMass_kg = ChopperAggregator.ITEM_WEIGHT * thisChopper.itemCount();
 		}
 		double totalMass_kg = cargoMass_kg + remainingFuel_kg + ChopperAggregator.BASE_MASS;
-		double downForce_N = totalMass_kg * EARTH_ACCELERATION;
+		double downForce_N = totalMass_kg * EARTH_ACCELERATION; // F = mA
 		double actTilt_radians = actTilt_Degrees * Math.PI / 180.0;
 		double liftForce_N = actMainRotorSpeed_RPM * THRUST_PER_RPM * Math.cos(actTilt_radians);
 		// lateral force will only be used when off the ground (See below)
@@ -339,10 +348,6 @@ public class ChopperInfo
 		actPosition_m.m_x += (actVelocity_ms.m_x * elapsedTime);
 		actPosition_m.m_y += (actVelocity_ms.m_y * elapsedTime);
 		actPosition_m.m_z += (actVelocity_ms.m_z * elapsedTime);
-		if (takenOff)
-		{
-			//show(currentTime);
-		}
 	}
 	
 	/** No behavior is guaranteed by this method.
