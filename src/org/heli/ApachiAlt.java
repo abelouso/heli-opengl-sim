@@ -51,6 +51,7 @@ public class ApachiAlt extends Thread
     public static final double CHANGE_INC = 20.0;
     public static final double HOLD_INC = 10.0;
     public static final double INIT_SPEED = 10.0;
+    public static final int RT_SLEEP = 200;
     protected World m_world;
     protected double m_target = 0.0;
     protected double m_altDist = 0.0;
@@ -66,6 +67,7 @@ public class ApachiAlt extends Thread
     protected double m_lastRPM = -1.0;
     protected boolean m_up = true;
     
+    protected double m_rtToRndRatio = 1.0;
     protected int m_tick_ms = 200;
     protected double tS = 0.001 * m_tick_ms;
     
@@ -73,7 +75,13 @@ public class ApachiAlt extends Thread
     {
         m_world = world;
         m_chopper = chop;
-        World.dbg(TAG,"Staring altitude loop",DBG);
+        m_rtToRndRatio = world.timeRatio();
+        m_tick_ms = (int)(RT_SLEEP / m_rtToRndRatio);
+        tS = 0.001 * m_tick_ms;
+        World.dbg(TAG,
+                "Staring altitude loop, speed ratio: " + Apachi.f(m_rtToRndRatio)
+                + ",tick: " + m_tick_ms
+                ,DBG);
     }
     
     @Override
@@ -89,6 +97,9 @@ public class ApachiAlt extends Thread
             }
             try
             {
+                long now = (long)(m_world.getTimestamp() * 1000.0);
+                double deltaT = (double)(now - m_lastTS);
+                tS = deltaT * 0.001;
                 double alt = pos.m_z;
                 double delta = Math.abs(m_target - alt);
                 double diff = Math.abs(delta - m_lastDelta);
@@ -96,10 +107,8 @@ public class ApachiAlt extends Thread
                 boolean atAlt = delta <= m_tol;
                 double vVel = (alt - m_lastAlt) / (tS);
                 double cAcc = (vVel - m_lastVel) / tS;
-                double tm = tS;
+                double tm = tS;// / m_rtToRndRatio;
                 double estAlt = alt + tm * vVel + 0.5 * cAcc * tm * tm;
-                long now = new Date().getTime();
-                double deltaT = (double)(now - m_lastTS);
                 if(m_lastTS > 0 && m_lastRPM > 0.0)
                 {
                     m_revs += deltaT * m_lastRPM * 0.001 / 60.0;
@@ -116,7 +125,7 @@ public class ApachiAlt extends Thread
                         + ", revs: " + Apachi.f(m_revs)
                         + ", dT: " + Apachi.f(deltaT)
                         + ", rpm: " + Apachi.f(m_lastRPM)
-                        ,DBG);
+                        ,0);
 
                 double newSpeed = m_chopper.estHoverSpeed(m_revs);
                 if(diff < 0.001 && Math.abs(alt) < 0.001)
@@ -136,15 +145,23 @@ public class ApachiAlt extends Thread
                             + ", distance: " + Apachi.f(m_altDist)
                             + ", est - tar: " + Apachi.f(Math.abs(estAlt - m_target))
                             + ", tol: " + Apachi.f(startDecel * m_tol)
-                            ,DBG);
+                            ,0);
                     if(Math.abs(estAlt - m_target) < (startDecel * m_tol))
                     {
                         boolean keepDecel = upwards?(vVel > 0.04):(vVel < -0.04);
                         double rat = 2.0;
-                        if(Math.abs(vVel) > 2.0) rat = 1.3 * Math.abs(vVel);
+                        if(Math.abs(vVel) > 2.0) rat = (1.1 * Math.abs(vVel));
+                        World.dbg(TAG,
+                                "rat lim: " + Apachi.f(2.0)
+                                + ", vVel: " + Apachi.f(Math.abs(vVel))
+                                + ", rat: " + Apachi.f(rat)
+                                + ", change_inc: " + Apachi.f(CHANGE_INC)
+                                + ", alt: " + Apachi.f(alt)
+                                + ", h spd: " + Apachi.f(newSpeed)
+                                ,DBG);
                         if(keepDecel)
                         {
-                          newSpeed += (upwards?(-1.0 * rat * CHANGE_INC):2.0 * rat * CHANGE_INC);
+                          newSpeed += (upwards?(-1.0 * rat * CHANGE_INC):1.05 * rat * CHANGE_INC);
                           World.dbg(TAG,"****************** Adjusted speed to " + newSpeed,DBG);
                         }
                         World.dbg(TAG, "Setting RPM: " + Apachi.f(newSpeed), DBG);

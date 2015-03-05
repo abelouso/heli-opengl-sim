@@ -1,3 +1,38 @@
+//-*-java-*-
+// *************************************************************************
+// *                           MODULE SOURCE FILE                          *
+// *************************************************************************
+//
+//           CONFIDENTIAL AND PROPRIETARY INFORMATION   (UNPUBLISHED)
+//
+//  All Rights Reserved.
+//
+//  This document  contains confidential and  proprietary  information of
+//  Sasha Industries Inc.  and contains patent rights or pending,  trade
+//  secrets and or  copyright protected or  pending data  and shall not be
+//  reproduced or electronically reproduced or transmitted or disclosed in
+//  whole or in part or used for any design or manufacture except when the
+//  user possess direct written authorization from Sasha Industries Inc.
+//  Its  receipt or possession  does not convey any  rights to  reproduce,
+//  disclose its contents,  or to manufacture, use or sell anything it may
+//  describe.
+//
+//  File Name:      World.java
+//
+//
+//  Module Name:    
+// 
+//  Creation:       Mar 1, 2015 1:55:04 PM
+//
+//  Document/Part #:    
+//
+//  Description:    
+//
+//
+//
+
+
+
 package org.heli;
 
 import java.util.*;
@@ -26,8 +61,9 @@ public class World
     static public final String TAG = "World";
     static public long m_dbgMask = 0;
     static public final long WORLD_DBG = 0x10000000;
-    private int m_camToFollow = 0;
+    static public int m_camToFollow = 0;
 	private int nextChopperID = 0;
+	private double m_rtToRndRatio = 1.0;
 	private int sizeX;
 	private int sizeY;
 	private int sizeZ;
@@ -102,6 +138,11 @@ public class World
         myChoppers.put(chopperID, myAggregator);
 	}
 	
+	synchronized double timeRatio()
+	{
+	    return m_rtToRndRatio;
+	}
+	
 	/** This method gives the choppers some random locations to deliver
 	 * packages to.  For now, I'm selecting easy to reach places within
 	 * the center of blocks
@@ -111,7 +152,7 @@ public class World
 		Iterator it = myChoppers.entrySet().iterator();
 		while (it.hasNext())
 		{
-			Map.Entry pairs = (Map.Entry)it.next();
+			Map.Entry<Integer, ChopperAggregator> pairs = (Map.Entry)it.next();
 			int id = (int) pairs.getKey();
 			ChopperAggregator locData = (ChopperAggregator) pairs.getValue();
 			if (locData != null)
@@ -145,6 +186,60 @@ public class World
 		sizeX = 1000;
 		sizeY = 1000;
 		sizeZ = 200;
+
+        for (String thisArg: args)
+        {
+            // I want my arguments to be lower case
+            String lowerArg = thisArg.toLowerCase();
+            // Strip dashes in case they do it the standard way, I don't want to worry about this yet
+            // TODO: Worry about this later
+            String strippedArg = lowerArg.replace("-", "");
+            String[] splits = lowerArg.split(":");
+            if (splits.length != 2)
+            {
+                if (!lowerArg.equals("h"))
+                {
+                    System.out.println("Ignoring improperly formatted argument!");
+                    continue;
+                }
+            }
+            // TODO: Add sanity checking on all arguments etc.
+            switch(splits[0].charAt(0))
+            {
+            case 'x':
+                sizeX = Integer.parseInt(splits[1]);
+                break;
+            case 'y':
+                sizeY = Integer.parseInt(splits[1]);
+                break;
+            case 'z':
+                sizeZ = Integer.parseInt(splits[1]);
+                break;
+            case 'd':
+                m_dbgMask = Integer.parseInt(splits[1].replaceAll("0x",""),16);
+                break;
+            case 'c':
+                m_camToFollow = Integer.parseInt(splits[1]);
+                break;
+            case 'f':
+                m_rtToRndRatio = Double.parseDouble(splits[1]);
+                break;
+            case 'h':
+                System.out.println("Command Line Arguments:");
+                System.out.println("-----------------------");
+                System.out.println("x:Number (X World Size   -- default 1000)");
+                System.out.println("y:Number (Y World Size   -- default 1000)");
+                System.out.println("z:Number (z World Size   -- default 1000)");
+                System.out.println("h        (This Help Message");
+                System.out.println("d:msk debug mask 0xF - dan, 0xF0 sasha, 0xF000000 world");
+                System.out.println("c:idx index of chopper for camera to follow");
+                System.out.println("f:rat - ratio of world to real time 1 - for real-time 10 - 10x faster");
+                break;
+            default:
+                System.out.println("Unhandled command line argument '" + thisArg + "'");
+                break;
+            }
+        }
 		myChoppers = new HashMap<Integer, ChopperAggregator>();
 		
 		//inserting choppers
@@ -205,55 +300,6 @@ public class World
 		newObject.setColor(r, g, b, a);
 		worldState.add(newObject);
 		
-		for (String thisArg: args)
-		{
-			// I want my arguments to be lower case
-			String lowerArg = thisArg.toLowerCase();
-			// Strip dashes in case they do it the standard way, I don't want to worry about this yet
-			// TODO: Worry about this later
-			String strippedArg = lowerArg.replace("-", "");
-			String[] splits = lowerArg.split(":");
-			if (splits.length != 2)
-			{
-				if (!lowerArg.equals("h"))
-				{
-					System.out.println("Ignoring improperly formatted argument!");
-					continue;
-				}
-			}
-			// TODO: Add sanity checking on all arguments etc.
-			switch(splits[0].charAt(0))
-			{
-			case 'x':
-				sizeX = Integer.parseInt(splits[1]);
-				break;
-			case 'y':
-				sizeY = Integer.parseInt(splits[1]);
-				break;
-			case 'z':
-				sizeZ = Integer.parseInt(splits[1]);
-				break;
-			case 'd':
-			    m_dbgMask = Integer.parseInt(splits[1].replaceAll("0x",""),16);
-			    break;
-			case 'c':
-			    m_camToFollow = Integer.parseInt(splits[1]);
-			    break;
-			case 'h':
-				System.out.println("Command Line Arguments:");
-				System.out.println("-----------------------");
-				System.out.println("x:Number (X World Size   -- default 1000)");
-				System.out.println("y:Number (Y World Size   -- default 1000)");
-				System.out.println("z:Number (z World Size   -- default 1000)");
-				System.out.println("h        (This Help Message");
-				System.out.println("d:msk debug mask 0xF - dan, 0xF0 sasha, 0xF000000 world");
-				System.out.println("c:idx index of chopper for camera to follow");
-				break;
-			default:
-				System.out.println("Unhandled command line argument '" + thisArg + "'");
-				break;
-			}
-		}
 		glu = new GLU();
 		camera = new Camera(sizeX/2, sizeY/2,0, glu);
 		// Give the choppers somewhere to go
@@ -377,7 +423,7 @@ public class World
 				Iterator it = myChoppers.entrySet().iterator();
 				while (it.hasNext())
 				{
-					Map.Entry pairs = (Map.Entry)it.next();
+					Map.Entry<Integer, ChopperAggregator> pairs = (Map.Entry)it.next();
 					int id = (int) pairs.getKey();
 					ChopperAggregator locData = (ChopperAggregator) pairs.getValue();
 					if (locData != null)
@@ -392,7 +438,7 @@ public class World
 					}
 				}
 			}
-			Thread.sleep((long)(TICK_TIME * 1000));
+			Thread.sleep((long)((TICK_TIME * 1000) / m_rtToRndRatio));
 			curTimeStamp += TICK_TIME;
 		}
 		return outOfTime;
@@ -531,7 +577,7 @@ public class World
 		Iterator it = myChoppers.entrySet().iterator();
 		while (it.hasNext())
 		{
-			Map.Entry pairs = (Map.Entry)it.next();
+			Map.Entry<Integer, ChopperAggregator> pairs = (Map.Entry)it.next();
 			int id = (int) pairs.getKey();
 			ChopperAggregator locData = (ChopperAggregator) pairs.getValue();
 			if (locData != null)

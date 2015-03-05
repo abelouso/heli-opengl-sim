@@ -66,7 +66,7 @@ public class Apachi extends StigChopper
     public Apachi(int id, World world)
     {
         super(id,world);
-        World.dbg(TAG,"Construuctor",DBG);
+        World.dbg(TAG,"### CONSTRUCTOR ###",DBG);
         m_alt = new ApachiAlt(this,world);
         World.dbg(TAG,"Starting alt loop",DBG);
         m_alt.start();
@@ -100,6 +100,7 @@ public class Apachi extends StigChopper
         if(wts > 20 && wts < 60)
         {
             maintainAlt(90);
+            
             if(wts > 20) setDesiredStabilizerSpeed(m_stabSpeedR - 2);
             if(wts > 21)
             {
@@ -120,12 +121,15 @@ public class Apachi extends StigChopper
             {
                 setDesiredTilt(0.0);
             }
+            
         }
         else if(wts >= 60 && wts < 90)
         {
+            
             setDesiredTilt(0.0);
             maintainAlt(15);
             setDesiredStabilizerSpeed(ChopperInfo.STABLE_TAIL_ROTOR_SPEED);
+            
         }
         else if(wts >= 90)
         {
@@ -212,20 +216,6 @@ public class Apachi extends StigChopper
     
     synchronized public double estHoverSpeed(double revs)
     {
-        /*
-        double den = 1.0;
-        if(m_actSpeedCnt > 0.0)
-        {
-            den = m_actSpeedCnt;
-        }
-        double avgR = m_sumActSpeed / den;
-        double eT_min = 0.001 * (double)(new Date().getTime() - m_rotStamp) / 60.0;
-        if(m_rotStamp < 0)
-        {
-            eT_min = 0.00001;
-        }
-        double revs = avgR * eT_min;
-        */
         double cf = 1.0;//0.9 / eT_min;
         if(cf < 0.0) cf = 1.0;
         double burnt = cf * revs * (1.0 / 60.0);
@@ -237,7 +227,7 @@ public class Apachi extends StigChopper
                 + ", cor: " + f(cf)
                 + ", burnt: " + f(burnt)
                // + ", min: " + f(eT_min)
-                + ", rem: " + f(fuel),0);
+                + ", rem: " + f(fuel),DBG);
                 
         double wt = ChopperAggregator.ITEM_WEIGHT * itemCount() + ChopperAggregator.BASE_MASS + fuel;
         double res = wt * ChopperInfo.EARTH_ACCELERATION / ChopperInfo.THRUST_PER_RPM;

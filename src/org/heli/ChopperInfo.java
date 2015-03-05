@@ -237,13 +237,30 @@ public class ChopperInfo
 			}
 		}
 	}
-
+	private double m_revs_sum = 0.0;
+	private double m_burnt_sum = 0.0;
+	private double m_time_sum = 0.0;
 	public boolean updateFuelRemaining(double elapsedTime)
 	{
 		boolean outOfGas = false;
 		double rotorRevolutions = actMainRotorSpeed_RPM / 60.0 * elapsedTime;
 		double fuelBurned = rotorRevolutions * FUEL_PER_REVOLUTION;
 		remainingFuel_kg -= fuelBurned;
+		m_revs_sum += rotorRevolutions;
+		m_burnt_sum += fuelBurned;
+		m_time_sum += elapsedTime;
+		if(chopperID == World.m_camToFollow && (((long)m_revs_sum % 20) == 0))
+		{
+		    World.dbg(TAG,
+		            "############# revs: " + Apachi.f(m_revs_sum)
+		            + ", burnt: " + Apachi.f(m_burnt_sum)
+		            + ", et: " +Apachi.f( m_time_sum)
+		            + ", rem: " + Apachi.f(remainingFuel_kg)
+		            + ", this: " + Apachi.f(elapsedTime)
+		            + " ########## "
+		            ,0);
+		}
+		    
 		if (remainingFuel_kg < 0)
 		{
 			World.dbg(TAG,"Out of Gas!",CI_DBG);
