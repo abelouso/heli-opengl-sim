@@ -36,7 +36,6 @@
 
 package org.heli;
 
-import java.util.Date;
 
 /**
  * this class maintains altitude using a simple feedback loop
@@ -101,6 +100,7 @@ public class ApachiAlt extends Thread
                 double deltaT = (double)(now - m_lastTS);
                 tS = deltaT * 0.001;
                 double alt = pos.m_z;
+                m_chopper.setCurrentAlt(alt);
                 double delta = Math.abs(m_target - alt);
                 double diff = Math.abs(delta - m_lastDelta);
                 boolean pastLevel = m_up?(alt > m_target):(m_target > alt);
@@ -126,6 +126,7 @@ public class ApachiAlt extends Thread
                         + ", dT: " + Apachi.f(deltaT)
                         + ", rpm: " + Apachi.f(m_lastRPM)
                         ,0);
+                World.dbg(TAG,"alt: " + Apachi.f(alt) + ", target: " + Apachi.f(m_target),0);
 
                 double newSpeed = m_chopper.estHoverSpeed(m_revs);
                 if(diff < 0.001 && Math.abs(alt) < 0.001)
@@ -158,25 +159,25 @@ public class ApachiAlt extends Thread
                                 + ", change_inc: " + Apachi.f(CHANGE_INC)
                                 + ", alt: " + Apachi.f(alt)
                                 + ", h spd: " + Apachi.f(newSpeed)
-                                ,DBG);
+                                ,0);
                         if(keepDecel)
                         {
                           newSpeed += (upwards?(-1.0 * rat * CHANGE_INC):1.05 * rat * CHANGE_INC);
-                          World.dbg(TAG,"****************** Adjusted speed to " + newSpeed,DBG);
+                          World.dbg(TAG,"****************** Adjusted speed to " + newSpeed,0);
                         }
-                        World.dbg(TAG, "Setting RPM: " + Apachi.f(newSpeed), DBG);
+                        World.dbg(TAG, "Setting RPM: " + Apachi.f(newSpeed), 0);
                         m_lastRPM = m_chopper.setDesiredRotorSpeed(newSpeed);
                     }
                     //else
                     {
                         if(!atAlt)
                         {
-                            World.dbg(TAG,"Not at alt, ajusting",DBG);
+                            World.dbg(TAG,"Not at alt, ajusting",0);
                             adjustToTarget(alt, newSpeed, HOLD_INC);
                         }
                         else
                         {
-                            World.dbg(TAG,"At alt, howvering ************** ",DBG);
+                            World.dbg(TAG,"At alt, howvering ************** ",0);
                             m_lastRPM = m_chopper.setDesiredRotorSpeed(newSpeed);
                         }
                     }

@@ -159,7 +159,7 @@ public class Point3D implements Comparable<Point3D>
 	public 	int hashCode()
 	{
 		Double d = new Double(distance(new Point3D(0,0,0)));
-		return d.hashCode();
+		return String.format("%d%d%d",m_x,m_y,m_z).hashCode();
 	}
 	
 	//returns atan() of k - angle to x-axis in radians // NOTE: I don't think this is right
@@ -172,6 +172,41 @@ public class Point3D implements Comparable<Point3D>
 		
 		return head;
 	}
+	
+	//this is used as vector, result is 0 to 360
+	public double headingXY()
+	{
+	    double res = Math.atan2(m_y, m_x) * 180.0 / Math.PI;
+	    if(res < 0.0) res += 360.0;
+	    return res;
+	}
+
+    //direction calculated from earliest to latest
+	static public Point3D direction(Point3D pt1, Point3D pt2)
+	{
+	    Point3D dir = new Point3D();
+	    if(! pt1.equals(pt2))
+	    {
+	        if(pt1.m_t < pt2.m_t)
+	        {
+	            dir = diff(pt2,pt1);
+	        }
+	        else
+	        {
+	            dir = diff(pt1,pt2);
+	        }
+	    }
+	    return dir;
+	}
+	
+	//creates a normalized direction vector (in 2d)
+	//computes its 0X angle in degrees
+	public double headingXY(Point3D pt)
+	{
+	    Point3D dir = direction(this,pt);
+	    return dir.headingXY();
+	}
+	
 	
 	@Override
 	public int compareTo(Point3D pt)
@@ -224,7 +259,7 @@ public class Point3D implements Comparable<Point3D>
 	}
 	public String info()
 	{
-		return "(" + m_x + "," + m_y + "," + m_z + ") time: " + m_t;
+	    return String.format("(%.3f,%.3f,%.3f) t:%.4f)",m_x,m_y,m_z,m_t);
 	} 
 	
 	public String infoI()

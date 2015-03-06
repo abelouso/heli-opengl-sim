@@ -55,7 +55,9 @@ public class Apachi extends StigChopper
     private double m_tiltR = 0.0;
     private double m_stabSpeedR = 0.0;
     
-    private double m_airSpeed = 0.0;
+    private double m_curSpeed = 0.0;
+    private double m_curHead = 0.0;
+    private double m_curAlt = 0.0;
     
     private double m_sumActSpeed = 0.0;
     
@@ -76,10 +78,11 @@ public class Apachi extends StigChopper
         m_heading.start();
 
         m_speed = new ApachiSpeed(this, world);
-        m_speed.setTarget(0.0);
+        m_speed.setTarget(0.0,-1.0);
         m_speed.start();
         
         hover(30);
+        maintainHeading(320);
         //world.requestSettings(id, m_rotSpeedR, m_tiltR, m_stabSpeedR);
         inventory = 16;
     }
@@ -95,45 +98,17 @@ public class Apachi extends StigChopper
     
     public void render(GLAutoDrawable drawable, double actHeading, double actTilt, double rotorPos, double tailRotorPos) 
     {
-        
+        int slow = 120;
         double wts = world.getTimestamp();
-        if(wts > 20 && wts < 60)
+        if(wts > 30 && wts < slow)
         {
             maintainAlt(90);
-            
-            if(wts > 20) setDesiredStabilizerSpeed(m_stabSpeedR - 2);
-            if(wts > 21)
-            {
-               setDesiredStabilizerSpeed(ChopperInfo.STABLE_TAIL_ROTOR_SPEED);
-            }
-            setDesiredTilt(1.0);
-            if(wts > 40)
-            {
-                setDesiredStabilizerSpeed(m_stabSpeedR + 2);
-            }
-            if(wts > 41)
-            {
-               setDesiredStabilizerSpeed(ChopperInfo.STABLE_TAIL_ROTOR_SPEED);
-            }
-            if(wts > 54) 
-                setDesiredTilt(-6.4);
-            if(wts > 59)
-            {
-                setDesiredTilt(0.0);
-            }
-            
+            maintainSpeed(1500.0,-1.0);
         }
-        else if(wts >= 60 && wts < 90)
+
+        if(wts > slow)
         {
-            
-            setDesiredTilt(0.0);
-            maintainAlt(15);
-            setDesiredStabilizerSpeed(ChopperInfo.STABLE_TAIL_ROTOR_SPEED);
-            
-        }
-        else if(wts >= 90)
-        {
-            hover(-1.0);
+            maintainSpeed(0.0,-1.0);
         }
         
         super.render(drawable, actHeading, actTilt, rotorPos, tailRotorPos);
@@ -211,7 +186,17 @@ public class Apachi extends StigChopper
     
     synchronized public void setCurrentSpeed(double speed)
     {
-        m_airSpeed = speed;
+        m_curSpeed = speed;
+    }
+    
+    synchronized public void setCurrentHeading(double head)
+    {
+        m_curHead = head;
+    }
+    
+    synchronized public void setCurrentAlt(double alt)
+    {
+        m_curAlt = alt;
     }
     
     synchronized public double estHoverSpeed(double revs)
@@ -227,11 +212,11 @@ public class Apachi extends StigChopper
                 + ", cor: " + f(cf)
                 + ", burnt: " + f(burnt)
                // + ", min: " + f(eT_min)
-                + ", rem: " + f(fuel),DBG);
+                + ", rem: " + f(fuel),0);
                 
         double wt = ChopperAggregator.ITEM_WEIGHT * itemCount() + ChopperAggregator.BASE_MASS + fuel;
         double res = wt * ChopperInfo.EARTH_ACCELERATION / ChopperInfo.THRUST_PER_RPM;
-        World.dbg(TAG,"Total weight: " + f(wt) + " kg, desired: " + f(res) + " rpm",0);
+        World.dbg(TAG,"Total weight: " + f(wt) + " kg, desired: " + f(res) + " rpm",DBG);
         return res;
     }
     
@@ -239,7 +224,7 @@ public class Apachi extends StigChopper
     {
         setDesiredStabilizerSpeed(ChopperInfo.STABLE_TAIL_ROTOR_SPEED);
         maintainAlt(alt);
-        m_speed.setTarget(0.0);
+        m_speed.setTarget(0.0,-1.0);
     }
     
     public void maintainAlt(double alt)
@@ -247,6 +232,15 @@ public class Apachi extends StigChopper
         m_alt.setTarget(alt);
     }
     
+    public void maintainHeading(double head_deg)
+    {
+        m_heading.setTarget(head_deg);
+    }
+    
+    public void maintainSpeed(double spd_ms, double time_sec)
+    {
+        m_speed.setTarget(spd_ms,time_sec);
+    }
     static public String f(double n)
     {
         return String.format("%.4f",n);
