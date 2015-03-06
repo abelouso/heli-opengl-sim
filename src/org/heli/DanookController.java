@@ -87,12 +87,14 @@ public class DanookController extends Thread
 		Point3D lastPosition = null;
 		double currTime = 0.0;
 		double lastTime = 0.0;
+		double worldDivider = myWorld.timeRatio();
+		long deltaTime = Math.round(20.0 / worldDivider);
     	while (true)
     	{
     		try
     		{
     			// Do smart stuff...
-    			Thread.sleep(2);
+    			Thread.sleep(deltaTime);
     			synchronized(myWorld)
     			{
     				actualPosition = myWorld.gps(myChopper.getId());
