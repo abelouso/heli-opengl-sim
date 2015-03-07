@@ -82,8 +82,7 @@ public class Apachi extends StigChopper
         m_speed.start();
         
         hover(30);
-        maintainHeading(320);
-        //world.requestSettings(id, m_rotSpeedR, m_tiltR, m_stabSpeedR);
+        maintainHeading(315);
         inventory = 16;
     }
     /** This method renders a chopper.  We'll get the position from the world.
@@ -98,17 +97,22 @@ public class Apachi extends StigChopper
     
     public void render(GLAutoDrawable drawable, double actHeading, double actTilt, double rotorPos, double tailRotorPos) 
     {
-        int slow = 120;
+        int slow = 70;
         double wts = world.getTimestamp();
         if(wts > 30 && wts < slow)
         {
             maintainAlt(90);
-            maintainSpeed(1500.0,-1.0);
+            maintainSpeed(5.0,-1.0);
         }
 
-        if(wts > slow)
+        if(wts > slow && m_curSpeed > 0.05)
         {
             maintainSpeed(0.0,-1.0);
+        }
+        
+        if(wts > slow && m_curSpeed < 0.049)
+        {
+            hover(-1.0);
         }
         
         super.render(drawable, actHeading, actTilt, rotorPos, tailRotorPos);
@@ -241,6 +245,12 @@ public class Apachi extends StigChopper
     {
         m_speed.setTarget(spd_ms,time_sec);
     }
+    
+    synchronized public void turnIntoDOT(double dot)
+    {
+        maintainHeading(dot);
+    }
+    
     static public String f(double n)
     {
         return String.format("%.4f",n);

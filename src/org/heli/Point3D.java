@@ -176,7 +176,7 @@ public class Point3D implements Comparable<Point3D>
 	//this is used as vector, result is 0 to 360
 	public double headingXY()
 	{
-	    double res = Math.atan2(m_y, m_x) * 180.0 / Math.PI;
+	    double res = Math.atan2(m_x, m_y) * 180.0 / Math.PI;
 	    if(res < 0.0) res += 360.0;
 	    return res;
 	}

@@ -83,49 +83,49 @@ public class ApachiHeading extends Thread
             {
                 double heading = dir.m_x;//dir.headingXY();
                 m_chopper.setCurrentHeading(heading);
-                long now = (long)(m_world.getTimestamp() * 1000.0);
-                double deltaT = (double)(now - m_lastTS);
-                double tS = deltaT * 0.001;
+                double now = pos.m_t;
                 if(m_lastGPS != null)
                 {
-                    m_airSpeed = 1000.0 * pos.distanceXY(m_lastGPS) / tS; //m/s
-                }
-                World.dbg(TAG,
-                        "current heading (deg): " + Apachi.f(heading)
-                        + ", target: " + Apachi.f(m_target)
-                        + ", air speed: " + Apachi.f(m_airSpeed)
-                        ,DBG);
-                if(pos.m_z > 0.0)
-                {
-                    if(firstAfterTakeOff)
+                    double deltaT = (double)(now - m_lastTS);
+                    m_airSpeed = pos.distanceXY(m_lastGPS) / deltaT; //m/s
+                    World.dbg(TAG,
+                            "current heading (deg): " + Apachi.f(heading)
+                            + ", target: " + Apachi.f(m_target)
+                            + ", air speed: " + Apachi.f(m_airSpeed)
+                            ,DBG);
+                    if(pos.m_z > 0.0)
                     {
-                        firstAfterTakeOff = false;
-                    }
-                    //only in flight
-                    if(Math.abs(m_target - dir.m_x) > m_tol)
-                    {
-                        //need to adjust, but only if air speed is slow
-                        if(m_airSpeed < 0.03)
+                        if(firstAfterTakeOff)
                         {
-                            adjustStabilizerSpeed(dir.m_x);
+                            firstAfterTakeOff = false;
+                        }
+                        //only in flight
+                        if(Math.abs(m_target - dir.m_x) > m_tol)
+                        {
+                            //need to adjust, but only if air speed is slow
+                            if(m_airSpeed < 0.03)
+                            {
+                                adjustStabilizerSpeed(dir.m_x);
+                            }
+                            else
+                            {
+                                //make sure we are stable
+                                m_chopper.setDesiredStabilizerSpeed(ChopperInfo.STABLE_TAIL_ROTOR_SPEED);
+                            }
                         }
                         else
                         {
-                            //make sure we are stable
                             m_chopper.setDesiredStabilizerSpeed(ChopperInfo.STABLE_TAIL_ROTOR_SPEED);
                         }
                     }
                     else
                     {
-                        m_chopper.setDesiredStabilizerSpeed(ChopperInfo.STABLE_TAIL_ROTOR_SPEED);
+                        firstAfterTakeOff = true;
                     }
-                }
-                else
-                {
-                    firstAfterTakeOff = true;
                 }
                 m_lastGPS = pos.copy();
                 m_lastHeading = heading;
+                m_lastTS = now;
             }
             catch(Exception e)
             {

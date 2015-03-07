@@ -45,12 +45,12 @@ public class ApachiSpeed extends Thread
     public static final long DBG = 0x10;
     public static final int RT_SLEEP = 200;
     public static final double CHNGE_INC = 0.2; //deg
-    public static final double POS_TILT = -1.0;
+    public static final double POS_TILT = 1.0;
     //TODO create neural network which learns rotor speed for alt
     protected World m_world;
     protected double m_target = 0.0;
     protected Apachi m_chopper;
-    protected double m_tol = 0.1; //meters/sec
+    protected double m_tol = 0.05; //meters/sec
     
     protected Point3D m_lastGPS = null;
     
@@ -79,60 +79,59 @@ public class ApachiSpeed extends Thread
         while(true)
         {
             Point3D pos = null;
+            double heading = 0.0;
             synchronized (m_world)
             {
+                heading = m_world.transformations(m_chopper.getId()).m_x;
                 pos = m_world.gps(m_chopper.getId());
             }
             try
             {
-                long now = (long)(m_world.getTimestamp() * 1000.0);
+                double now = pos.m_t;
                 double airSpeed = 0.0;
                 if(m_howLong > 0.0 && (now - m_targetTime) > m_howLong)
                 {
                     World.dbg(TAG,"Stopping, ran for that time",DBG);
                     m_target = 0.0; //stop
                 }
-                double deltaT = (double)(now - m_lastTS);
-                double tS = deltaT * 0.001;
                 if(m_lastGPS != null)
                 {
-                    airSpeed = 1000.0 * pos.distanceXY(m_lastGPS) / tS; //m/s
+                    double deltaT = (double)(now - m_lastTS);
+                    airSpeed = pos.distanceXY(m_lastGPS) / deltaT; //m/s
                     double dot = pos.headingXY(m_lastGPS);
                     m_chopper.setCurrentSpeed(airSpeed);
                     double dSpeed = Math.abs(airSpeed - m_target);
-                    double prevDSpeed = Math.abs(m_airSpeed - m_target);
                     boolean atSpeed = dSpeed < m_tol;
                     double tiltCor = 1.0;//(dSpeed < prevDSpeed)?1.0:-1.0;
-                    double accel = (airSpeed - m_airSpeed) / tS;
+                    double accel = (airSpeed - m_airSpeed) / deltaT;
                     //now that we have air speed
                     double startDecel = 0.1 * m_spdDist;
-                    double estSpeed = airSpeed + tS * accel;
+                    double estSpeed = airSpeed + deltaT * accel;
                     World.dbg(TAG,
                             "spd: " + Apachi.f(airSpeed)
                             +",acc: " + Apachi.f(accel)
                             +",estSpeed: " + Apachi.f(estSpeed)
                             + ", DOT: " + Apachi.f(dot)
                             ,DBG);
-                    if(Math.abs(estSpeed - m_target) < (startDecel * m_tol))
-                    {
-                        World.dbg(TAG,"### Decelerating",DBG);
-                        boolean keepDecel = Math.abs(accel) > 0.001;
-                        if(keepDecel)
+                        if(Math.abs(estSpeed - m_target) < (startDecel * m_tol))
                         {
-                            m_chopper.setDesiredTilt(POS_TILT * -1.0 * 0.1 * tiltCor * accel);
+                            World.dbg(TAG,"### Decelerating",DBG);
+                            boolean keepDecel = Math.abs(accel) > 0.001;
+                            if(keepDecel)
+                            {
+                                m_chopper.setDesiredTilt(POS_TILT * -1.0 * 0.1 * tiltCor * accel);
+                            }
                         }
-                    }
-                    if(!atSpeed)
-                    {
-                        World.dbg(TAG,"@@@@ NOT At speed, adjusting",DBG);
-                        adjustTilt(airSpeed, accel, tiltCor);
-                    }
-                    else
-                    {
-                        World.dbg(TAG,"@@@@@@@@@@ speed",DBG);
-                        m_chopper.setDesiredTilt(0.0);
-                    }
-                    
+                        if(!atSpeed)
+                        {
+                            World.dbg(TAG,"@@@@ NOT At speed, adjusting",DBG);
+                            adjustTilt(airSpeed, accel, tiltCor);
+                        }
+                        else
+                        {
+                            World.dbg(TAG,"@@@@@@@@@@ speed",DBG);
+                            m_chopper.setDesiredTilt(0.0);
+                        }
                 }
                 m_airSpeed = airSpeed;
                 m_lastGPS = pos.copy();
@@ -160,7 +159,7 @@ public class ApachiSpeed extends Thread
     void adjustTilt(double speed, double accel, double tiltCor)
     {
         double ds = Math.abs(speed - m_target);
-        double inc = 0.05 * ds;
+        double inc = 1.0 * ds;
         double tilt = 0.0;
         if(Math.abs(accel) < 15.0)
         {
