@@ -201,7 +201,7 @@ public class ChopperInfo
 			}
 		}
 		// 1 RPM = 6 degrees per second
-		tailRotorPosition_Degrees += actTailRotorSpeed_RPM * elapsedTime / 60.0;
+		tailRotorPosition_Degrees += actTailRotorSpeed_RPM * elapsedTime * 60.0;
 		while (tailRotorPosition_Degrees >= 360.0)
 		{
 			tailRotorPosition_Degrees -= 360.0; // Just for drawing

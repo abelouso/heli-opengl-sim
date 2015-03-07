@@ -134,7 +134,10 @@ public class StigChopper {
 				gl.glColor4dv(objColor, 0);
 				World.drawRectangles(gl,bufferArray, true);
 			}
+			gl.glColor4dv(objColor, 0);
         }
+        drawTopRotorPyramid(gl, centerPos.copy());
+        //drawWindows(gl, centerPos.copy());
         drawRearFrame(gl, centerPos.copy());
         drawTopRotor(gl, centerPos.copy(), rotorPos);
         drawTailRotor(gl, centerPos.copy(), tailRotorPos, 0.3);
@@ -142,9 +145,86 @@ public class StigChopper {
         gl.glPopMatrix();
 	}
 	
+	private void drawWindows(GL2 gl, Point3D centerPos)
+	{
+		gl.glColor4d(0.20, 0.2, 0.2, 0.2);
+		gl.glBegin(gl.GL_TRIANGLES);
+		// Draw Left Top Angled Window
+		gl.glVertex3d(centerPos.m_x - 0.5, centerPos.m_y - 2.5, centerPos.m_z + 0.5);
+		gl.glVertex3d(centerPos.m_x - 1.0, centerPos.m_y - 2.0, centerPos.m_z + 0.5);
+		gl.glVertex3d(centerPos.m_x - 0.5, centerPos.m_y - 2.0, centerPos.m_z + 1.0);
+		// Draw Right Top Angled Window
+		gl.glVertex3d(centerPos.m_x + 1.0, centerPos.m_y - 2.0, centerPos.m_z + 0.5);
+		gl.glVertex3d(centerPos.m_x + 0.5, centerPos.m_y - 2.5, centerPos.m_z + 0.5);
+		gl.glVertex3d(centerPos.m_x + 0.5, centerPos.m_y - 2.0, centerPos.m_z + 1.0);
+		gl.glEnd();
+		// Draw Front Top Straight Window
+		gl.glBegin(gl.GL_QUADS);
+		gl.glVertex3d(centerPos.m_x + 0.5, centerPos.m_y - 2.5, centerPos.m_z + 0.5);
+		gl.glVertex3d(centerPos.m_x - 0.5, centerPos.m_y - 2.5, centerPos.m_z + 0.5);
+		gl.glVertex3d(centerPos.m_x - 0.5, centerPos.m_y - 2.0, centerPos.m_z + 1.0);
+		gl.glVertex3d(centerPos.m_x + 0.5, centerPos.m_y - 2.0, centerPos.m_z + 1.0);
+		gl.glEnd();
+		gl.glBegin(gl.GL_TRIANGLES);
+		// Draw Left Bottom Angled Window
+		gl.glVertex3d(centerPos.m_x - 0.5, centerPos.m_y - 2.5, centerPos.m_z - 0.5);
+		gl.glVertex3d(centerPos.m_x - 1.0, centerPos.m_y - 2.0, centerPos.m_z - 0.5);
+		gl.glVertex3d(centerPos.m_x - 0.5, centerPos.m_y - 2.0, centerPos.m_z - 1.0);
+		// Draw Right Bottom Angled Window
+		gl.glVertex3d(centerPos.m_x + 1.0, centerPos.m_y - 2.0, centerPos.m_z - 0.5);
+		gl.glVertex3d(centerPos.m_x + 0.5, centerPos.m_y - 2.5, centerPos.m_z - 0.5);
+		gl.glVertex3d(centerPos.m_x + 0.5, centerPos.m_y - 2.0, centerPos.m_z - 1.0);
+		gl.glEnd();
+		// Draw Front Bottom Straight Window
+		gl.glBegin(gl.GL_QUADS);
+		gl.glVertex3d(centerPos.m_x + 0.5, centerPos.m_y - 2.0, centerPos.m_z - 1.0);
+		gl.glVertex3d(centerPos.m_x - 0.5, centerPos.m_y - 2.0, centerPos.m_z - 1.0);
+		gl.glVertex3d(centerPos.m_x - 0.5, centerPos.m_y - 2.5, centerPos.m_z - 0.5);
+		gl.glVertex3d(centerPos.m_x + 0.5, centerPos.m_y - 2.5, centerPos.m_z - 0.5);
+		// Draw Left Straight Window
+		gl.glVertex3d(centerPos.m_x - 0.5, centerPos.m_y - 2.5, centerPos.m_z + 0.5);
+		gl.glVertex3d(centerPos.m_x - 0.5, centerPos.m_y - 2.5, centerPos.m_z - 0.5);
+		gl.glVertex3d(centerPos.m_x - 0.5, centerPos.m_y - 2.0, centerPos.m_z - 0.5);
+		gl.glVertex3d(centerPos.m_x - 0.5, centerPos.m_y - 2.0, centerPos.m_z + 0.5);
+		// Draw Right Straight Window
+		gl.glVertex3d(centerPos.m_x + 0.5, centerPos.m_y - 2.0, centerPos.m_z + 0.5);
+		gl.glVertex3d(centerPos.m_x + 0.5, centerPos.m_y - 2.0, centerPos.m_z - 0.5);
+		gl.glVertex3d(centerPos.m_x + 0.5, centerPos.m_y - 2.5, centerPos.m_z - 0.5);
+		gl.glVertex3d(centerPos.m_x + 0.5, centerPos.m_y - 2.5, centerPos.m_z + 0.5);
+		gl.glEnd();
+	}
+	
+	private void drawTopRotorPyramid(GL2 gl, Point3D centerPos)
+	{
+		gl.glBegin(gl.GL_TRIANGLE_STRIP);
+		gl.glVertex3d(centerPos.m_x - 0.5, centerPos.m_y - 1.75, centerPos.m_z + 1.0);
+		gl.glVertex3d(centerPos.m_x - 0.5, centerPos.m_y - 0.75, centerPos.m_z + 1.0);
+		gl.glVertex3d(centerPos.m_x, centerPos.m_y - 1.25, centerPos.m_z + 1.5);
+		gl.glVertex3d(centerPos.m_x + 0.5, centerPos.m_y - 0.75, centerPos.m_z + 1.0);
+		gl.glVertex3d(centerPos.m_x + 0.5, centerPos.m_y - 1.75, centerPos.m_z + 1.0);
+		gl.glVertex3d(centerPos.m_x - 0.5, centerPos.m_y - 1.75, centerPos.m_z + 1.0);
+		gl.glEnd();
+		gl.glBegin(gl.GL_LINES);
+		gl.glColor3d(0.25, 0.25, 0.25);
+		gl.glVertex3d(centerPos.m_x - 0.5, centerPos.m_y - 1.75, centerPos.m_z + 1.0);
+		gl.glVertex3d(centerPos.m_x - 0.5, centerPos.m_y - 0.75, centerPos.m_z + 1.0);
+		gl.glVertex3d(centerPos.m_x, centerPos.m_y - 1.25, centerPos.m_z + 1.5);
+		gl.glVertex3d(centerPos.m_x - 0.5, centerPos.m_y - 0.75, centerPos.m_z + 1.0);
+		gl.glVertex3d(centerPos.m_x + 0.5, centerPos.m_y - 0.75, centerPos.m_z + 1.0);
+		gl.glVertex3d(centerPos.m_x, centerPos.m_y - 1.25, centerPos.m_z + 1.5);
+		gl.glVertex3d(centerPos.m_x + 0.5, centerPos.m_y - 0.75, centerPos.m_z + 1.0);
+		gl.glVertex3d(centerPos.m_x + 0.5, centerPos.m_y - 1.75, centerPos.m_z + 1.0);
+		gl.glVertex3d(centerPos.m_x, centerPos.m_y - 1.25, centerPos.m_z + 1.5);
+		gl.glVertex3d(centerPos.m_x + 0.5, centerPos.m_y - 1.75, centerPos.m_z + 1.0);
+		gl.glVertex3d(centerPos.m_x - 0.5, centerPos.m_y - 1.75, centerPos.m_z + 1.0);
+		gl.glVertex3d(centerPos.m_x, centerPos.m_y - 1.25, centerPos.m_z + 1.5);
+		gl.glEnd();
+	}
+	
 	private void drawRearFrame(GL2 gl, Point3D centerPos)
 	{
 		gl.glBegin(gl.GL_LINES);
+		gl.glColor3d(0.75, 0.75, 0.75);
 		// Draw 4 lines to contain the frame
 		gl.glVertex3d(centerPos.m_x - 0.5, centerPos.m_y, centerPos.m_z + 0.5);
 		gl.glVertex3d(centerPos.m_x - 0.25, centerPos.m_y + 1.5, centerPos.m_z + 0.25);
@@ -174,7 +254,46 @@ public class StigChopper {
 		gl.glVertex3d(centerPos.m_x + 0.5 - (0.25*0.33), centerPos.m_y + 0.5, centerPos.m_z - 0.5 + (0.25*0.33));
 		gl.glVertex3d(centerPos.m_x + 0.5, centerPos.m_y, centerPos.m_z - 0.5);
 		gl.glVertex3d(centerPos.m_x - 0.5 + (0.25*0.33), centerPos.m_y + 0.5, centerPos.m_z - 0.5 + (0.25*0.33));
-		
+		// Draw second left X
+		gl.glVertex3d(centerPos.m_x - 0.5 + (0.25*0.33), centerPos.m_y + 0.5, centerPos.m_z + 0.5 - (0.25*0.66));
+		gl.glVertex3d(centerPos.m_x - 0.5 + (0.25*0.66), centerPos.m_y + 1.0, centerPos.m_z - 0.5 + (0.25*0.33));
+		gl.glVertex3d(centerPos.m_x - 0.5 + (0.25*0.33), centerPos.m_y + 0.5, centerPos.m_z - 0.5 + (0.25*0.66));
+		gl.glVertex3d(centerPos.m_x - 0.5 + (0.25*0.66), centerPos.m_y + 1.0, centerPos.m_z + 0.5 - (0.25*0.33));
+		// Draw second Right X
+		gl.glVertex3d(centerPos.m_x + 0.5 - (0.25*0.33), centerPos.m_y + 0.5, centerPos.m_z + 0.5 - (0.25*0.66));
+		gl.glVertex3d(centerPos.m_x + 0.5 - (0.25*0.66), centerPos.m_y + 1.0, centerPos.m_z - 0.5 + (0.25*0.33));
+		gl.glVertex3d(centerPos.m_x + 0.5 - (0.25*0.33), centerPos.m_y + 0.5, centerPos.m_z - 0.5 + (0.25*0.66));
+		gl.glVertex3d(centerPos.m_x + 0.5 - (0.25*0.66), centerPos.m_y + 1.0, centerPos.m_z + 0.5 - (0.25*0.33));
+		// Draw second Top X
+		gl.glVertex3d(centerPos.m_x - 0.5 + (0.25*0.66), centerPos.m_y + 0.5, centerPos.m_z + 0.5 - (0.25*0.33));
+		gl.glVertex3d(centerPos.m_x + 0.5 - (0.25*0.33), centerPos.m_y + 1.0, centerPos.m_z + 0.5 - (0.25*0.66));
+		gl.glVertex3d(centerPos.m_x + 0.5 - (0.25*0.66), centerPos.m_y + 0.5, centerPos.m_z + 0.5 - (0.25*0.33));
+		gl.glVertex3d(centerPos.m_x - 0.5 + (0.25*0.33), centerPos.m_y + 1.0, centerPos.m_z + 0.5 - (0.25*0.66));
+		// Draw second Bottom X
+		gl.glVertex3d(centerPos.m_x - 0.5 + (0.25*1.0), centerPos.m_y + 0.5, centerPos.m_z - 0.5 + (0.25*0.66));
+		gl.glVertex3d(centerPos.m_x + 0.5 - (0.25*0.66), centerPos.m_y + 1.0, centerPos.m_z - 0.5 + (0.25*1.0));
+		gl.glVertex3d(centerPos.m_x + 0.5 - (0.25*1.0), centerPos.m_y + 0.5, centerPos.m_z - 0.5 + (0.25*0.66));
+		gl.glVertex3d(centerPos.m_x - 0.5 + (0.25*0.66), centerPos.m_y + 1.0, centerPos.m_z - 0.5 + (0.25*1.0));
+		// Draw third left X
+		gl.glVertex3d(centerPos.m_x - 0.5 + (0.25*0.66), centerPos.m_y + 1.0, centerPos.m_z + 0.5 - (0.25*1.0));
+		gl.glVertex3d(centerPos.m_x - 0.5 + (0.25*1.0), centerPos.m_y + 1.5, centerPos.m_z - 0.5 + (0.25*0.66));
+		gl.glVertex3d(centerPos.m_x - 0.5 + (0.25*0.66), centerPos.m_y + 1.0, centerPos.m_z - 0.5 + (0.25*1.0));
+		gl.glVertex3d(centerPos.m_x - 0.5 + (0.25*1.0), centerPos.m_y + 1.5, centerPos.m_z + 0.5 - (0.25*0.66));
+		// Draw third Right X
+		gl.glVertex3d(centerPos.m_x + 0.5 - (0.25*0.66), centerPos.m_y + 1.0, centerPos.m_z + 0.5 - (0.25*1.0));
+		gl.glVertex3d(centerPos.m_x + 0.5 - (0.25*1.0), centerPos.m_y + 1.5, centerPos.m_z - 0.5 + (0.25*0.66));
+		gl.glVertex3d(centerPos.m_x + 0.5 - (0.25*0.66), centerPos.m_y + 1.0, centerPos.m_z - 0.5 + (0.25*1.0));
+		gl.glVertex3d(centerPos.m_x + 0.5 - (0.25*1.0), centerPos.m_y + 1.5, centerPos.m_z + 0.5 - (0.25*0.66));
+		// Draw third Top X
+		gl.glVertex3d(centerPos.m_x - 0.5 + (0.25*1.0), centerPos.m_y + 1.0, centerPos.m_z + 0.5 - (0.25*0.66));
+		gl.glVertex3d(centerPos.m_x + 0.5 - (0.25*0.66), centerPos.m_y + 1.5, centerPos.m_z + 0.5 - (0.25*1.0));
+		gl.glVertex3d(centerPos.m_x + 0.5 - (0.25*1.0), centerPos.m_y + 1.0, centerPos.m_z + 0.5 - (0.25*0.66));
+		gl.glVertex3d(centerPos.m_x - 0.5 + (0.25*0.66), centerPos.m_y + 1.5, centerPos.m_z + 0.5 - (0.25*1.0));
+		// Draw third Bottom X
+		gl.glVertex3d(centerPos.m_x - 0.5 + (0.25*1.0), centerPos.m_y + 1.0, centerPos.m_z - 0.5 + (0.25*0.66));
+		gl.glVertex3d(centerPos.m_x + 0.5 - (0.25*0.66), centerPos.m_y + 1.5, centerPos.m_z - 0.5 + (0.25*1.0));
+		gl.glVertex3d(centerPos.m_x + 0.5 - (0.25*1.0), centerPos.m_y + 1.0, centerPos.m_z - 0.5 + (0.25*0.66));
+		gl.glVertex3d(centerPos.m_x - 0.5 + (0.25*0.66), centerPos.m_y + 1.5, centerPos.m_z - 0.5 + (0.25*1.0));		
 		gl.glEnd();
 	}
 	
@@ -213,13 +332,11 @@ public class StigChopper {
     	// Draw tail rotor
     	gl.glBegin(gl.GL_LINES);
     	gl.glColor3d(1.0, 1.0, 0.0);
-    	// All 3 rotor blades start in the center
+    	// Both rotor blades start in the center
     	gl.glVertex3d(centerPos.m_x, centerPos.m_y, centerPos.m_z);
     	gl.glVertex3d(centerPos.m_x, centerPos.m_y, centerPos.m_z + 0.5);
     	gl.glVertex3d(centerPos.m_x, centerPos.m_y, centerPos.m_z);
-    	gl.glVertex3d(centerPos.m_x, centerPos.m_y - 0.43, centerPos.m_z - 0.33);
-    	gl.glVertex3d(centerPos.m_x, centerPos.m_y, centerPos.m_z);
-    	gl.glVertex3d(centerPos.m_x, centerPos.m_y + 0.43, centerPos.m_z - 0.33);
+    	gl.glVertex3d(centerPos.m_x, centerPos.m_y, centerPos.m_z - 0.5);
     	gl.glEnd();
     	gl.glPopMatrix();
 	}
