@@ -28,11 +28,11 @@ public class DanookController extends Thread
 	
 	private static final double MAX_VERT_VELOCITY = 2.5;
 	
-	private static final double MAX_HORZ_VELOCITY = 5.0;
+	private static final double MAX_HORZ_VELOCITY = 2.5;
 	
 	private static final double MAX_VERT_ACCEL = 0.5;
 	
-	private static final double MAX_HORZ_ACCEL = 1.0;
+	private static final double MAX_HORZ_ACCEL = 0.5;
 	
 	private static final double DECEL_DISTANCE_VERT = 10.0;
 	
@@ -240,37 +240,50 @@ public class DanookController extends Thread
 		myState = controlAltitude(myState);
     }
     
+    
     public boolean approachTarget()
     {
     	if (currentDestination == null)
     	{
     		return false;
     	}
-    	double distance = actualPosition.distanceXY(currentDestination);
-    	double targetLateralVelocity = computeDesiredVelocity(0.0,distance,false);
-    	double estimatedLateralVelocity = Math.sqrt(estimatedVelocity.m_x * estimatedVelocity.m_x + estimatedVelocity.m_y * estimatedVelocity.m_y);
-    	double deltaVelocity = targetLateralVelocity - estimatedLateralVelocity;
-    	double targetLateralAcceleration = computeDesiredAcceleration(estimatedLateralVelocity, targetLateralVelocity,false);
-    	double estimatedLateralAcceleration = Math.sqrt(estimatedAcceleration.m_x * estimatedAcceleration.m_x + estimatedAcceleration.m_y * estimatedAcceleration.m_y);
-    	double deltaAcceleration = targetLateralAcceleration - estimatedLateralAcceleration;
-    	if (deltaAcceleration > MAX_HORZ_ACCEL)
+    	Point3D deltaVector = Point3D.diff(currentDestination,  actualPosition);
+    	// Compute X Acceleration
+    	double targetXVelocity = computeDesiredVelocity(actualPosition.m_x,currentDestination.m_x,false);
+    	double targetXAcceleration = computeDesiredAcceleration(estimatedVelocity.m_x, targetXVelocity,false);
+    	double deltaXAcceleration = targetXAcceleration - estimatedAcceleration.m_x;
+    	if (deltaXAcceleration > MAX_HORZ_ACCEL)
     	{
-    		deltaAcceleration = MAX_HORZ_ACCEL;
+    		deltaXAcceleration = MAX_HORZ_ACCEL;
     	}
-    	if (deltaAcceleration < (-MAX_HORZ_ACCEL))
+    	if (deltaXAcceleration < (-MAX_HORZ_ACCEL))
     	{
-    		deltaAcceleration = (-MAX_HORZ_ACCEL);
+    		deltaXAcceleration = (-MAX_HORZ_ACCEL);
+    	}
+    	// Repeat for Y
+    	double targetYVelocity = computeDesiredVelocity(actualPosition.m_y,currentDestination.m_y,false);
+    	double targetYAcceleration = computeDesiredAcceleration(estimatedVelocity.m_y, targetYVelocity,false);
+    	double deltaYAcceleration = targetYAcceleration - estimatedAcceleration.m_y;
+    	if (deltaYAcceleration > MAX_HORZ_ACCEL)
+    	{
+    		deltaYAcceleration = MAX_HORZ_ACCEL;
+    	}
+    	if (deltaYAcceleration < (-MAX_HORZ_ACCEL))
+    	{
+    		deltaYAcceleration = (-MAX_HORZ_ACCEL);
+    	}
+    	// Compute magnitude of acceleration
+    	double deltaAcceleration = Math.sqrt(deltaXAcceleration * deltaXAcceleration + deltaYAcceleration * deltaYAcceleration);
+    	// check heading
+    	double accelHeading = Math.toDegrees(Math.atan2(deltaXAcceleration,deltaYAcceleration));
+    	double moveHeading = Math.toDegrees(Math.atan2(deltaVector.m_x, deltaVector.m_y));
+    	double deltaAngle = Math.abs(accelHeading - moveHeading);
+    	if (deltaAngle > 90) // We're going backwards
+    	{
+    		deltaAcceleration *= -1.0;
     	}
     	desTilt_Degrees += deltaAcceleration * HORZ_CONTROL_FACTOR;
     	myWorld.requestSettings(myChopper.getId(), desMainRotorSpeed_RPM, desTilt_Degrees, desTailRotorSpeed_RPM);
-    	int msTime = (int)Math.floor(myWorld.getTimestamp() * 1000);
-    	int desVel = (int)Math.floor(targetLateralVelocity * 1000);
-    	int actVel = (int)Math.floor(estimatedLateralVelocity * 1000);
-    	int desAcc = (int)Math.floor(targetLateralAcceleration * 1000);
-    	int actAcc = (int)Math.floor(estimatedLateralAcceleration * 1000);
-    	int distance_mm = (int)Math.floor(distance * 1000);
-    	World.dbg(TAG," Time: " + msTime + ", Distance: " + distance_mm + ", actVel: " + actVel + ", desVel: " + desVel + ", actAcc: " +
-    			actAcc + ", desired accel: " + desAcc + ", tiltChange: " + (deltaAcceleration * HORZ_CONTROL_FACTOR) + ", new: " + desTilt_Degrees,DC_DBG);
     	return true;
     }
     
