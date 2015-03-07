@@ -37,4 +37,24 @@ public class Danook extends StigChopper
     {
     	return targetWaypoints;
     }
+    
+    @Override
+	public void render(GLAutoDrawable drawable, double actHeading, double actTilt, double rotorPos, double tailRotorPos)
+	{
+		super.render(drawable, actHeading, actTilt, rotorPos, tailRotorPos);
+        GL2 gl = drawable.getGL().getGL2();
+		Point3D myTarget = myThread.getDestination();
+		if (myTarget != null)
+		{
+			gl.glBegin(gl.GL_TRIANGLE_STRIP);
+			gl.glColor4d(1.0, 0.25, 0.25, 0.5);
+			gl.glVertex3d(myTarget.m_x - 5.0, myTarget.m_y - 5.0, myTarget.m_z);
+			gl.glVertex3d(myTarget.m_x - 5.0, myTarget.m_y + 5.0, myTarget.m_z);
+			gl.glVertex3d(myTarget.m_x, myTarget.m_y, myTarget.m_z + 75.0);
+			gl.glVertex3d(myTarget.m_x + 5.0, myTarget.m_y + 5.0, myTarget.m_z);
+			gl.glVertex3d(myTarget.m_x - 5.0, myTarget.m_y + 5.0, myTarget.m_z);
+			gl.glEnd();
+		}
+
+	}
 }

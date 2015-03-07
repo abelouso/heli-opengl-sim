@@ -5,6 +5,8 @@ package org.heli;
 
 import java.util.ArrayList;
 
+import javax.media.opengl.GLAutoDrawable;
+
 /** This class will control a Danook Helicopter
  * 
  * @author Daniel
@@ -71,6 +73,18 @@ public class DanookController extends Thread
         currentDestination = null;
 	}
 
+	public Point3D getDestination()
+	{
+		if (currentDestination != null)
+		{
+			return currentDestination.copy();
+		}
+		else
+		{
+			return currentDestination;
+		}
+	}
+	
     @Override
     public void run()
     {
@@ -102,8 +116,8 @@ public class DanookController extends Thread
     			currTime = actualPosition.t();
     			if (currentDestination == null)
     			{
-    				//currentDestination = findClosestDestination();
-    				//World.dbg(TAG,"Got a destination: " + currentDestination.info(),DC_DBG);
+    				currentDestination = findClosestDestination();
+    				World.dbg(TAG,"Got a destination: " + currentDestination.info(),DC_DBG);
     			}
     			if (lastPosition != null && lastTime < currTime)
     			{
@@ -599,5 +613,4 @@ public class DanookController extends Thread
     	desTilt_Degrees = newTilt;
         myWorld.requestSettings(myChopper.getId(),desMainRotorSpeed_RPM,desTilt_Degrees,desTailRotorSpeed_RPM);
     }
-
 }
