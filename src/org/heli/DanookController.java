@@ -19,29 +19,32 @@ public class DanookController extends Thread
     public static final long DC_DBG = 0x2;
 	private static final int STATE_LANDED = 0;
 	private static final int FINDING_HEADING = 1;
-	private static final int APPROACHING_TARGET_ROUGH = 2;
-	private static final int TURN_TOWARD = 3;
-	private static final int SLOWING = 4;
-	private static final int FINE_TUNE_HEADING = 5;
-	private static final int APPROACHING_TARGET_FINE = 6;
-	private static final int DESCENDING = 7;
+	private static final int APPROACHING = 2;
+	private static final int STOPPING = 3;
+	private static final int DESCENDING = 4;
 	
 	private static final double VERT_CONTROL_FACTOR = 3.0;
+	private static final double HORZ_CONTROL_FACTOR = 0.15;
 	
 	private static final double MAX_VERT_VELOCITY = 2.5;
 	
-	private static final double MAX_HORZ_VELOCITY = 10.0;
+	private static final double MAX_HORZ_VELOCITY = 5.0;
 	
 	private static final double MAX_VERT_ACCEL = 0.5;
 	
-	private static final double DECEL_DISTANCE = 10.0;
+	private static final double MAX_HORZ_ACCEL = 1.0;
 	
-	private static final double DECEL_SPEED = 0.5;
+	private static final double DECEL_DISTANCE_VERT = 10.0;
+	
+	private static final double DECEL_DISTANCE_HORZ = 20.0;
+
+	private static final double VERT_DECEL_SPEED = 0.5;
+	
+	private static final double HORZ_DECEL_SPEED = 2.0;
 	
 	private Danook myChopper;
 	private World myWorld;
 	private int myState = STATE_LANDED;
-	private int stateCounter = 0;
 	
     private double desMainRotorSpeed_RPM = 0.0;
     private double desTailRotorSpeed_RPM = 0.0;
@@ -53,6 +56,8 @@ public class DanookController extends Thread
     
     public double desiredHeading;
     public double desiredAltitude;
+    
+    private double lastDistance;
     
     private Point3D currentDestination;
     
@@ -69,6 +74,7 @@ public class DanookController extends Thread
         actualPosition = new Point3D();
         desiredHeading = 0.0;
         desiredAltitude = 0.0;
+        lastDistance = 0.0;
         
         currentDestination = null;
 	}
@@ -118,6 +124,10 @@ public class DanookController extends Thread
     			{
     				currentDestination = findClosestDestination();
     				World.dbg(TAG,"Got a destination: " + currentDestination.info(),DC_DBG);
+    			}
+    			else
+    			{
+    				// TODO: See if we're on the ground at the destination
     			}
     			if (lastPosition != null && lastTime < currTime)
     			{
@@ -175,11 +185,10 @@ public class DanookController extends Thread
     public Point3D estimateVelocity( Point3D lastPos, double deltaTime)
     {
     	Point3D oldVelocity = estimatedVelocity.copy();
+    	double realDelta = actualPosition.t() - lastPos.t();
     	estimatedVelocity.m_x = (actualPosition.m_x - lastPos.m_x) / deltaTime;
     	estimatedVelocity.m_y = (actualPosition.m_y - lastPos.m_y) / deltaTime;
     	estimatedVelocity.m_z = (actualPosition.m_z - lastPos.m_z) / deltaTime;
-    	double newVel = estimatedVelocity.length();
-    	double oldVel = oldVelocity.length();
     	return oldVelocity;
     }
     
@@ -195,7 +204,6 @@ public class DanookController extends Thread
     public void controlTheShip()
     {
     	int nextState = myState;
-    	++stateCounter;
     	switch(myState)
     	{
     	case FINDING_HEADING:
@@ -203,203 +211,67 @@ public class DanookController extends Thread
     		boolean headingOK = adjustHeading(false);
     		if (headingOK)
     		{
-    			nextState = APPROACHING_TARGET_ROUGH;
-    		}
-    		if (stateCounter > 500)
-    		{
-    			nextState = TURN_TOWARD;
+    			// Ensure we run through approaching at least once
+    			lastDistance = 9999.9;
+    			nextState = APPROACHING;
     		}
     		break;
     	}
-    	case APPROACHING_TARGET_ROUGH:
+    	case APPROACHING:
     	{
     		double distance = actualPosition.distanceXY(currentDestination);
-    		World.dbg(TAG,"Approaching? " + distance,DC_DBG);
-    		if (distance > 25.0)
+    		if (distance > lastDistance)
     		{
-    			approachTarget(true);
+    			nextState = STOPPING; // Don't keep going farther away!
     		}
     		else
     		{
-    			nextState = TURN_TOWARD;
-    		}
-    		if (stateCounter > 500)
-    		{
-    			nextState = FINDING_HEADING;
+    			boolean success = approachTarget();
     		}
     		break;
     	}
-    	case TURN_TOWARD:
+    	case STOPPING:
     	{
-    		boolean turnComplete = adjustHeading(true);
-    		if (turnComplete)
-    		{
-    			nextState = SLOWING;
-    		}
-    		break;
-    	}
-    	case SLOWING:
-    	{
-    		boolean stopped = slowDown();
-    		double distance = actualPosition.distanceXY(currentDestination);
-    		if (stopped)
-    		{
-    			if (distance < 25.0)
-    			{
-        			nextState = FINE_TUNE_HEADING;
-    			}
-    			else
-    			{
-    				nextState = FINDING_HEADING;
-    			}
-    		}
-    		break;
-    	}
-    	case DanookController.FINE_TUNE_HEADING:
-    	{
-    		boolean headingOK = adjustHeading(false);
-    		if (headingOK)
-    		{
-    			nextState = APPROACHING_TARGET_FINE;
-    		}
-    		break;
-    	}
-    	case APPROACHING_TARGET_FINE:
-    	{
-    		boolean headingOK = adjustHeading(false);
-    		double distance = actualPosition.distanceXY(currentDestination);
-    		if (distance > 25.0)
-    		{
-    			nextState = APPROACHING_TARGET_ROUGH;
-    		}
-    		else if (distance > 1.0)
-    		{
-    			approachTarget(false);
-    		}
-    		else
-    		{
-    			nextState = DESCENDING;
-    		}
     		break;
     	}
     	}
-		//World.dbg(TAG,"Old State: " + myState + ", New State: " + nextState + ", state counter: " + stateCounter,DC_DBG);
-		if (nextState != myState)
-		{
-			stateCounter = 0;
-		}
     	myState = nextState;
     	selectDesiredAltitude();
 		myState = controlAltitude(myState);
     }
     
-    public void approachTarget(boolean highSpeedOK)
+    public boolean approachTarget()
     {
-		// Work on approaching target
-		double distance = actualPosition.distanceXY(currentDestination);
-		double maxVelocity = 0.5;
-		if (highSpeedOK)
-		{
-			maxVelocity = 5.0;
-			if (distance > 525.0)
-			{
-				distance = 525.0; // 525 meters or more causes maximum tilt
-			}
-		}
-		Point3D zeroVelocity = new Point3D(0.0, 0.0, 0.0);
-		double lateralVelocity = estimatedVelocity.distanceXY(zeroVelocity);
-		// Limit how fast we'll go!
-		if (lateralVelocity > maxVelocity)
-		{
-			setDesiredTilt(0.0);
-		}
-		else if (highSpeedOK)
-		{
-			setDesiredTilt((distance - 25.0) / 500.0 * 10.0);
-		}
-		else
-		{
-			setDesiredTilt(0.1);
-		}
-    	Point3D transformation = myWorld.transformations(myChopper.getId());
-    	double heading = 0.0;
-    	if (transformation != null)
+    	if (currentDestination == null)
     	{
-    		heading = transformation.m_x;
+    		return false;
     	}
-		int msTime = (int)Math.floor(myWorld.getTimestamp() * 1000);
-		long deltaX_mm = (long)Math.floor((actualPosition.m_x - currentDestination.m_x) * 1000);
-		long deltaY_mm = (long)Math.floor((actualPosition.m_y - currentDestination.m_y) * 1000);
-		long actVelX_mm = (long)Math.floor(estimatedVelocity.m_x * 1000);
-		long actVelY_mm = (long)Math.floor(estimatedVelocity.m_y * 1000);
-		/* World.dbg(TAG,"Time: " + msTime + ", Delta mm: (" + deltaX_mm + ", " + deltaY_mm + "), velocity mm: ("
-		+ actVelX_mm + ", " + actVelY_mm + "), heading: " + heading,DC_DBG); */
-    }
-    
-    public boolean slowDown()
-    {
-    	boolean allStopped = false;
-    	boolean movingForward = false;
-    	Point3D transformation = myWorld.transformations(myChopper.getId());
-    	if (transformation == null)
+    	double distance = actualPosition.distanceXY(currentDestination);
+    	double targetLateralVelocity = computeDesiredVelocity(0.0,distance,false);
+    	double estimatedLateralVelocity = Math.sqrt(estimatedVelocity.m_x * estimatedVelocity.m_x + estimatedVelocity.m_y * estimatedVelocity.m_y);
+    	double deltaVelocity = targetLateralVelocity - estimatedLateralVelocity;
+    	double targetLateralAcceleration = computeDesiredAcceleration(estimatedLateralVelocity, targetLateralVelocity,false);
+    	double estimatedLateralAcceleration = Math.sqrt(estimatedAcceleration.m_x * estimatedAcceleration.m_x + estimatedAcceleration.m_y * estimatedAcceleration.m_y);
+    	double deltaAcceleration = targetLateralAcceleration - estimatedLateralAcceleration;
+    	if (deltaAcceleration > MAX_HORZ_ACCEL)
     	{
-    		return allStopped; // Can't do anything
+    		deltaAcceleration = MAX_HORZ_ACCEL;
     	}
-    	double actHeading = transformation.m_x;
-
-    	if (actHeading >= 0 && actHeading < 90.0) // Q1
+    	if (deltaAcceleration < (-MAX_HORZ_ACCEL))
     	{
-    		if (estimatedVelocity.m_x >= 0 && estimatedVelocity.m_y >= 0)
-    		{
-    			movingForward = true;
-    		}
+    		deltaAcceleration = (-MAX_HORZ_ACCEL);
     	}
-    	else if (actHeading >= 90 && actHeading < 180.0) // Q2
-    	{
-    		if (estimatedVelocity.m_x >= 0 && estimatedVelocity.m_y <= 0)
-    		{
-    			movingForward = true;
-    		}
-    	}
-    	else if (actHeading >= 180 && actHeading < 270.0) // Q3
-    	{
-    		if (estimatedVelocity.m_x <= 0 && estimatedVelocity.m_y <= 0)
-    		{
-    			movingForward = true;
-    		}
-    	}
-    	else if (actHeading >= 270 && actHeading < 360.0) // Q3
-    	{
-    		if (estimatedVelocity.m_x <= 0 && estimatedVelocity.m_y >= 0)
-    		{
-    			movingForward = true;
-    		}
-    	}
-
-    	Point3D zeroVelocity = new Point3D(0.0, 0.0, 0.0);
-    	double realSpeed = estimatedVelocity.distanceXY(zeroVelocity);
-    	double mySpeed = realSpeed;
-    	if (mySpeed > 40.0)
-    	{
-    		mySpeed = 40.0;
-    	}
-    	if (!movingForward)
-    	{
-    		mySpeed *= -1.0;
-    	}
-    	setDesiredTilt(-mySpeed / 4.0);
-		int msTime = (int)Math.floor(myWorld.getTimestamp() * 1000);
-		long deltaX_mm = (long)Math.floor((actualPosition.m_x - currentDestination.m_x) * 1000);
-		long deltaY_mm = (long)Math.floor((actualPosition.m_y - currentDestination.m_y) * 1000);
-		long actVelX_mm = (long)Math.floor(estimatedVelocity.m_x * 1000);
-		long actVelY_mm = (long)Math.floor(estimatedVelocity.m_y * 1000);
-		// TODO: May need to ignore vertical velocity considered elsewhere
-		if (estimatedVelocity.length() < 0.25)
-		{
-			allStopped = true;
-		}
-		//World.dbg(TAG,"Time: " + msTime + ", Slowing Down fwd? " + movingForward + ", want tilt: " + desTilt_Degrees,DC_DBG);
-		return allStopped;
+    	desTilt_Degrees += deltaAcceleration * HORZ_CONTROL_FACTOR;
+    	myWorld.requestSettings(myChopper.getId(), desMainRotorSpeed_RPM, desTilt_Degrees, desTailRotorSpeed_RPM);
+    	int msTime = (int)Math.floor(myWorld.getTimestamp() * 1000);
+    	int desVel = (int)Math.floor(targetLateralVelocity * 1000);
+    	int actVel = (int)Math.floor(estimatedLateralVelocity * 1000);
+    	int desAcc = (int)Math.floor(targetLateralAcceleration * 1000);
+    	int actAcc = (int)Math.floor(estimatedLateralAcceleration * 1000);
+    	int distance_mm = (int)Math.floor(distance * 1000);
+    	World.dbg(TAG," Time: " + msTime + ", Distance: " + distance_mm + ", actVel: " + actVel + ", desVel: " + desVel + ", actAcc: " +
+    			actAcc + ", desired accel: " + desAcc + ", tiltChange: " + (deltaAcceleration * HORZ_CONTROL_FACTOR) + ", new: " + desTilt_Degrees,DC_DBG);
+    	return true;
     }
     
     /** Call this method to check if vertical velocity and acceleration are
@@ -438,9 +310,9 @@ public class DanookController extends Thread
     	{
     		outState = FINDING_HEADING;
     	}
-    	double targetVerticalVelocity = computeDesiredVelocity(actualPosition.m_z,desiredAltitude);
+    	double targetVerticalVelocity = computeDesiredVelocity(actualPosition.m_z,desiredAltitude,true);
     	double deltaVelocity = targetVerticalVelocity - estimatedVelocity.m_z;
-    	double targetVerticalAcceleration = computeDesiredAcceleration(estimatedVelocity.m_z, targetVerticalVelocity);
+    	double targetVerticalAcceleration = computeDesiredAcceleration(estimatedVelocity.m_z, targetVerticalVelocity,true);
     	double deltaAcceleration = targetVerticalAcceleration - estimatedAcceleration.m_z;
     	if (deltaAcceleration > MAX_VERT_ACCEL)
     	{
@@ -451,7 +323,7 @@ public class DanookController extends Thread
     		deltaAcceleration = (-MAX_VERT_ACCEL);
     	}
     	desMainRotorSpeed_RPM += deltaAcceleration * VERT_CONTROL_FACTOR;
-    	int msTime = (int)Math.floor(myWorld.getTimestamp() * 1000);
+    	int msTime = (int)Math.floor(actualPosition.t() * 1000);
     	int desHeight_mm = (int)Math.floor(desiredAltitude * 1000);
     	int actHeight_mm = (int)Math.floor(actualPosition.m_z * 1000);
     	int desVel = (int)Math.floor(targetVerticalVelocity * 1000);
@@ -465,10 +337,11 @@ public class DanookController extends Thread
     	return outState;
     }
     
-    public double computeDesiredVelocity(double actAlt, double desAlt)
+    public double computeDesiredVelocity(double actAlt, double desAlt, boolean doVertical)
     {
-    	double targetVelocity = MAX_VERT_VELOCITY;
+    	double targetVelocity = (doVertical?MAX_VERT_VELOCITY:MAX_HORZ_VELOCITY);
     	double deltaValue = Math.abs(desAlt - actAlt);
+    	final double DECEL_DISTANCE = (doVertical?DECEL_DISTANCE_VERT:DECEL_DISTANCE_HORZ);
     	if (deltaValue < DECEL_DISTANCE)
     	{
     		targetVelocity = deltaValue / DECEL_DISTANCE;
@@ -480,10 +353,11 @@ public class DanookController extends Thread
     	return targetVelocity;
     }
     
-    public double computeDesiredAcceleration(double actVel, double desVel)
+    public double computeDesiredAcceleration(double actVel, double desVel, boolean doVertical)
     {
-    	double targetAccel = MAX_VERT_ACCEL;
+    	double targetAccel = (doVertical?MAX_VERT_ACCEL:MAX_HORZ_ACCEL);
     	double deltaValue = Math.abs(desVel - actVel);
+    	final double DECEL_SPEED = (doVertical?VERT_DECEL_SPEED:HORZ_DECEL_SPEED);
     	if (deltaValue < DECEL_SPEED)
     	{
     		targetAccel = deltaValue / DECEL_SPEED;
@@ -521,8 +395,8 @@ public class DanookController extends Thread
     		desiredHeading += 360.0;
     	}
 		int msTime = (int)Math.floor(myWorld.getTimestamp() * 1000);
-		/* World.dbg(TAG,"Time: " + msTime + ", Want Pos (" + currentDestination.m_x + ", " + currentDestination.m_y + 
-		") Act Pos (" + actualPosition.m_x + ", " + actualPosition.m_y + ") desired: " + desiredHeading,DC_DBG); */
+		World.dbg(TAG,"Time: " + msTime + ", Want Pos (" + currentDestination.m_x + ", " + currentDestination.m_y + 
+		") Act Pos (" + actualPosition.m_x + ", " + actualPosition.m_y + ") desired: " + desiredHeading + ", actHeading: " + actHeading,DC_DBG);
     	double deltaHeading = desiredHeading - actHeading;
     	if (deltaHeading < -180.0)
     	{

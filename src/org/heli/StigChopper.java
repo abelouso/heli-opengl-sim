@@ -119,7 +119,8 @@ public class StigChopper {
         gl.glTranslated(centerPos.m_x, centerPos.m_y, centerPos.m_z);
         Point3D transformation = world.transformations(id);
         // rotate chopper by heading
-        gl.glRotated(transformation.m_x, 0.0, 0.0, 1.0);
+        // NOTE: I accidentally drew them facing south instead of north, rotate 180
+        gl.glRotated(transformation.m_x + 180.0, 0.0, 0.0, -1.0);
         // rotate chopper by tilt
         gl.glRotated(transformation.m_y, 1.0, 0.0, 0.0);
         gl.glTranslated(-centerPos.m_x,  -centerPos.m_y, -centerPos.m_z);
