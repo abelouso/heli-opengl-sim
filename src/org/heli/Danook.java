@@ -52,7 +52,8 @@ public class Danook extends StigChopper
 			gl.glVertex3d(myTarget.m_x - 5.0, myTarget.m_y + 5.0, myTarget.m_z);
 			gl.glVertex3d(myTarget.m_x, myTarget.m_y, myTarget.m_z + 75.0);
 			gl.glVertex3d(myTarget.m_x + 5.0, myTarget.m_y + 5.0, myTarget.m_z);
-			gl.glVertex3d(myTarget.m_x - 5.0, myTarget.m_y + 5.0, myTarget.m_z);
+			gl.glVertex3d(myTarget.m_x + 5.0, myTarget.m_y - 5.0, myTarget.m_z);
+			gl.glVertex3d(myTarget.m_x - 5.0, myTarget.m_y - 5.0, myTarget.m_z);
 			gl.glEnd();
 		}
 

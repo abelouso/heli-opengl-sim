@@ -167,7 +167,6 @@ public class MainWindow extends JFrame implements ActionListener, GLEventListene
         // convert that image into a byte buffer of texture data 
 
         ByteBuffer textureBuffer = convertImageData(bufferedImage,texture); 
-        
         if (target == GL.GL_TEXTURE_2D) 
         { 
         	gl.glTexParameteri(target, GL.GL_TEXTURE_MIN_FILTER, minFilter); 
@@ -186,7 +185,7 @@ public class MainWindow extends JFrame implements ActionListener, GLEventListene
         			0, 
         			srcPixelFormat, 
         			GL.GL_UNSIGNED_BYTE, 
-        			textureBuffer ); 
+        			textureBuffer.rewind()); 
         }
         catch (IndexOutOfBoundsException e)
         {

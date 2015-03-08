@@ -179,6 +179,23 @@ public class World
 		}
 	}
 	
+	public boolean deliverPackage(int id)
+	{
+		boolean success = false;
+		ChopperAggregator ca = myChoppers.get(id);
+		if (ca != null)
+		{
+			ChopperInfo info = ca.getInfo();
+			StigChopper chop = ca.getChopper();
+			if (info.onGround())
+			{
+				// OK, check position
+				// For now, just let it succeed, and drop off a package
+				//success = true;
+			}
+		}
+		return success;
+	}
 	/**
 	 * @param args
 	 * @throws Exception 
@@ -569,9 +586,9 @@ public class World
 				continue;
 			}
 			gl.glColor4dv(objColor, 0);
-			drawRectangles(gl,bufferArray, true);
+			drawRectangles(gl,bufferArray, true, texture);
 			Point3D helipadCenter = new Point3D(objectLoc.m_x + (objectSize.m_x / 2.0), objectLoc.m_y + (objectSize.m_y / 2.0), objectLoc.m_z + objectSize.m_z);
-			//drawHelipad(gl, helipadCenter.m_x, helipadCenter.m_y, helipadCenter.m_z, objectSize.m_x + 0.02);
+			//drawHelipad(gl, helipadCenter.m_x, helipadCenter.m_y, helipadCenter.m_z +0.05, objectSize.m_x, texture);
 		}
 		gl.glBegin(gl.GL_QUADS);
 		gl.glColor3d(1.0, 0.8, 0.8);
@@ -607,8 +624,6 @@ public class World
 		{
 			double halfSize = size / 2.0;
 			gl.glEnable(gl.GL_TEXTURE_2D);
-			//gl.glBindTexture(gl.GL_TEXTURE_2D, texture);
-
 			texture.enable(gl);
 			texture.bind(gl);
 			gl.glBegin(gl.GL_QUADS);
@@ -655,14 +670,31 @@ public class World
 		}
 	}
 
-	public static void drawRectangles(GL2 gl, float[] bufferArray, boolean doLines)
+	public static void drawRectangles(GL2 gl, float[] bufferArray, boolean doLines, Texture roofTexture)
 	{
+		if (roofTexture != null)
+		{
+			gl.glEnable(gl.GL_TEXTURE_2D);
+			roofTexture.enable(gl);
+			roofTexture.bind(gl);
+		}
 		gl.glBegin(GL2.GL_QUADS);
 		// Top face
+		gl.glTexCoord2d(0.0, 1.0);
 		gl.glVertex3fv(bufferArray,0);
+		gl.glTexCoord2d(0.0, 0.0);
 		gl.glVertex3fv(bufferArray,3);
+		gl.glTexCoord2d(1.0, 0.0);
 		gl.glVertex3fv(bufferArray,6);
+		gl.glTexCoord2d(1.0, 1.0);
 		gl.glVertex3fv(bufferArray,9);
+		gl.glEnd();
+		if (roofTexture != null)
+		{
+			gl.glDisable(gl.GL_TEXTURE_2D);
+		}
+
+		gl.glBegin(GL2.GL_QUADS);
 		// Bottom face
 		gl.glVertex3fv(bufferArray,12);
 		gl.glVertex3fv(bufferArray,21);

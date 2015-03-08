@@ -5,6 +5,8 @@ import java.util.ArrayList;
 import javax.media.opengl.GL2;
 import javax.media.opengl.GLAutoDrawable;
 
+import com.jogamp.opengl.util.texture.Texture;
+
 /** This class represents our chopper and its capabilities
  *  Derive fromt this class if you want special features.
  * @author Daniel LaFuze
@@ -133,7 +135,8 @@ public class StigChopper {
 			if (bufferArray != null)
 			{
 				gl.glColor4dv(objColor, 0);
-				World.drawRectangles(gl,bufferArray, true);
+				Texture fakeTexture = null;
+				World.drawRectangles(gl,bufferArray, true, fakeTexture);
 			}
 			gl.glColor4dv(objColor, 0);
         }

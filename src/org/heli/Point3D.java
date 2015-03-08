@@ -281,6 +281,14 @@ public class Point3D implements Comparable<Point3D>
 		return (double)Math.sqrt( lengthSquared() );
 	}
 
+	public double xyLengthSquared() 
+	{
+		return x()*x() + y()*y();
+	}
+	public double xyLength() 
+	{
+		return (double)Math.sqrt( xyLengthSquared() );
+	}
 	public Point3D negated() 
 	{
 		return new Point3D(-x(),-y(),-z(), -t());

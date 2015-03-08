@@ -326,14 +326,25 @@ public class ChopperInfo
 			actAcceleration_ms2.m_z = deltaForce_N / totalMass_kg;
 			if (takenOff == false)
 			{
-				World.dbg(TAG,"We have lift off!",CI_DBG);
+				World.dbg(TAG,"Chopper " + chopperID + " has lifted off!",CI_DBG);
 				takenOff = true;
 			}
 		}
 		else
 		{
-			// TODO: Determine if we're sitting on the ground, for now, it's treated SIMPLE
-			// This means that once you take off, you can go under the world
+			// Simple landing check when close to zero
+			if (actPosition_m.m_z < 0.25)
+			{
+				double lateralMagnitude = actVelocity_ms.xyLength();
+				if (lateralMagnitude < 0.25 || (actVelocity_ms.m_z > (-2.0) && actVelocity_ms.m_z < 0))
+				{
+					if (takenOff == true)
+					{
+						World.dbg(TAG,"Chopper " + chopperID + " has landed!",CI_DBG);
+					}
+					takenOff = false;
+				}
+			}
 			if (takenOff == true)
 			{
 				actAcceleration_ms2.m_z = deltaForce_N / totalMass_kg;
@@ -356,6 +367,8 @@ public class ChopperInfo
 			// For now, we're preventing skating -- chopper sliding along the ground
 			actAcceleration_ms2.m_x = 0.0;
 			actAcceleration_ms2.m_y = 0.0;
+			actVelocity_ms.m_x = 0.0;
+			actVelocity_ms.m_y = 0.0;
 		}
 		// now that accurate acceleration is computed, we can compute new velocity
 		actVelocity_ms.m_x += (actAcceleration_ms2.m_x * elapsedTime);
@@ -365,6 +378,11 @@ public class ChopperInfo
 		actPosition_m.m_x += (actVelocity_ms.m_x * elapsedTime);
 		actPosition_m.m_y += (actVelocity_ms.m_y * elapsedTime);
 		actPosition_m.m_z += (actVelocity_ms.m_z * elapsedTime);
+	}
+	
+	public boolean onGround()
+	{
+		return !takenOff;
 	}
 	
 	/** No behavior is guaranteed by this method.
