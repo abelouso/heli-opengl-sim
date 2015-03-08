@@ -51,6 +51,8 @@ import javax.swing.JFrame;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 
+import com.jogamp.opengl.util.texture.Texture;
+
 /** World Class, for StigChoppers.  Defines the world.
  * Copyright 2015, Daniel A. LaFuze
  * @author dlafuze
@@ -306,6 +308,11 @@ public class World
 		setChopperWaypoints();
 	}
 
+	public GLU getGLU()
+	{
+		return glu;
+	}
+	
 	/** This method returns the number of seconds that have passed since
 	 * time started.
 	 * @return
@@ -533,7 +540,7 @@ public class World
 		return resultVector;
 	}
 	
-	public void render(GLAutoDrawable drawable)
+	public void render(GLAutoDrawable drawable, Texture texture)
 	{
 		// different transformations
         GL2 gl = drawable.getGL().getGL2();
@@ -573,7 +580,8 @@ public class World
 		gl.glVertex3d(503.0, 497.0, 0.0);
 		gl.glVertex3d(503.0, 503.0, 0.0);
 		gl.glEnd();
-		drawHelipad(gl, 500.0, 500.0, 0.05, 6.0);
+		drawHelipad(gl, 500.0, 495.0, 0.05, 6.0, texture);
+		drawHelipad(gl, 500.0, 505.0, 0.05, 6.0, texture);
 		Iterator it = myChoppers.entrySet().iterator();
 		while (it.hasNext())
 		{
@@ -593,27 +601,58 @@ public class World
 		}
 	}
 	
-	public void drawHelipad(GL2 gl, double xCenter, double yCenter, double zHeight, double size)
+	public void drawHelipad(GL2 gl, double xCenter, double yCenter, double zHeight, double size, Texture texture)
 	{
-		double sizeIncrement = size / 6.0;
-		gl.glBegin(gl.GL_QUADS);
-		gl.glColor3d(0.0, 0.0, 1.0);
-		// Left Side H
-		gl.glVertex3d(xCenter - 2.0 * sizeIncrement, yCenter + 2.0 * sizeIncrement, zHeight);
-		gl.glVertex3d(xCenter - 2.0 * sizeIncrement, yCenter - 2.0 * sizeIncrement, zHeight);
-		gl.glVertex3d(xCenter - 1.0 * sizeIncrement, yCenter - 2.0 * sizeIncrement, zHeight);
-		gl.glVertex3d(xCenter - 1.0 * sizeIncrement, yCenter + 2.0 * sizeIncrement, zHeight);
-		// Right Side H
-		gl.glVertex3d(xCenter + 1.0 * sizeIncrement, yCenter + 2.0 * sizeIncrement, zHeight);
-		gl.glVertex3d(xCenter + 1.0 * sizeIncrement, yCenter - 2.0 * sizeIncrement, zHeight);
-		gl.glVertex3d(xCenter + 2.0 * sizeIncrement, yCenter - 2.0 * sizeIncrement, zHeight);
-		gl.glVertex3d(xCenter + 2.0 * sizeIncrement, yCenter + 2.0 * sizeIncrement, zHeight);
-		// Middle H
-		gl.glVertex3d(xCenter - 1.0 * sizeIncrement, yCenter + 0.5 * sizeIncrement, zHeight);
-		gl.glVertex3d(xCenter - 1.0 * sizeIncrement, yCenter - 0.5 * sizeIncrement, zHeight);
-		gl.glVertex3d(xCenter + 1.0 * sizeIncrement, yCenter - 0.5 * sizeIncrement, zHeight);
-		gl.glVertex3d(xCenter + 1.0 * sizeIncrement, yCenter + 0.5 * sizeIncrement, zHeight);
-		gl.glEnd();
+		if (texture != null)
+		{
+			double halfSize = size / 2.0;
+			gl.glEnable(gl.GL_TEXTURE_2D);
+			//gl.glBindTexture(gl.GL_TEXTURE_2D, texture);
+
+			texture.enable(gl);
+			texture.bind(gl);
+			gl.glBegin(gl.GL_QUADS);
+			gl.glColor3d(1.0, 1.0, 1.0);
+			gl.glTexCoord2d(0.0, 1.0);
+			gl.glVertex3d(xCenter - halfSize, yCenter + halfSize, zHeight);
+			gl.glTexCoord2d(0.0, 0.0);
+			gl.glVertex3d(xCenter - halfSize, yCenter - halfSize, zHeight);
+			gl.glTexCoord2d(1.0, 0.0);
+			gl.glVertex3d(xCenter + halfSize, yCenter - halfSize, zHeight);
+			gl.glTexCoord2d(1.0, 1.0);
+			gl.glVertex3d(xCenter + halfSize, yCenter + halfSize, zHeight);
+			gl.glEnd();
+			gl.glDisable(gl.GL_TEXTURE_2D);
+		}
+		else
+		{
+			double sizeIncrement = size / 6.0;
+			// Do it the old way
+			gl.glBegin(gl.GL_QUADS);
+			// Background Square
+			gl.glColor3d(1.0, 1.0, 1.0);
+			gl.glVertex3d(xCenter - 3.0 * sizeIncrement, yCenter + 3.0 * sizeIncrement, zHeight);
+			gl.glVertex3d(xCenter - 3.0 * sizeIncrement, yCenter - 3.0 * sizeIncrement, zHeight);
+			gl.glVertex3d(xCenter + 3.0 * sizeIncrement, yCenter - 3.0 * sizeIncrement, zHeight);
+			gl.glVertex3d(xCenter + 3.0 * sizeIncrement, yCenter + 3.0 * sizeIncrement, zHeight);
+			// Left Side H
+			gl.glColor3d(0.0, 0.0, 1.0);
+			gl.glVertex3d(xCenter - 2.0 * sizeIncrement, yCenter + 2.0 * sizeIncrement, zHeight);
+			gl.glVertex3d(xCenter - 2.0 * sizeIncrement, yCenter - 2.0 * sizeIncrement, zHeight);
+			gl.glVertex3d(xCenter - 1.0 * sizeIncrement, yCenter - 2.0 * sizeIncrement, zHeight);
+			gl.glVertex3d(xCenter - 1.0 * sizeIncrement, yCenter + 2.0 * sizeIncrement, zHeight);
+			// Right Side H
+			gl.glVertex3d(xCenter + 1.0 * sizeIncrement, yCenter + 2.0 * sizeIncrement, zHeight);
+			gl.glVertex3d(xCenter + 1.0 * sizeIncrement, yCenter - 2.0 * sizeIncrement, zHeight);
+			gl.glVertex3d(xCenter + 2.0 * sizeIncrement, yCenter - 2.0 * sizeIncrement, zHeight);
+			gl.glVertex3d(xCenter + 2.0 * sizeIncrement, yCenter + 2.0 * sizeIncrement, zHeight);
+			// Middle H
+			gl.glVertex3d(xCenter - 1.0 * sizeIncrement, yCenter + 0.5 * sizeIncrement, zHeight);
+			gl.glVertex3d(xCenter - 1.0 * sizeIncrement, yCenter - 0.5 * sizeIncrement, zHeight);
+			gl.glVertex3d(xCenter + 1.0 * sizeIncrement, yCenter - 0.5 * sizeIncrement, zHeight);
+			gl.glVertex3d(xCenter + 1.0 * sizeIncrement, yCenter + 0.5 * sizeIncrement, zHeight);
+			gl.glEnd();
+		}
 	}
 
 	public static void drawRectangles(GL2 gl, float[] bufferArray, boolean doLines)

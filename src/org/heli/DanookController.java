@@ -407,9 +407,6 @@ public class DanookController extends Thread
     	{
     		desiredHeading += 360.0;
     	}
-		int msTime = (int)Math.floor(myWorld.getTimestamp() * 1000);
-		World.dbg(TAG,"Time: " + msTime + ", Want Pos (" + currentDestination.m_x + ", " + currentDestination.m_y + 
-		") Act Pos (" + actualPosition.m_x + ", " + actualPosition.m_y + ") desired: " + desiredHeading + ", actHeading: " + actHeading,DC_DBG);
     	double deltaHeading = desiredHeading - actHeading;
     	if (deltaHeading < -180.0)
     	{
