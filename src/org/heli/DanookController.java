@@ -237,7 +237,14 @@ public class DanookController extends Thread
     	}
     	myState = nextState;
     	selectDesiredAltitude();
-		myState = controlAltitude(myState);
+    	try
+    	{
+    		myState = controlAltitude(myState);
+    	}
+    	catch (Exception e)
+    	{
+    		World.dbg(TAG,"Exception in altitude control: " + e.getMessage(),DC_DBG);
+    	}
     }
     
     
@@ -295,15 +302,19 @@ public class DanookController extends Thread
     {
     	boolean onGround = false;
     	final double EPSILON = 0.001;
-    	if ((Math.abs(estimatedVelocity.m_z) < EPSILON) &&
+    	// TODO: Improve this landed check!
+    	if ((actualPosition.m_z < 0.25) &&
+    		(Math.abs(estimatedVelocity.m_z) < EPSILON) &&
     		(Math.abs(estimatedAcceleration.m_z) < EPSILON))
     	{
+			World.dbg(TAG, "Detected landing -- pos: " + actualPosition.info() + ", vel: "
+    	              + estimatedVelocity.m_z + ", acc: " + estimatedAcceleration.m_z, DC_DBG);
     		onGround = true;
     	}
     	return onGround;
     }
     
-    public int controlAltitude(int inState)
+    public int controlAltitude(int inState) throws Exception
     {
     	int outState = inState;
     	if (estimatedAcceleration == null || estimatedVelocity == null)
@@ -313,15 +324,51 @@ public class DanookController extends Thread
     	boolean onGround = checkForLanded();
     	if (onGround)
     	{
+    		if (currentDestination != null)
+    		{
+    			double actDistance = currentDestination.distanceXY(actualPosition);
+    			if ( actDistance < World.MAX_PACKAGE_DISTANCE)
+    			{
+    				boolean delivered = myWorld.deliverPackage(myChopper.getId());
+    				if (delivered)
+    				{
+    					boolean pointDeleted = myChopper.deleteWaypoint(currentDestination);
+    					currentDestination = null;
+    					// it shouldn't be possible, flag controller so they know
+    					if (pointDeleted == false)
+    					{
+    						Exception e = new Exception("World and Chopper out of sync!");
+    						throw e;
+    					}
+    					else
+    					{
+    						World.dbg(TAG,  "Delivered package!", DC_DBG);
+    					}
+    				}
+    				else
+    				{
+    					World.dbg(TAG, "Couldn't deliver package?", DC_DBG);
+    				}
+    			}
+    			else
+    			{
+    				World.dbg(TAG,"Too far away to deliver package, was " + actDistance + ", want: " + World.MAX_PACKAGE_DISTANCE ,DC_DBG);
+    			}
+	    		outState = FINDING_HEADING;
+    		}
+    		else
+    		{
+    			World.dbg(TAG, "Landed with no destination?", DC_DBG);
+    		}
+    	}
+    	if (onGround)
+    	{
     		if (inState == DESCENDING)
     		{
     			outState = STATE_LANDED;
     		}
+			World.dbg(TAG, "inState: " + inState + ", outState: " + outState, DC_DBG);
     		return outState;
-    	}
-    	if (inState == STATE_LANDED)
-    	{
-    		outState = FINDING_HEADING;
     	}
     	double targetVerticalVelocity = computeDesiredVelocity(actualPosition.m_z,desiredAltitude,true);
     	double deltaVelocity = targetVerticalVelocity - estimatedVelocity.m_z;
@@ -447,7 +494,7 @@ public class DanookController extends Thread
     	{
     		if (actualPosition.distanceXY(currentDestination) > 5.0)
     		{
-    			desiredAltitude = 125.0; // High enough to clear buildings
+    			desiredAltitude = 110.0; // High enough to clear buildings
     			if (myState == DESCENDING)
     			{
     				myState = FINDING_HEADING;

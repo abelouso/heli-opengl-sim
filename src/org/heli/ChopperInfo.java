@@ -336,7 +336,7 @@ public class ChopperInfo
 			if (actPosition_m.m_z < 0.25)
 			{
 				double lateralMagnitude = actVelocity_ms.xyLength();
-				if (lateralMagnitude < 0.25 || (actVelocity_ms.m_z > (-2.0) && actVelocity_ms.m_z < 0))
+				if (lateralMagnitude < 0.25 && (actVelocity_ms.m_z > (-2.0) && actVelocity_ms.m_z < 0))
 				{
 					if (takenOff == true)
 					{

@@ -38,6 +38,17 @@ public class Danook extends StigChopper
     	return targetWaypoints;
     }
     
+    synchronized public boolean deleteWaypoint(Point3D thePoint)
+    {
+    	boolean pointFound = false;
+    	if (targetWaypoints.contains(thePoint))
+    	{
+    		targetWaypoints.remove(thePoint);
+    		pointFound = true;
+    	}
+    	return pointFound;
+    }
+    
     @Override
 	public void render(GLAutoDrawable drawable, double actHeading, double actTilt, double rotorPos, double tailRotorPos)
 	{

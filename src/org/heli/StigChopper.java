@@ -81,6 +81,17 @@ public class StigChopper {
 	    return id;
 	}
 	
+	public boolean deliverItem()
+	{
+		boolean success = false;
+		if (inventory > 0)
+		{
+			--inventory;
+			success = true;
+		}
+		return success;
+	}
+	
 	public Point3D getSize()
 	{
 		Point3D result = new Point3D(X_SIZE, Y_SIZE, Z_SIZE);

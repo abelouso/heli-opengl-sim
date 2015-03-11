@@ -91,6 +91,8 @@ public class World
 	
 	private static final double HOUSES_PER_BLOCK = 10.0;
 	
+	public static final double MAX_PACKAGE_DISTANCE = 2.0;
+	
 	private Camera camera;
 	
 	private double maxTime = 10000.0;
@@ -99,7 +101,12 @@ public class World
 	
 	private Map<Integer, ChopperAggregator> myChoppers;
 	
-
+	/** With this array, the world will attempt to maintain a list of all
+	 * addresses given to the delivery choppers so it can validate
+	 * attempted deliveries.
+	 */
+	private ArrayList<Point3D> allPackageLocs;
+	
     static public String mName()
     {
         try
@@ -175,6 +182,7 @@ public class World
 					targetPoints.add(targetPoint);
 				}
 				theChopper.setWaypoints(targetPoints);
+				allPackageLocs.addAll(targetPoints);
 			}
 		}
 	}
@@ -183,6 +191,7 @@ public class World
 	{
 		boolean success = false;
 		ChopperAggregator ca = myChoppers.get(id);
+		Point3D myPos = gps(id);
 		if (ca != null)
 		{
 			ChopperInfo info = ca.getInfo();
@@ -190,8 +199,14 @@ public class World
 			if (info.onGround())
 			{
 				// OK, check position
-				// For now, just let it succeed, and drop off a package
-				//success = true;
+				// NOTE: I believe the hashCode function is used to determine
+				// if the container has the object.  That only includes X,Y,Z
+				// which is what I think we want.
+				if (allPackageLocs.contains(myPos))
+				{
+					allPackageLocs.remove(myPos);
+					success = true;
+				}
 			}
 		}
 		return success;
@@ -321,6 +336,7 @@ public class World
 		
 		glu = new GLU();
 		camera = new Camera(sizeX/2, sizeY/2,0, glu);
+		allPackageLocs = new ArrayList<Point3D>();
 		// Give the choppers somewhere to go
 		setChopperWaypoints();
 	}
