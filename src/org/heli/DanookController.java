@@ -293,26 +293,6 @@ public class DanookController extends Thread
     	return true;
     }
     
-    /** Call this method to check if vertical velocity and acceleration are
-     * both exactly zero.  The only way that happens is if we're on the ground.
-     * @return
-     */
-    public boolean checkForLanded()
-    {
-    	boolean onGround = false;
-    	final double EPSILON = 0.001;
-    	// TODO: Improve this landed check!
-    	if ((actualPosition.m_z < 0.25) &&
-    		(Math.abs(estimatedVelocity.m_z) < EPSILON) &&
-    		(Math.abs(estimatedAcceleration.m_z) < EPSILON))
-    	{
-			World.dbg(TAG, "Detected landing -- pos: " + actualPosition.info() + ", vel: "
-    	              + estimatedVelocity.m_z + ", acc: " + estimatedAcceleration.m_z, DC_DBG);
-    		onGround = true;
-    	}
-    	return onGround;
-    }
-    
     public int controlAltitude(int inState) throws Exception
     {
     	int outState = inState;
@@ -320,7 +300,8 @@ public class DanookController extends Thread
     	{
     		return outState; // can't continue if we don't know
     	}
-    	boolean onGround = checkForLanded();
+    	int flightState = myWorld.isAirborn(myChopper.getId());
+    	boolean onGround = flightState == 0;
     	if (onGround)
     	{
     		if (currentDestination != null)
@@ -346,7 +327,7 @@ public class DanookController extends Thread
     				}
     				else
     				{
-    					World.dbg(TAG, "Couldn't deliver package?", DC_DBG);
+    					World.dbg(TAG, "Couldn't deliver package at pos: ", DC_DBG);
     				}
     			}
     			else
