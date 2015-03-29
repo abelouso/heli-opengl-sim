@@ -187,6 +187,18 @@ public class World
 		}
 	}
 	
+	public int isAirborn(int id)
+	{
+		int retVal = 1;
+		ChopperAggregator ca = myChoppers.get(id);
+		ChopperInfo info = ca.getInfo();
+		// TODO: Implement crashed
+		if (info.onGround() == true)
+		{
+			retVal = 0;
+		}
+		return retVal;
+	}
 	public boolean deliverPackage(int id)
 	{
 		boolean success = false;
@@ -202,10 +214,18 @@ public class World
 				// NOTE: I believe the hashCode function is used to determine
 				// if the container has the object.  That only includes X,Y,Z
 				// which is what I think we want.
-				if (allPackageLocs.contains(myPos))
+				for (Point3D object : allPackageLocs)
 				{
-					allPackageLocs.remove(myPos);
-					success = true;
+					if (object.distanceXY(myPos) < 5.0)
+					{
+						allPackageLocs.remove(object);
+						success = true;
+						break;
+					}
+				}
+				if (success == false)
+				{
+				    dbg(TAG,"Couldn't find package to deliver at  (" + myPos.info() + ")", WORLD_DBG);
 				}
 			}
 		}
