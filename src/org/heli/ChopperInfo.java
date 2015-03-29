@@ -352,6 +352,8 @@ public class ChopperInfo
 			else
 			{
 				actAcceleration_ms2.m_z = 0.0;
+				actVelocity_ms.m_z = 0.0;
+				actPosition_m.m_z = 0.0;
 			}
 		}
 		if (takenOff) // Tail rotor comes into play
