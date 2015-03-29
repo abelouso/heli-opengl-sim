@@ -38,9 +38,7 @@ package org.heli;
 
 import java.util.Date;
 
-import javax.media.opengl.GL;
-import javax.media.opengl.GL2;
-import javax.media.opengl.GLAutoDrawable;
+import com.jogamp.opengl.GLAutoDrawable;
 
 public class Apachi extends StigChopper
 {

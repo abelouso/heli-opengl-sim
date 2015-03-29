@@ -1,9 +1,8 @@
 package org.heli;
 
+import com.jogamp.opengl.GL2;
+import com.jogamp.opengl.glu.GLU;
 
-import javax.media.opengl.GL;
-import javax.media.opengl.GL2;
-import javax.media.opengl.glu.GLU;
 
 /** This class defines a camera in three space.
  * Future Optimizations: Animations, such as chase mode

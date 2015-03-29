@@ -5,7 +5,6 @@ package org.heli;
 
 import java.util.ArrayList;
 
-import javax.media.opengl.GLAutoDrawable;
 
 /** This class will control a Danook Helicopter
  * 
