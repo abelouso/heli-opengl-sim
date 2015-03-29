@@ -6,6 +6,8 @@ package org.heli;
 
 import java.util.ArrayList;
 
+import javax.swing.JPanel;
+
 import com.jogamp.opengl.GL2;
 import com.jogamp.opengl.GLAutoDrawable;
 

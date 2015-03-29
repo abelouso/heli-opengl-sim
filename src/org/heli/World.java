@@ -36,6 +36,7 @@
 package org.heli;
 
 import java.util.*;
+import java.util.Map.Entry;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.event.ActionEvent;
@@ -106,6 +107,8 @@ public class World
 	 * attempted deliveries.
 	 */
 	private ArrayList<Point3D> allPackageLocs;
+	
+	public JPanel m_chopperInfoPanel = null;
 	
     static public String mName()
     {
@@ -805,4 +808,19 @@ public class World
 		}
 
 	}
+    public void addPanels()
+    {
+        //for all choppers
+        Iterator<Entry<Integer, ChopperAggregator>> it = myChoppers.entrySet().iterator();
+        while (it.hasNext())
+        {
+            Map.Entry<Integer, ChopperAggregator> pairs = (Entry<Integer, ChopperAggregator>)it.next();
+            ChopperAggregator locData = (ChopperAggregator) pairs.getValue();
+            if (locData != null)
+            {
+                StigChopper theChopper = locData.getChopper();
+                m_chopperInfoPanel.add(theChopper.m_info);
+            }
+        }
+    }
 }

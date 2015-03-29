@@ -5,6 +5,9 @@ import java.util.ArrayList;
 
 
 
+
+import javax.swing.JPanel;
+
 import com.jogamp.opengl.GL2;
 import com.jogamp.opengl.GLAutoDrawable;
 import com.jogamp.opengl.util.texture.Texture;
@@ -36,6 +39,8 @@ public class StigChopper {
 
 	protected boolean landed;
 	
+	public JPanel m_info = null;
+	
 	// This is the chopper's home base.  For now, it is defined
 	// as the location at which it appeared in the world.
 	protected Point3D homeBase;
@@ -47,6 +52,7 @@ public class StigChopper {
 	{
 		id = chopperID;
 		world = theWorld;
+		m_info = new JPanel();
 		cargoCapacity = ChopperAggregator.TOTAL_CAPACITY / 2.0;
 		inventory = (int)Math.round(cargoCapacity / ChopperAggregator.ITEM_WEIGHT);
 		fuelCapacity = ChopperAggregator.TOTAL_CAPACITY / 2.0;

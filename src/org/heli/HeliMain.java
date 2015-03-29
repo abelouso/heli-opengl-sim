@@ -42,7 +42,7 @@ public class HeliMain
 		}
 		MainWindow glWin = new MainWindow(myWorld, "Stig Choppers",1000,1000, canvas);
 		glWin.setVisible(true);
-        canvas.addGLEventListener(glWin);
+        canvas.addGLEventListener(glWin.m_glPanel);
         
         // FPSAnimator can be used with desired frames per second as well
         FPSAnimator animator = new FPSAnimator(canvas,50);

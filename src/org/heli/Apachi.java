@@ -38,6 +38,10 @@ package org.heli;
 
 import java.util.Date;
 
+import javax.swing.BoxLayout;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
+
 import com.jogamp.opengl.GLAutoDrawable;
 
 public class Apachi extends StigChopper
@@ -62,6 +66,7 @@ public class Apachi extends StigChopper
     private double m_actSpeedCnt = 0.0;
     
     private long m_rotStamp = -1;
+    private JLabel m_altJL = null;
     
     public Apachi(int id, World world)
     {
@@ -82,6 +87,11 @@ public class Apachi extends StigChopper
         hover(30);
         maintainHeading(315);
         inventory = 16;
+        
+        m_info.setLayout(new BoxLayout(m_info, BoxLayout.PAGE_AXIS));
+        m_altJL = new JLabel("Alt: 0.0");
+        m_info.add(m_altJL);
+        
     }
     /** This method renders a chopper.  We'll get the position from the world.
      * We need to get information about the chopper's orientation from the
@@ -112,7 +122,7 @@ public class Apachi extends StigChopper
         {
             hover(-1.0);
         }
-        
+        m_altJL.setText("Alt: " + Apachi.f(m_alt.m_lastAlt));
         super.render(drawable, actHeading, actTilt, rotorPos, tailRotorPos);
         /*
         GL2 gl = drawable.getGL().getGL2();
