@@ -19,11 +19,9 @@ public class DanookController extends Thread
 	private static final int STATE_LANDED = 0;
 	private static final int FINDING_HEADING = 1;
 	private static final int APPROACHING = 2;
-	private static final int STOPPING = 3;
-	private static final int DESCENDING = 4;
 	
-	private static final double VERT_CONTROL_FACTOR = 3.0;
-	private static final double HORZ_CONTROL_FACTOR = 0.15;
+	private static final double VERT_CONTROL_FACTOR = 2.5;
+	private static final double HORZ_CONTROL_FACTOR = 0.12;
 	
 	private static final double MAX_VERT_VELOCITY = 2.5;
 	
@@ -56,9 +54,28 @@ public class DanookController extends Thread
     public double desiredHeading;
     public double desiredAltitude;
     
-    private double lastDistance;
-    
     private Point3D currentDestination;
+    
+    synchronized public String getControlState()
+    {
+    	String returnState = new String("Unknown");
+    	switch(myState)
+    	{
+    	case STATE_LANDED:
+    		returnState = "Landed";
+    		break;
+    	case FINDING_HEADING:
+    		returnState = "Turning";
+    		break;
+    	case APPROACHING:
+    		returnState = "Approaching";
+    		break;
+    	default:
+    		returnState = "Unknown";
+    		break;
+    	}
+    	return returnState;
+    }
     
 	public DanookController(Danook chopper, World world)
 	{
@@ -73,12 +90,11 @@ public class DanookController extends Thread
         actualPosition = new Point3D();
         desiredHeading = 0.0;
         desiredAltitude = 0.0;
-        lastDistance = 0.0;
         
         currentDestination = null;
 	}
 
-	public Point3D getDestination()
+	public synchronized Point3D getDestination()
 	{
 		if (currentDestination != null)
 		{
@@ -90,6 +106,42 @@ public class DanookController extends Thread
 		}
 	}
 	
+	public synchronized Point3D getPosition()
+	{
+		if (actualPosition != null)
+		{
+			return actualPosition.copy();
+		}
+		else
+		{
+			return actualPosition;
+		}
+	}
+	
+	public synchronized Point3D getVelocity()
+	{
+		if (estimatedVelocity != null)
+		{
+			return estimatedVelocity.copy();
+		}
+		else
+		{
+			return estimatedVelocity;
+		}
+	}
+
+	public synchronized Point3D getAcceleration()
+	{
+		if (estimatedAcceleration != null)
+		{
+			return estimatedAcceleration.copy();
+		}
+		else
+		{
+			return estimatedAcceleration;
+		}
+	}
+
     @Override
     public void run()
     {
@@ -123,10 +175,6 @@ public class DanookController extends Thread
     			{
     				currentDestination = findClosestDestination();
     				World.dbg(TAG,"Got a destination: " + currentDestination.info(),DC_DBG);
-    			}
-    			else
-    			{
-    				// TODO: See if we're on the ground at the destination
     			}
     			if (lastPosition != null && lastTime < currTime)
     			{
@@ -211,7 +259,6 @@ public class DanookController extends Thread
     		if (headingOK)
     		{
     			// Ensure we run through approaching at least once
-    			lastDistance = 9999.9;
     			nextState = APPROACHING;
     		}
     		break;
@@ -219,18 +266,7 @@ public class DanookController extends Thread
     	case APPROACHING:
     	{
     		double distance = actualPosition.distanceXY(currentDestination);
-    		if (distance > lastDistance)
-    		{
-    			nextState = STOPPING; // Don't keep going farther away!
-    		}
-    		else
-    		{
-    			boolean success = approachTarget();
-    		}
-    		break;
-    	}
-    	case STOPPING:
-    	{
+    		boolean success = approachTarget(false);
     		break;
     	}
     	}
@@ -247,15 +283,25 @@ public class DanookController extends Thread
     }
     
     
-    public boolean approachTarget()
+    public boolean approachTarget(boolean justStop)
     {
-    	if (currentDestination == null)
+    	if (currentDestination == null && justStop == false)
     	{
     		return false;
     	}
-    	Point3D deltaVector = Point3D.diff(currentDestination,  actualPosition);
+    	
+    	Point3D deltaVector = new Point3D();
+    	if (justStop == false)
+    	{
+    		deltaVector = Point3D.diff(currentDestination,  actualPosition);
+    	}
     	// Compute X Acceleration
-    	double targetXVelocity = computeDesiredVelocity(actualPosition.m_x,currentDestination.m_x,false);
+    	Point3D actualDestination = currentDestination.copy();
+    	if (justStop == true)
+    	{
+    		actualDestination = actualPosition.copy();
+    	}
+    	double targetXVelocity = computeDesiredVelocity(actualPosition.m_x,actualDestination.m_x,false);
     	double targetXAcceleration = computeDesiredAcceleration(estimatedVelocity.m_x, targetXVelocity,false);
     	double deltaXAcceleration = targetXAcceleration - estimatedAcceleration.m_x;
     	if (deltaXAcceleration > MAX_HORZ_ACCEL)
@@ -267,7 +313,7 @@ public class DanookController extends Thread
     		deltaXAcceleration = (-MAX_HORZ_ACCEL);
     	}
     	// Repeat for Y
-    	double targetYVelocity = computeDesiredVelocity(actualPosition.m_y,currentDestination.m_y,false);
+    	double targetYVelocity = computeDesiredVelocity(actualPosition.m_y,actualDestination.m_y,false);
     	double targetYAcceleration = computeDesiredAcceleration(estimatedVelocity.m_y, targetYVelocity,false);
     	double deltaYAcceleration = targetYAcceleration - estimatedAcceleration.m_y;
     	if (deltaYAcceleration > MAX_HORZ_ACCEL)
@@ -340,10 +386,7 @@ public class DanookController extends Thread
     		{
     			World.dbg(TAG, "Landed with no destination?", DC_DBG);
     		}
-    	}
-    	if (onGround)
-    	{
-    		if (inState == DESCENDING)
+    		if (inState == APPROACHING)
     		{
     			outState = STATE_LANDED;
     		}
@@ -475,14 +518,10 @@ public class DanookController extends Thread
     		if (actualPosition.distanceXY(currentDestination) > 5.0)
     		{
     			desiredAltitude = 110.0; // High enough to clear buildings
-    			if (myState == DESCENDING)
-    			{
-    				myState = FINDING_HEADING;
-    			}
     		}
     		else
     		{
-    			desiredAltitude = 0.1;
+    			desiredAltitude = 0.0;
     		}
     	}
     	else

@@ -6,6 +6,8 @@ package org.heli;
 
 import java.util.ArrayList;
 
+import javax.swing.BoxLayout;
+import javax.swing.JLabel;
 import javax.swing.JPanel;
 
 import com.jogamp.opengl.GL2;
@@ -17,6 +19,16 @@ public class Danook extends StigChopper
     public static final String TAG = "Danook";
     public static final long D_DBG = 0x1;
     
+    public JLabel destLabel;
+    public JLabel pcLabel; // package count
+    public JLabel posLabel;
+    public JLabel velLabel;
+    public JLabel accLabel;
+    public JLabel stateLabel;
+    
+    public static final int PANEL_RATE = 10;
+    public int panelUpdater;
+    
 	private DanookController myThread;
 	
     public Danook(int id, World world)
@@ -24,6 +36,25 @@ public class Danook extends StigChopper
         super(id,world);
         myThread = new DanookController(this,world);
         myThread.start();
+        createPanel();
+        panelUpdater = 0;
+    }
+    
+    public void createPanel()
+    {
+        m_info.setLayout(new BoxLayout(m_info, BoxLayout.PAGE_AXIS));
+        destLabel = new JLabel("Dest: (NULL)");
+        m_info.add(destLabel);
+        pcLabel = new JLabel("Packages: 10");
+        m_info.add(pcLabel);
+        posLabel = new JLabel("Position: (NULL)");
+        m_info.add(posLabel);
+        velLabel = new JLabel("Velocity: (NULL)");
+        m_info.add(velLabel);
+        accLabel = new JLabel("Acceleration: (NULL)");
+        m_info.add(accLabel);
+        stateLabel = new JLabel("State: UNKNOWN");
+        m_info.add(stateLabel);
     }
     
     synchronized public double getCurrentTilt_Degrees()
@@ -69,6 +100,54 @@ public class Danook extends StigChopper
 			gl.glVertex3d(myTarget.m_x - 5.0, myTarget.m_y - 5.0, myTarget.m_z);
 			gl.glEnd();
 		}
-
+		if (++panelUpdater > PANEL_RATE)
+		{
+			updatePanel();
+			panelUpdater = 0;
+		}
 	}
+    
+    public void updatePanel()
+    {
+    	Point3D dest = myThread.getDestination();
+    	Point3D pos = myThread.getPosition();
+    	Point3D vel = myThread.getVelocity();
+    	Point3D acc = myThread.getAcceleration();
+    	int packageCount = targetWaypoints.size();
+    	String controlState = myThread.getControlState();
+    	stateLabel.setText("State: " + controlState);
+    	if (dest == null)
+    	{
+    		destLabel.setText("Dest: None");
+    	}
+    	else
+    	{
+    		destLabel.setText("Dest: " + dest.xyzInfo());
+    	}
+        pcLabel.setText("Packages: " + packageCount);
+        if (pos == null)
+        {
+        	posLabel.setText("Position: Unknown");
+        }
+        else
+        {
+        	posLabel.setText("Position: " + pos.xyzInfo());
+        }
+        if (vel == null)
+        {
+        	velLabel.setText("Velocity: Unknown");
+        }
+        else
+        {
+        	velLabel.setText("Velocity: " + vel.xyzInfo());
+        }
+        if (acc == null)
+        {
+        	accLabel.setText("Acceleration: Unknown");
+        }
+        else
+        {
+        	accLabel.setText("Acceleration: " + acc.xyzInfo());
+        }
+    }
 }

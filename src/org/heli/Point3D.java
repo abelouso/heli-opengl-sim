@@ -257,14 +257,20 @@ public class Point3D implements Comparable<Point3D>
 		//return X() == src.X() && Y() == src.Y();
 		
 	}
+	
 	public String info()
 	{
-	    return String.format("(%.3f,%.3f,%.3f) t:%.4f)",m_x,m_y,m_z,m_t);
+	    return String.format("(%.3f,%.3f,%.3f) t:%.4f",m_x,m_y,m_z,m_t);
+	} 
+	
+	public String xyzInfo()
+	{
+	    return String.format("(%.3f,%.3f,%.3f)",m_x,m_y,m_z);
 	} 
 	
 	public String infoI()
 	{
-		return "(" + X() + "," + Y() + "," + X() + ") time: " + m_t;
+		return "(" + X() + "," + Y() + "," + Z() + ") time: " + m_t;
 	}
 	
 	public void show()
