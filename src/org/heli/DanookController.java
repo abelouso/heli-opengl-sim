@@ -21,19 +21,19 @@ public class DanookController extends Thread
 	private static final int APPROACHING = 2;
 	
 	private static final double VERT_CONTROL_FACTOR = 2.5;
-	private static final double HORZ_CONTROL_FACTOR = 0.12;
+	private static final double HORZ_CONTROL_FACTOR = 0.15;
 	
 	private static final double MAX_VERT_VELOCITY = 2.5;
 	
 	private static final double MAX_HORZ_VELOCITY = 2.5;
 	
-	private static final double MAX_VERT_ACCEL = 0.5;
+	private static final double MAX_VERT_ACCEL = 0.4;
 	
-	private static final double MAX_HORZ_ACCEL = 0.5;
+	private static final double MAX_HORZ_ACCEL = 0.4;
 	
-	private static final double DECEL_DISTANCE_VERT = 10.0;
+	private static final double DECEL_DISTANCE_VERT = 12.0;
 	
-	private static final double DECEL_DISTANCE_HORZ = 20.0;
+	private static final double DECEL_DISTANCE_HORZ = 16.0;
 
 	private static final double VERT_DECEL_SPEED = 0.5;
 	
@@ -331,11 +331,7 @@ public class DanookController extends Thread
     	{
     		targetXVelocity = computeDesiredVelocity(actualPosition.m_x,actualDestination.m_x,false);
     	}
-    	double targetXAcceleration = 0.0;
-    	if (justStop == false)
-    	{
-    		targetXAcceleration = computeDesiredAcceleration(estimatedVelocity.m_x, targetXVelocity,false);
-    	}
+    	double targetXAcceleration = computeDesiredAcceleration(estimatedVelocity.m_x, targetXVelocity,false);
     	double xMultiplier = 1.0;
     	double deltaXAcceleration = targetXAcceleration - estimatedAcceleration.m_x;
     	if (deltaXAcceleration > MAX_HORZ_ACCEL)
@@ -352,11 +348,7 @@ public class DanookController extends Thread
     	{
     		targetYVelocity = computeDesiredVelocity(actualPosition.m_y,actualDestination.m_y,false);
     	}
-    	double targetYAcceleration = 0.0;
-    	if (justStop == false)
-    	{
-    		targetYAcceleration = computeDesiredAcceleration(estimatedVelocity.m_y, targetYVelocity,false);
-    	}
+    	double targetYAcceleration = computeDesiredAcceleration(estimatedVelocity.m_y, targetYVelocity,false);
     	double yMultiplier = 1.0;
     	double deltaYAcceleration = targetYAcceleration - estimatedAcceleration.m_y;
     	if (deltaYAcceleration > MAX_HORZ_ACCEL)
@@ -383,7 +375,6 @@ public class DanookController extends Thread
     	// check heading
     	double accelHeading = Math.toDegrees(Math.atan2(deltaXAcceleration,deltaYAcceleration));
     	double moveHeading = Math.toDegrees(Math.atan2(deltaVector.m_x, deltaVector.m_y));
-		World.dbg(TAG, "Computed Heading: " + accelHeading + ", Need Heading: " + moveHeading, DC_DBG);
     	double deltaAngle = Math.abs(accelHeading - moveHeading);
     	if (deltaAngle > 90) // We're going backwards
     	{
