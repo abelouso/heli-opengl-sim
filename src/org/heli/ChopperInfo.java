@@ -109,7 +109,7 @@ public class ChopperInfo
 	
 	public Point3D getPosition()
 	{
-		return actPosition_m;
+		return actPosition_m.copy();
 	}
 	
 	public double getHeading()
@@ -294,14 +294,14 @@ public class ChopperInfo
 		}
 	}
 	
-	public void fly(double currentTime, double elapsedTime)
+	synchronized public void fly(double currentTime, double elapsedTime)
 	{
 		boolean outOfGas = updateFuelRemaining(elapsedTime);
 		if (outOfGas)
 		{
 			desMainRotorSpeed_RPM *= 0.99;
 			desTailRotorSpeed_RPM *= 0.99;
-			desTilt_Degrees += -1.0 + 2.0 * Math.random();
+			desTilt_Degrees += -1.5 + 2.0 * Math.random();
 		}
 		updateMainRotorSpeed(elapsedTime);
 		updateTailRotorSpeed(elapsedTime);
@@ -380,6 +380,7 @@ public class ChopperInfo
 		actPosition_m.m_x += (actVelocity_ms.m_x * elapsedTime);
 		actPosition_m.m_y += (actVelocity_ms.m_y * elapsedTime);
 		actPosition_m.m_z += (actVelocity_ms.m_z * elapsedTime);
+		actPosition_m.m_t = currentTime;
 	}
 	
 	public boolean onGround()

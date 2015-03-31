@@ -562,7 +562,7 @@ public class World
 		return resultArray;
 	}
 	
-	public Point3D gps(int chopperID)
+	synchronized public Point3D gps(int chopperID)
 	{
 		ChopperAggregator thisAg = null;
 		Point3D retPosition = null;
@@ -570,8 +570,7 @@ public class World
 		{
 			thisAg = myChoppers.get(chopperID);
 			ChopperInfo thisInfo = thisAg.getInfo();
-			Point3D actPosition = thisInfo.getPosition();
-			retPosition = new Point3D(actPosition.m_x, actPosition.m_y, actPosition.m_z, curTimeStamp);
+			retPosition = thisInfo.getPosition();
 		}
 		return retPosition;
 	}

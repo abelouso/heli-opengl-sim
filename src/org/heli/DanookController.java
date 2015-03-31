@@ -39,6 +39,8 @@ public class DanookController extends Thread
 	
 	private static final double HORZ_DECEL_SPEED = 2.0;
 	
+	private static final int MAX_FAIL_COUNT = 40;
+	
 	private Danook myChopper;
 	private World myWorld;
 	private int myState = STATE_LANDED;
@@ -174,7 +176,14 @@ public class DanookController extends Thread
     			if (currentDestination == null)
     			{
     				currentDestination = findClosestDestination();
-    				World.dbg(TAG,"Got a destination: " + currentDestination.info(),DC_DBG);
+    				if (currentDestination != null)
+    				{
+    					World.dbg(TAG,"Got a destination: " + currentDestination.info(),DC_DBG);
+    				}
+    				else
+    				{
+    					// GO HOME!
+    				}
     			}
     			if (lastPosition != null && lastTime < currTime)
     			{
@@ -200,7 +209,7 @@ public class DanookController extends Thread
     
     /** This method attempts to update estimated physics based on what we learn
      * from the world.  It requires a reasonable amount of time to have passed
-     * @param currTime Time stamp of our most reading position reading
+     * @param currTime Time stamp of our most current position reading
      * @param lastPos Previous position reading
      * @param lastTime
      * @return
@@ -232,7 +241,6 @@ public class DanookController extends Thread
     public Point3D estimateVelocity( Point3D lastPos, double deltaTime)
     {
     	Point3D oldVelocity = estimatedVelocity.copy();
-    	double realDelta = actualPosition.t() - lastPos.t();
     	estimatedVelocity.m_x = (actualPosition.m_x - lastPos.m_x) / deltaTime;
     	estimatedVelocity.m_y = (actualPosition.m_y - lastPos.m_y) / deltaTime;
     	estimatedVelocity.m_z = (actualPosition.m_z - lastPos.m_z) / deltaTime;
@@ -255,11 +263,23 @@ public class DanookController extends Thread
     	{
     	case FINDING_HEADING:
     	{
-    		boolean headingOK = adjustHeading(false);
-    		if (headingOK)
+    		// approachTarget(true) just tries to stop!
+    		boolean success = approachTarget(true);
+    		if (success)
     		{
-    			// Ensure we run through approaching at least once
-    			nextState = APPROACHING;
+	    		boolean headingOK = adjustHeading(false);
+	    		if (headingOK)
+	    		{
+	    			// Ensure we run through approaching at least once
+	    			nextState = APPROACHING;
+	    		}
+    		}
+    		else
+    		{
+    			// STOP Spinning!
+        		desTailRotorSpeed_RPM = ChopperInfo.STABLE_TAIL_ROTOR_SPEED;
+        		myWorld.requestSettings(myChopper.getId(), desMainRotorSpeed_RPM, desTilt_Degrees, desTailRotorSpeed_RPM);
+    			
     		}
     		break;
     	}
@@ -283,8 +303,14 @@ public class DanookController extends Thread
     }
     
     
+    /** Returns true on a successful command, however, if you ask to stop
+     * it will only return true if your X/Y velocity is under 0.1
+     * @param justStop
+     * @return
+     */
     public boolean approachTarget(boolean justStop)
     {
+    	boolean success = false;
     	if (currentDestination == null && justStop == false)
     	{
     		return false;
@@ -301,8 +327,16 @@ public class DanookController extends Thread
     	{
     		actualDestination = actualPosition.copy();
     	}
-    	double targetXVelocity = computeDesiredVelocity(actualPosition.m_x,actualDestination.m_x,false);
-    	double targetXAcceleration = computeDesiredAcceleration(estimatedVelocity.m_x, targetXVelocity,false);
+    	double targetXVelocity = 0.0;
+    	if (justStop == false)
+    	{
+    		targetXVelocity = computeDesiredVelocity(actualPosition.m_x,actualDestination.m_x,false);
+    	}
+    	double targetXAcceleration = 0.0;
+    	if (justStop == false)
+    	{
+    		targetXAcceleration = computeDesiredAcceleration(estimatedVelocity.m_x, targetXVelocity,false);
+    	}
     	double deltaXAcceleration = targetXAcceleration - estimatedAcceleration.m_x;
     	if (deltaXAcceleration > MAX_HORZ_ACCEL)
     	{
@@ -313,8 +347,16 @@ public class DanookController extends Thread
     		deltaXAcceleration = (-MAX_HORZ_ACCEL);
     	}
     	// Repeat for Y
-    	double targetYVelocity = computeDesiredVelocity(actualPosition.m_y,actualDestination.m_y,false);
-    	double targetYAcceleration = computeDesiredAcceleration(estimatedVelocity.m_y, targetYVelocity,false);
+    	double targetYVelocity = 0.0;
+    	if (justStop == false)
+    	{
+    		targetYVelocity = computeDesiredVelocity(actualPosition.m_y,actualDestination.m_y,false);
+    	}
+    	double targetYAcceleration = 0.0;
+    	if (justStop == false)
+    	{
+    		targetYAcceleration = computeDesiredAcceleration(estimatedVelocity.m_y, targetYVelocity,false);
+    	}
     	double deltaYAcceleration = targetYAcceleration - estimatedAcceleration.m_y;
     	if (deltaYAcceleration > MAX_HORZ_ACCEL)
     	{
@@ -336,7 +378,19 @@ public class DanookController extends Thread
     	}
     	desTilt_Degrees += deltaAcceleration * HORZ_CONTROL_FACTOR;
     	myWorld.requestSettings(myChopper.getId(), desMainRotorSpeed_RPM, desTilt_Degrees, desTailRotorSpeed_RPM);
-    	return true;
+    	if (justStop == true)
+    	{
+    		if (estimatedVelocity.xyLength() < 0.25)
+    		{
+    			success = true;
+    		}
+    		World.dbg(TAG, "Trying to stop -- velocity: " + estimatedVelocity.xyLength(), DC_DBG);
+    	}
+    	else
+    	{
+    		success = true;
+    	}
+    	return success;
     }
     
     public int controlAltitude(int inState) throws Exception
@@ -392,6 +446,13 @@ public class DanookController extends Thread
     		}
 			World.dbg(TAG, "inState: " + inState + ", outState: " + outState, DC_DBG);
     		return outState;
+    	}
+    	else
+    	{
+    		if (inState == STATE_LANDED)
+    		{
+    			outState = FINDING_HEADING;
+    		}
     	}
     	double targetVerticalVelocity = computeDesiredVelocity(actualPosition.m_z,desiredAltitude,true);
     	double deltaVelocity = targetVerticalVelocity - estimatedVelocity.m_z;
@@ -486,9 +547,9 @@ public class DanookController extends Thread
     	{
     		deltaHeading -= 360.0;
     	}
-    	if (Math.abs(deltaHeading) < 0.03)
+    	if (Math.abs(deltaHeading) < 0.02)
     	{
-    		desTailRotorSpeed_RPM = 100.0;
+    		desTailRotorSpeed_RPM = ChopperInfo.STABLE_TAIL_ROTOR_SPEED;
     		// TODO: Future optimization -- don't do this every tick?
     		myWorld.requestSettings(myChopper.getId(), desMainRotorSpeed_RPM, desTilt_Degrees, desTailRotorSpeed_RPM);
     		headingOK = true;
