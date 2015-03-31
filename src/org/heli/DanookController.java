@@ -279,7 +279,6 @@ public class DanookController extends Thread
     			// STOP Spinning!
         		desTailRotorSpeed_RPM = ChopperInfo.STABLE_TAIL_ROTOR_SPEED;
         		myWorld.requestSettings(myChopper.getId(), desMainRotorSpeed_RPM, desTilt_Degrees, desTailRotorSpeed_RPM);
-    			
     		}
     		break;
     	}
@@ -337,14 +336,15 @@ public class DanookController extends Thread
     	{
     		targetXAcceleration = computeDesiredAcceleration(estimatedVelocity.m_x, targetXVelocity,false);
     	}
+    	double xMultiplier = 1.0;
     	double deltaXAcceleration = targetXAcceleration - estimatedAcceleration.m_x;
     	if (deltaXAcceleration > MAX_HORZ_ACCEL)
     	{
-    		deltaXAcceleration = MAX_HORZ_ACCEL;
+    		xMultiplier = MAX_HORZ_ACCEL / deltaXAcceleration;
     	}
     	if (deltaXAcceleration < (-MAX_HORZ_ACCEL))
     	{
-    		deltaXAcceleration = (-MAX_HORZ_ACCEL);
+    		xMultiplier = (-MAX_HORZ_ACCEL) / deltaXAcceleration;
     	}
     	// Repeat for Y
     	double targetYVelocity = 0.0;
@@ -357,20 +357,33 @@ public class DanookController extends Thread
     	{
     		targetYAcceleration = computeDesiredAcceleration(estimatedVelocity.m_y, targetYVelocity,false);
     	}
+    	double yMultiplier = 1.0;
     	double deltaYAcceleration = targetYAcceleration - estimatedAcceleration.m_y;
     	if (deltaYAcceleration > MAX_HORZ_ACCEL)
     	{
-    		deltaYAcceleration = MAX_HORZ_ACCEL;
+    		yMultiplier = MAX_HORZ_ACCEL / deltaYAcceleration;
     	}
     	if (deltaYAcceleration < (-MAX_HORZ_ACCEL))
     	{
-    		deltaYAcceleration = (-MAX_HORZ_ACCEL);
+    		yMultiplier = (-MAX_HORZ_ACCEL) / deltaYAcceleration;
+    	}
+    	// Limit the size of the vector but do NOT change the proportion!
+    	if (xMultiplier < yMultiplier)
+    	{
+    		deltaXAcceleration = deltaXAcceleration * yMultiplier;
+    		deltaYAcceleration = deltaYAcceleration * yMultiplier;
+    	}
+    	else
+    	{
+    		deltaXAcceleration = deltaXAcceleration * xMultiplier;
+    		deltaYAcceleration = deltaYAcceleration * xMultiplier;
     	}
     	// Compute magnitude of acceleration
     	double deltaAcceleration = Math.sqrt(deltaXAcceleration * deltaXAcceleration + deltaYAcceleration * deltaYAcceleration);
     	// check heading
     	double accelHeading = Math.toDegrees(Math.atan2(deltaXAcceleration,deltaYAcceleration));
     	double moveHeading = Math.toDegrees(Math.atan2(deltaVector.m_x, deltaVector.m_y));
+		World.dbg(TAG, "Computed Heading: " + accelHeading + ", Need Heading: " + moveHeading, DC_DBG);
     	double deltaAngle = Math.abs(accelHeading - moveHeading);
     	if (deltaAngle > 90) // We're going backwards
     	{
@@ -384,7 +397,6 @@ public class DanookController extends Thread
     		{
     			success = true;
     		}
-    		World.dbg(TAG, "Trying to stop -- velocity: " + estimatedVelocity.xyLength(), DC_DBG);
     	}
     	else
     	{
@@ -547,7 +559,7 @@ public class DanookController extends Thread
     	{
     		deltaHeading -= 360.0;
     	}
-    	if (Math.abs(deltaHeading) < 0.02)
+    	if (Math.abs(deltaHeading) < 0.05)
     	{
     		desTailRotorSpeed_RPM = ChopperInfo.STABLE_TAIL_ROTOR_SPEED;
     		// TODO: Future optimization -- don't do this every tick?
