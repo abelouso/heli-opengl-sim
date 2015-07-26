@@ -17,8 +17,9 @@ public class DanookController extends Thread
     public static final String TAG = "DC:";
     public static final long DC_DBG = 0x2;
 	private static final int STATE_LANDED = 0;
-	private static final int FINDING_HEADING = 1;
-	private static final int APPROACHING = 2;
+	private static final int STOP_NOW = 1;
+	private static final int FINDING_HEADING = 2;
+	private static final int APPROACHING = 3;
 	
 	private static final double VERT_CONTROL_FACTOR = 2.5;
 	private static final double HORZ_CONTROL_FACTOR = 0.15;
@@ -64,17 +65,30 @@ public class DanookController extends Thread
     	switch(myState)
     	{
     	case STATE_LANDED:
+    	{
     		returnState = "Landed";
     		break;
+    	}
+    	case STOP_NOW:
+    	{
+    		returnState = "Stopping";
+    		break;
+    	}
     	case FINDING_HEADING:
+    	{
     		returnState = "Turning";
     		break;
+    	}
     	case APPROACHING:
+    	{
     		returnState = "Approaching";
     		break;
+    	}
     	default:
+    	{
     		returnState = "Unknown";
     		break;
+    	}
     	}
     	return returnState;
     }
@@ -190,7 +204,19 @@ public class DanookController extends Thread
     				boolean updated = estimatePhysics(currTime, lastPosition, lastTime);
     				if (updated)
     				{
-    					controlTheShip();
+    					boolean closer = true;
+    					if (currentDestination != null)
+    					{
+    						double oldDistance = lastPosition.distanceXY(currentDestination);
+    						double newDistance = actualPosition.distanceXY(currentDestination);
+    						if (newDistance > (oldDistance + 0.5)) // Allow some slow movement away
+    						{
+    							closer = false;
+    	    					World.dbg(TAG,"DC: Wrong way -- now: " + newDistance + " then: " + oldDistance,DC_DBG);
+
+    						}
+    					}
+    					controlTheShip(closer);
     				}
     				else
     				{
@@ -256,37 +282,54 @@ public class DanookController extends Thread
     	return oldAcceleration;
     }
     
-    public void controlTheShip()
+    public void controlTheShip(boolean isCloser) throws Exception
     {
+    	// Immediately change state if we're trying to approach and we are
+    	// getting farther away
+    	if (myState == APPROACHING && isCloser == false)
+    	{
+    		myState = STOP_NOW;
+    	}
     	int nextState = myState;
     	switch(myState)
     	{
-    	case FINDING_HEADING:
+    	case STATE_LANDED:
     	{
+    		// Nothing to do, but no exception to be thrown
+    		break;
+    	}
+    	case STOP_NOW:
+    	{
+			// STOP Spinning!
+    		desTailRotorSpeed_RPM = ChopperInfo.STABLE_TAIL_ROTOR_SPEED;
+    		myWorld.requestSettings(myChopper.getId(), desMainRotorSpeed_RPM, desTilt_Degrees, desTailRotorSpeed_RPM);
     		// approachTarget(true) just tries to stop!
     		boolean success = approachTarget(true);
     		if (success)
     		{
-	    		boolean headingOK = adjustHeading(false);
-	    		if (headingOK)
-	    		{
-	    			// Ensure we run through approaching at least once
-	    			nextState = APPROACHING;
-	    		}
+    			nextState = FINDING_HEADING;
     		}
-    		else
+    		break;
+    	}
+    	case FINDING_HEADING:
+    	{
+    		boolean headingOK = adjustHeading(false);
+    		if (headingOK)
     		{
-    			// STOP Spinning!
-        		desTailRotorSpeed_RPM = ChopperInfo.STABLE_TAIL_ROTOR_SPEED;
-        		myWorld.requestSettings(myChopper.getId(), desMainRotorSpeed_RPM, desTilt_Degrees, desTailRotorSpeed_RPM);
+    			// Ensure we run through approaching at least once
+    			nextState = APPROACHING;
     		}
     		break;
     	}
     	case APPROACHING:
     	{
-    		double distance = actualPosition.distanceXY(currentDestination);
-    		boolean success = approachTarget(false);
+    		approachTarget(false);
     		break;
+    	}
+    	default:
+    	{
+    		Exception e = new Exception("Hey STUPID -- your state is: " + myState + " which is not allowed.");
+    		throw e;
     	}
     	}
     	myState = nextState;
@@ -384,7 +427,7 @@ public class DanookController extends Thread
     	myWorld.requestSettings(myChopper.getId(), desMainRotorSpeed_RPM, desTilt_Degrees, desTailRotorSpeed_RPM);
     	if (justStop == true)
     	{
-    		if (estimatedVelocity.xyLength() < 0.25)
+    		if (estimatedVelocity.xyLength() < 0.10)
     		{
     			success = true;
     		}
@@ -447,7 +490,7 @@ public class DanookController extends Thread
     		{
     			outState = STATE_LANDED;
     		}
-			World.dbg(TAG, "inState: " + inState + ", outState: " + outState, DC_DBG);
+			//World.dbg(TAG, "inState: " + inState + ", outState: " + outState, DC_DBG);
     		return outState;
     	}
     	else

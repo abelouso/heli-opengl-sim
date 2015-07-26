@@ -25,6 +25,7 @@ public class Danook extends StigChopper
     public JLabel velLabel;
     public JLabel accLabel;
     public JLabel stateLabel;
+    public DanookHUD fuelRemaining;
     
     public static final int PANEL_RATE = 10;
     public int panelUpdater;
@@ -55,6 +56,8 @@ public class Danook extends StigChopper
         m_info.add(accLabel);
         stateLabel = new JLabel("State: UNKNOWN");
         m_info.add(stateLabel);
+        fuelRemaining = new DanookHUD(fuelCapacity);
+        m_info.add(fuelRemaining);
     }
     
     synchronized public double getCurrentTilt_Degrees()
@@ -149,5 +152,6 @@ public class Danook extends StigChopper
         {
         	accLabel.setText("Acceleration: " + acc.xyzInfo());
         }
+        fuelRemaining.setFuelLevel(world.getFuelRemaining(id));
     }
 }

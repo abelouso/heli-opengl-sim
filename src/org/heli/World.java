@@ -202,6 +202,19 @@ public class World
 		}
 		return retVal;
 	}
+	
+	public double getFuelRemaining(int id)
+	{
+		ChopperAggregator ca = myChoppers.get(id);
+		double fuelLeft = 0.0;
+		if (ca != null)
+		{
+			ChopperInfo info = ca.getInfo();
+			fuelLeft = info.getFuelRemaining();
+		}
+		return fuelLeft;
+	}
+	
 	public boolean deliverPackage(int id)
 	{
 		boolean success = false;
@@ -264,24 +277,37 @@ public class World
             switch(splits[0].charAt(0))
             {
             case 'x':
+            {
                 sizeX = Integer.parseInt(splits[1]);
                 break;
+            }
             case 'y':
+            {
                 sizeY = Integer.parseInt(splits[1]);
                 break;
+            }
             case 'z':
+            {
                 sizeZ = Integer.parseInt(splits[1]);
                 break;
+            }
             case 'd':
+            {
                 m_dbgMask = Integer.parseInt(splits[1].replaceAll("0x",""),16);
                 break;
+            }
             case 'c':
+            {
                 m_camToFollow = Integer.parseInt(splits[1]);
                 break;
+            }
             case 'f':
+            {
                 m_rtToRndRatio = Double.parseDouble(splits[1]);
                 break;
+            }
             case 'h':
+            {
                 System.out.println("Command Line Arguments:");
                 System.out.println("-----------------------");
                 System.out.println("x:Number (X World Size   -- default 1000)");
@@ -292,9 +318,12 @@ public class World
                 System.out.println("c:idx index of chopper for camera to follow");
                 System.out.println("f:rat - ratio of world to real time 1 - for real-time 10 - 10x faster");
                 break;
+            }
             default:
+            {
                 System.out.println("Unhandled command line argument '" + thisArg + "'");
                 break;
+            }
             }
         }
 		myChoppers = new HashMap<Integer, ChopperAggregator>();

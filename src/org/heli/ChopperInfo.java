@@ -97,6 +97,11 @@ public class ChopperInfo
 		World.dbg(TAG,"Chop Info -- Created chopper ID " + chopperID + " Fuel level: " + remainingFuel_kg,CI_DBG);
 	}
 	
+	public double getFuelRemaining()
+	{
+		return remainingFuel_kg;
+	}
+	
 	public double getMainRotorPosition()
 	{
 		return mainRotorPosition_Degrees;
