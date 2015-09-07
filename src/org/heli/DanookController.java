@@ -427,6 +427,11 @@ public class DanookController extends Thread
     	myWorld.requestSettings(myChopper.getId(), desMainRotorSpeed_RPM, desTilt_Degrees, desTailRotorSpeed_RPM);
     	if (justStop == true)
     	{
+    		World.dbg(TAG,"Trying to stop -- acc wanted (" + targetXAcceleration + ","
+    				 + targetYAcceleration + ") act (" + estimatedAcceleration.m_x + ","
+    				 + estimatedAcceleration.m_y + ") vel wanted (" + targetXVelocity + ","
+    				 + targetYVelocity + ") act (" + estimatedVelocity.m_x + ","
+    				 + estimatedVelocity.m_y + ") des tilt: " + desTilt_Degrees,DC_DBG);
     		if (estimatedVelocity.xyLength() < 0.10)
     		{
     			success = true;
