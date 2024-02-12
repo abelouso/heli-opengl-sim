@@ -17,11 +17,13 @@ from Apachi import *
 from BaseObject import *
 from StigChopper import *
 from BuildingCluster import *
+from Camera import HeliCamera
 
 
 class HeliMain(ShowBase):
     def __init__(self):
         ShowBase.__init__(self)
+        self.initialCameraPosition = Vec3(0,-340, -60)
         ambientLight = AmbientLight("ambient light")
         ambientLight.setColor(Vec4(0.2, 0.2, 0.2, 1))
         self.ambientLightNodePath = render.attachNewNode(ambientLight)
@@ -51,6 +53,7 @@ class HeliMain(ShowBase):
         self.exitFunc = self.cleanup
         self.firstUpdate = True
         self.followIndex = len(self.choppers) - 1
+        self.chaser = HeliCamera(self.cam.getX(),self.cam.getY(),self.cam.getZ())
 
     def cleanup(self):
         for chopper in self.choppers:
@@ -74,7 +77,6 @@ class HeliMain(ShowBase):
                 toPlace = random.randint(0,1)
                 if toPlace == 1:
                     pos = Vec3(offsetX + xIdx * stepX, offsetY + yIdx * stepY,0)
-                    print(pos)
                     self.city.append(BuildingCluster(bldType,pos))
 
     def generateCity(self):
@@ -93,9 +95,21 @@ class HeliMain(ShowBase):
         
         if self.firstUpdate:
             print(" ================= setting camera position ================")
-            self.cam.setPos(0,-340, 60)
+            self.cam.setPos(self.initialCameraPosition)
             self.cam.setHpr(0,-10,0)
+            self.chaser.source = self.initialCameraPosition
             self.firstUpdate = False
+        else:
+            try:
+                self.chaser.chase(self.choppers[self.followIndex].actor.getPos(),10)
+                self.cam.setPos(self.chaser.source)
+                #self.cam.setPos(self.choppers[self.followIndex].actor.getPos() + 10)
+                #self.cam.setHpr(self.chaser.getHpr())
+                self.cam.lookAt(self.choppers[self.followIndex].actor)
+                #base.camera.lookAt(self.camera, self.choppers[self.followIndex].actor,up=Vec3(0,1,0))
+            except Exception as ex:
+                print("Problem: ",ex)
+            pass
 
         return task.cont
 
