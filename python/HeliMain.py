@@ -14,15 +14,57 @@ import random
 
 #our imports
 from Apachi import *
+from Danook import *
 from BaseObject import *
 from StigChopper import *
 from BuildingCluster import *
+from ChopperInfo import *
 from Camera import HeliCamera
 
+gCH_ID = 0 #chopper index in chopper tuple
+gIN_ID = 1 #info index in chopper tupple
 
 class HeliMain(ShowBase):
     def __init__(self):
         ShowBase.__init__(self)
+        ##==================== PORTED STUFF ================
+        ## from World.java
+        self.CHOPPER_BASE_MASS = 100.0
+        self.ITEM_WEIGHT = 10.0
+        self.TOTAL_CAPACITY = 300.0
+
+        self.TAG = "HeliMain"
+        self.m_dbgMask = 0
+        self.WORLD_DBG = 0x10000000
+        self.nextChopperID = 0
+        self.m_rtToRndRatio = 1.0
+        self.sizeX = 10
+        self.sizeY = 10
+        self.sizeZ = 2
+        self.curTimeStamp = 0.0
+        
+        self.TICK_TIME = 1.0 / 50.0
+        self.FULL_BLOCK_SIZE = 100.0
+        self.STREET_OFFSET = 3.0
+        self.SIDEWALK_OFFSET = 2.0
+        self.BLOCK_SIZE = self.FULL_BLOCK_SIZE - 2.0 * self.STREET_OFFSET
+        self.SQUARE_SIZE = self.BLOCK_SIZE - 2.0 * self.SIDEWALK_OFFSET
+        self.BUILDING_SPACE = (self.SQUARE_SIZE / 10.0)
+        self.BUILDING_SIZE = 0.9 * self.BUILDING_SPACE
+        self.HOUSES_PER_BLOCK = 10.0
+        self.MAX_PACKAGE_DISTANCE = 2.0
+        self.maxTime = 10000.0
+
+        self.worldState = []
+        self.allPackageLocs = []
+
+        self.m_chopperInfoPanel = None
+
+        ##==================================================
+        
+        self.pusher = CollisionHandlerPusher()
+        self.cTrav = CollisionTraverser()
+
         self.initialCameraPosition = Vec3(0,-340, -60)
         ambientLight = AmbientLight("ambient light")
         ambientLight.setColor(Vec4(0.2, 0.2, 0.2, 1))
@@ -43,8 +85,14 @@ class HeliMain(ShowBase):
         plane.setHpr(0,90,0)
         plane.setPos(0.5 * planeSide, 0.5 * planeSide,0)
 
-        self.choppers = []
-        self.choppers.append(Apachi())
+        self.myChoppers = {}
+        id = 0
+        danook = Danook(id,self.getStartingPosition(id))
+        self.insertChopper(danook)
+        
+        id = 1
+        apachi = Apachi(id,self.getStartingPosition(id))
+        self.insertChopper(apachi)
 
         self.city = []
         self.generateCity()
@@ -52,12 +100,12 @@ class HeliMain(ShowBase):
         self.updateTask = taskMgr.add(self.update, "update")
         self.exitFunc = self.cleanup
         self.firstUpdate = True
-        self.followIndex = len(self.choppers) - 1
+        self.m_camToFollow = danook.id
         self.chaser = HeliCamera(self.cam.getX(),self.cam.getY(),self.cam.getZ())
 
     def cleanup(self):
-        for chopper in self.choppers:
-            chopper.cleanUp()
+        for chopper in self.myChoppers:
+            self.myChoppers[chopper][gCH_ID].cleanUp()
         for bld in self.city:
             bld.cleanUp()
         
@@ -90,28 +138,69 @@ class HeliMain(ShowBase):
     
     def update(self,task):
         dt = globalClock.getDt()
-        for chopper in self.choppers:
-            chopper.update(dt,task.time)
+        for chopper in self.myChoppers:
+            self.myChoppers[chopper][gCH_ID].update(dt,task.time)
         
         if self.firstUpdate:
-            print(" ================= setting camera position ================")
             self.cam.setPos(self.initialCameraPosition)
             self.cam.setHpr(0,-10,0)
             self.chaser.source = self.initialCameraPosition
             self.firstUpdate = False
         else:
             try:
-                self.chaser.chase(self.choppers[self.followIndex].actor.getPos(),10)
+                self.chaser.chase(self.myChoppers[self.m_camToFollow][gCH_ID].actor.getPos(),10)
                 self.cam.setPos(self.chaser.source)
-                #self.cam.setPos(self.choppers[self.followIndex].actor.getPos() + 10)
-                #self.cam.setHpr(self.chaser.getHpr())
-                self.cam.lookAt(self.choppers[self.followIndex].actor)
-                #base.camera.lookAt(self.camera, self.choppers[self.followIndex].actor,up=Vec3(0,1,0))
+                self.cam.lookAt(self.myChoppers[self.m_camToFollow][gCH_ID].actor)
             except Exception as ex:
                 print("Problem: ",ex)
             pass
 
         return task.cont
+
+    '''
+    World.java port here ===================================================================
+    '''
+    def dbg(self, tag, msg, bit):
+        if self.m_dbgMask & bit:
+            print("DEBUG: [",tag,"]:", msg)
+
+    def getStartingPosition(self, chopperID):
+        return Vec3(50.0, 48.0 + chopperID * 2.0, 0.0)
+    
+    def insertChopper(self, chopper):
+        chInfo = ChopperInfo(chopper.id, chopper.fuelCapacity, chopper.actor.getPos(), 0.0)
+        self.myChoppers[chopper.id] = (chopper,chInfo)
+
+    def timeRatio(self):
+        return self.m_rtToRndRatio
+
+    def setChopperWaypoints(self):
+        for key in self.myChoppers:
+            chopper = self.myChoppers[key][gCH_ID]
+            targetPoints = []
+            for _ in range(0,chopper.itemCount()):
+                whichRow = random.randint(0,20) - 10
+                whichCol = random.randInt(0,20) - 10
+                targetPoints.append(Vec3(whichCol, whichRow, 0.1))
+            chopper.setWaypoints(targetPoints)
+            self.allPackageLocs.append(targetPoints)
+
+    def isAirborn(self,id):
+        retVal = 1
+        if id in self.myChoppers:
+            if self.myChoppers[id][gCH_ID].onGround():
+                retVal = 0
+        return retVal
+
+    def getFuelRemaining(self,id):
+        retVal = 0
+        if id in self.myChoppers:
+            retVal = self.myChoppers[id][gIN_ID].getFuelRemaining()
+        return retVal
+
+    '''
+    End of World.java port ======================================================================
+    '''
 
 heliMain = HeliMain()
 heliMain.run()

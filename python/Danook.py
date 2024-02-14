@@ -10,9 +10,9 @@ import math
 from BaseObject import *
 from StigChopper import *
 
-class Apachi(StigChopper):
+class Danook(StigChopper):
     def __init__(self,id, pos, scale=0.2):
-        StigChopper.__init__(self,id,pos,"Models/ArmyCopter", {}, "apachi")
+        StigChopper.__init__(self,id,pos,"Models/Helicopter", {}, "danook")
         self.actor.setScale(scale,scale,scale)
         self.rotDir = 1.0
         self.actAngle = 0
@@ -24,11 +24,15 @@ class Apachi(StigChopper):
             self.rotDir *= -1.0
             self.actAngle = 0
 
-        angDeg = tick * 9.0
+        angDeg = tick * 6.0
         angRad = math.radians(angDeg)
-        radius = 39 + 2.2 * self.id
+        radius = 28 + 2.2 * self.id
         if True:
-            self.actor.setPos(radius * math.sin(angRad), -radius * math.cos(angRad), 70)
+            pos = self.actor.getPos()
+            pos.setX(radius * math.sin(angRad))
+            pos.setY(-radius * math.cos(angRad))
+            pos.setZ(79)
+            self.actor.setPos(pos)
         else:
             self.actor.setPos(radius * math.cos(angRad), -radius * math.sin(angRad), 70)
         self.actor.setHpr(angDeg - 90.0,-5,-15)
