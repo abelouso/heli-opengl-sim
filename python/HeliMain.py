@@ -10,6 +10,7 @@ from panda3d.core import CardMaker
 
 #generic python
 import random
+import argparse
 
 
 #our imports
@@ -38,8 +39,8 @@ class HeliMain(ShowBase):
         self.WORLD_DBG = 0x10000000
         self.nextChopperID = 0
         self.m_rtToRndRatio = 1.0
-        self.sizeX = 10
-        self.sizeY = 10
+        self.sizeX = 30
+        self.sizeY = 30
         self.sizeZ = 2
         self.curTimeStamp = 0.0
         
@@ -59,6 +60,24 @@ class HeliMain(ShowBase):
         self.allPackageLocs = []
 
         self.m_chopperInfoPanel = None
+        self.m_camToFollow = 1
+
+        ap = argparse.ArgumentParser(description="Helicopter Delivery World Simulator")
+        ap.add_argument("-x",help="World's x size",default = self.sizeX,dest="sizeX")
+        ap.add_argument("-y",help="World's y size",default = self.sizeY,dest="sizeY")
+        ap.add_argument("-z",help="World's z size",default = self.sizeZ,dest="sizeZ")
+        ap.add_argument("-d",help="Debug mask",default=0,dest="debugMask")
+        ap.add_argument("-c",help="Index of a chopper to follow",dest="camToFollow",default=0)
+        ap.add_argument("-f",help="ratio of world to real time 1 - for real-time 10 - 10x faster",default=self.m_rtToRndRatio,dest="rtRatio")
+
+
+        args = ap.parse_args()
+        self.sizeX = int(args.sizeX)
+        self.sizeY = int(args.sizeY)
+        self.sizeZ = int(args.sizeZ)
+        self.m_dbgMask = int(args.debugMask)
+        self.m_rtToRndRatio = float(args.rtRatio)
+        self.m_camToFollow = float(args.camToFollow)
 
         ##==================================================
         
@@ -100,8 +119,8 @@ class HeliMain(ShowBase):
         self.updateTask = taskMgr.add(self.update, "update")
         self.exitFunc = self.cleanup
         self.firstUpdate = True
-        self.m_camToFollow = danook.id
         self.chaser = HeliCamera(self.cam.getX(),self.cam.getY(),self.cam.getZ())
+        self.setChopperWaypoints()
 
     def cleanup(self):
         for chopper in self.myChoppers:
@@ -128,8 +147,8 @@ class HeliMain(ShowBase):
                     self.city.append(BuildingCluster(bldType,pos))
 
     def generateCity(self):
-        cityX = 50
-        cityY = 50
+        cityX = self.sizeX
+        cityY = self.sizeY
         blockX = 5
         blockY = 5
         for gridX in range(-cityX,cityX,blockX):
@@ -138,6 +157,7 @@ class HeliMain(ShowBase):
     
     def update(self,task):
         dt = globalClock.getDt()
+        self.curTimeStamp = task.time * self.m_rtToRndRatio
         for chopper in self.myChoppers:
             self.myChoppers[chopper][gCH_ID].update(dt,task.time)
         
@@ -180,7 +200,7 @@ class HeliMain(ShowBase):
             targetPoints = []
             for _ in range(0,chopper.itemCount()):
                 whichRow = random.randint(0,20) - 10
-                whichCol = random.randInt(0,20) - 10
+                whichCol = random.randint(0,20) - 10
                 targetPoints.append(Vec3(whichCol, whichRow, 0.1))
             chopper.setWaypoints(targetPoints)
             self.allPackageLocs.append(targetPoints)
@@ -197,7 +217,46 @@ class HeliMain(ShowBase):
         if id in self.myChoppers:
             retVal = self.myChoppers[id][gIN_ID].getFuelRemaining()
         return retVal
+    
+    def deliverPackage(self, id):
+        success = False
+        if id in self.myChoppers:
+            chop,info = self.myChoppers[id]
+            myPos = self.gps(id)
+            if info.onGround():
+				## OK, check position
+				## NOTE: I believe the hashCode function is used to determine
+				## if the container has the object.  That only includes X,Y,Z
+				## which is what I think we want.
+                for object in self.allPackageLocs:
+                    if object.getXy().distanceTo(myPos.getXy()) < 0.5:
+                        self.allPackageLocs.remove(object)
+                        success = True
+                        break
+                if not success:
+                    self.dbg(self.TAG,"Couldn't find package to deliver at (",myPos,")", self.WORLD_DBG)
+        return success
 
+    def getTimestamp(self):
+        return self.curTimeStamp
+
+    def requestSettings(self, id, mainRotorSpeed, tiltAngle, tailRotorSpeed):
+        if id in self.myChoppers:
+            _ , resInfo = self.myChoppers[id]
+            resInfo.requestMainRotorSpeed(mainRotorSpeed)
+            resInfo.requestTailrotorSpeed(tailRotorSpeed)
+            resInfo.requestTiltLevel(tiltAngle)
+
+    def requestNextChopperID(self):
+        getNext = False
+        for ch, _ in self.myChoppers:
+            if getNext:
+                self.nextChopperID = ch.id
+                break
+            if ch.id == self.nextChopperID:
+                getNext = True
+
+        
     '''
     End of World.java port ======================================================================
     '''
