@@ -16,9 +16,14 @@ class Apachi(StigChopper):
         self.actor.setScale(scale,scale,scale)
         self.rotDir = 1.0
         self.actAngle = 0
+        self.mainSpped = 0.0
+        self.tilt = 0.0
+        self.tailSpeed = 0.0
 
     def update(self,dt,tick):
         StigChopper.update(self,dt,tick)
+
+        '''
         self.actAngle += 1
         if (abs(self.actAngle) > 3600):
             self.rotDir *= -1.0
@@ -32,8 +37,22 @@ class Apachi(StigChopper):
         else:
             self.actor.setPos(radius * math.cos(angRad), -radius * math.sin(angRad), 70)
         self.actor.setHpr(angDeg - 90.0,-5,-15)
-
+        '''
 
 
     def runLogic(self,dt,tick):
         StigChopper.runLogic(self,dt,tick)
+        pos = base.gps(self.id)
+        alt = pos.getZ()
+        if alt < 70:
+            self.mainSpped = 100.0
+            self.tailSpeed = 100.0
+            self.tilt = 1
+        elif alt < 10:
+            self.mainSpeed = 70.0
+        else:
+            self.mainSpped -= 1.0
+            self.tailSpeed = 0
+            self.tilt = 0
+
+        base.requestSettings(self.id,self.mainSpped,self.tilt,self.tailSpeed)

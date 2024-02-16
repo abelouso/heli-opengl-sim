@@ -40,9 +40,9 @@ class ChopperInfo:
         # In meters per second squared
         self.actAcceleration_ms2 = Vec3(0.0, 0.0, 0.0)
         # In meters per second
-        self.actVelocity_ms = Vec4(0.0, 0.0, 0.0, 0.0)
+        self.actVelocity_ms = Vec3(0.0, 0.0, 0.0)
         # In meters
-        self.actPosition_m = startPos
+        self.actPosition_m = Vec4(startPos.getX(), startPos.getY(), startPos.getZ(),0.0)
         self.heading_Degrees = startHeading
         self.m_revs_sum = 0.0
         self.m_burnt_sum = 0.0
@@ -224,9 +224,9 @@ class ChopperInfo:
         
             cargoMass_kg = base.ITEM_WEIGHT * thisChopper.itemCount()
         
-        totalMass_kg = cargoMass_kg + self.remainingFuel_kg + base.BASE_MASS
+        totalMass_kg = cargoMass_kg + self.remainingFuel_kg + base.CHOPPER_BASE_MASS
         downForce_N = totalMass_kg * self.EARTH_ACCELERATION # F = mA
-        actTilt_radians = self.actTilt_Degrees * math.PI / 180.0
+        actTilt_radians = math.radians(self.actTilt_Degrees)
         liftForce_N = self.actMainRotorSpeed_RPM * self.THRUST_PER_RPM * math.cos(actTilt_radians)
         # lateral force will only be used when off the ground (See below)
         lateralForce_N = self.actMainRotorSpeed_RPM * self.THRUST_PER_RPM * math.sin(actTilt_radians)
@@ -234,28 +234,28 @@ class ChopperInfo:
         deltaForce_N = liftForce_N - downForce_N
         if (deltaForce_N > 0.0): # We have enough force to ascend
             # We know vertical force, we'll compute lateral forces next
-            self.actAcceleration_ms2.m_z = deltaForce_N / totalMass_kg
+            self.actAcceleration_ms2.setZ(deltaForce_N / totalMass_kg)
             if (self.takenOff == False):
-                base.dbg(self.TAG,"Chopper " + self.chopperID + " has lifted off!",self.CI_DBG)
+                base.dbg(self.TAG,f"Chopper {self.chopperID} has lifted off!",self.CI_DBG)
                 self.takenOff = True
         else: 
         
             # Simple landing check when close to zero
-            if (self.actPosition_m.m_z < 0.25):
+            if (self.actPosition_m.getZ() < 0.25):
             
-                lateralMagnitude = self.actVelocity_ms.xyLength()
-                if (lateralMagnitude < 0.25 and (self.actVelocity_ms.m_z > (-2.0) and self.actVelocity_ms.m_z < 0)):
+                lateralMagnitude = self.actVelocity_ms.getXy().length()
+                if (lateralMagnitude < 0.25 and (self.actVelocity_ms.getZ() > (-2.0) and self.actVelocity_ms.getZ() < 0)):
                 
                     if (self.takenOff == True):
                     
-                        base.dbg(self.TAG,"Chopper " + self.chopperID + " has landed!",self.CI_DBG)
+                        base.dbg(self.TAG,f"Chopper {self.chopperID} has landed!",self.CI_DBG)
                     
                     self.takenOff = False
                 
             
             if (self.takenOff == True):
             
-                self.actAcceleration_ms2.m_z = deltaForce_N / totalMass_kg
+                self.actAcceleration_ms2.setZ( deltaForce_N / totalMass_kg )
             
             else: 
             
@@ -268,7 +268,7 @@ class ChopperInfo:
         
             self.updateCurrentHeading(elapsedTime)
             # Now that we have our heading, we can compute the direction of our thrust
-            heading_radians = self.heading_Degrees * math.PI / 180.0
+            heading_radians = math.radians(self.heading_Degrees)
             self.actAcceleration_ms2.setX(lateralAcceleration * math.sin(heading_radians))
             self.actAcceleration_ms2.setY(lateralAcceleration * math.cos(heading_radians))
         
@@ -295,7 +295,7 @@ class ChopperInfo:
         return not self.takenOff
 	
     def show(self, curTime):
-        base.dbg(self.TAG,"Heading: " + self.heading_Degrees + " deg, desired rotor speed: " + self.desMainRotorSpeed_RPM,self.CI_DBG)
+        base.dbg(self.TAG,f"Heading: {self.heading_Degrees} deg, desired rotor speed: {self.desMainRotorSpeed_RPM}",self.CI_DBG)
         #World.dbg(self.TAG,"World Time: " + curTime + ", Acceleration: " + self.actAcceleration_ms2.info(),self.CI_DBG)
         #World.dbg(self.TAG,"Actual Heading: " + self.heading_Degrees + " Degrees, Velocity: " + self.actVelocity_ms.info(),self.CI_DBG)
         #World.dbg(self.TAG,"Actual Tilt: " + self.actTilt_Degrees + " Degrees, Position: " + self.actPosition_m.info(),self.CI_DBG)

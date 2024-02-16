@@ -158,6 +158,7 @@ class HeliMain(ShowBase):
     def update(self,task):
         dt = globalClock.getDt()
         self.curTimeStamp = task.time * self.m_rtToRndRatio
+        self.tick(dt)
         for chopper in self.myChoppers:
             self.myChoppers[chopper][gCH_ID].update(dt,task.time)
         
@@ -168,7 +169,7 @@ class HeliMain(ShowBase):
             self.firstUpdate = False
         else:
             try:
-                self.chaser.chase(self.myChoppers[self.m_camToFollow][gCH_ID].actor.getPos(),10)
+                self.chaser.chase(self.myChoppers[self.m_camToFollow][gCH_ID].actor.getPos(),20)
                 self.cam.setPos(self.chaser.source)
                 self.cam.lookAt(self.myChoppers[self.m_camToFollow][gCH_ID].actor)
             except Exception as ex:
@@ -234,8 +235,14 @@ class HeliMain(ShowBase):
                         success = True
                         break
                 if not success:
-                    self.dbg(self.TAG,"Couldn't find package to deliver at (",myPos,")", self.WORLD_DBG)
+                    self.dbg(self.TAG,f"Couldn't find package to deliver at ({myPos})", self.WORLD_DBG)
         return success
+
+    def getChopper(self,id):
+        if id in self.myChoppers:
+            return self.myChoppers[id][gCH_ID]
+        else:
+            return None
 
     def getTimestamp(self):
         return self.curTimeStamp
@@ -244,18 +251,37 @@ class HeliMain(ShowBase):
         if id in self.myChoppers:
             _ , resInfo = self.myChoppers[id]
             resInfo.requestMainRotorSpeed(mainRotorSpeed)
-            resInfo.requestTailrotorSpeed(tailRotorSpeed)
+            resInfo.requestTailRotorSpeed(tailRotorSpeed)
             resInfo.requestTiltLevel(tiltAngle)
 
     def requestNextChopperID(self):
         getNext = False
-        for ch, _ in self.myChoppers:
+        for id in self.myChoppers:
             if getNext:
-                self.nextChopperID = ch.id
+                self.nextChopperID = id
                 break
-            if ch.id == self.nextChopperID:
+            if id == self.nextChopperID:
                 getNext = True
 
+    def tick(self, dt):
+        outOfTime = False
+        for id in self.myChoppers:
+            self.myChoppers[id][gIN_ID].fly(self.curTimeStamp, self.TICK_TIME)
+        return outOfTime
+               
+    def gps(self,id):
+        if id in self.myChoppers:
+            return self.myChoppers[id][gIN_ID].getPosition()
+        else:
+            return Vec3(0,0,0)
+        
+    def transformations(self,id):
+        if id in self.myChoppers:
+            info = self.myChoppers[id][gIN_ID]
+            txfm = Vec3(info.getHeading(), info.getTilt(), 0.0)
+            return txfm
+        else:
+            return Vec3(0,0,0)
         
     '''
     End of World.java port ======================================================================

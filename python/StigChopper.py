@@ -54,11 +54,11 @@ class StigChopper(BaseObject):
 
     def update(self,dt,tick):
         BaseObject.update(self,dt,tick)
-        if False: #base is not None:
+        if base is not None:
             myPos = base.gps(self.id)
             if self.homeBase is None:
                 self.homeBase = myPos
-            self.actor.setPos(myPos)
+            self.actor.setPos(Vec3(myPos.x, myPos.y, myPos.z))
             rotation = base.transformations(self.id)
             self.actor.setHpr(rotation)
 
