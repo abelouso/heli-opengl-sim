@@ -106,7 +106,6 @@ class ChopperInfo:
         self.mainRotorPosition_Degrees += self.actMainRotorSpeed_RPM * elapsedTime * 60.0
         while (self.mainRotorPosition_Degrees >= 360.0):
             self.mainRotorPosition_Degrees -= 360.0 # Just for drawing
-            
 	
     def updateTailRotorSpeed(self, elapsedTime):
         
@@ -220,10 +219,7 @@ class ChopperInfo:
         self.updateTiltLevel(elapsedTime)
         cargoMass_kg = 0.0
         thisChopper = base.getChopper(self.chopperID)
-        if (self.chopperID == 0):
-            base.dbg(thisChopper, "Fuel: " + str(self.getFuelRemaining()) + ", main rotor: " + str(self.actMainRotorSpeed_RPM) + ", tail rotor: " + str(self.actTailRotorSpeed_RPM), 65536)
         if (thisChopper is not None):
-        
             cargoMass_kg = base.ITEM_WEIGHT * thisChopper.itemCount()
         
         totalMass_kg = cargoMass_kg + self.remainingFuel_kg + base.CHOPPER_BASE_MASS

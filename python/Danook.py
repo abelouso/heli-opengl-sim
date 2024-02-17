@@ -102,12 +102,12 @@ class Danook(StigChopper):
         deltaX = self.lastPosition.x - self.actualPosition.x
         deltaY = self.lastPosition.y - self.actualPosition.y
         oldVelocity = self.estimatedVelocity
-        self.estimatedVelocity = Vec3((self.actualPosition.x - self.lastPosition.x) / deltaTime, (self.actualPosition.y - self.lastPosition.x) / deltaTime, (self.actualPosition.z - self.lastPosition.x) / deltaTime)
+        self.estimatedVelocity = Vec3((self.actualPosition.x - self.lastPosition.x) / deltaTime, (self.actualPosition.y - self.lastPosition.y) / deltaTime, (self.actualPosition.z - self.lastPosition.z) / deltaTime)
         return oldVelocity
 
     def __estimateAcceleration(self, lastVelocity, deltaTime) -> Vec3:
         oldAcceleration = self.estimatedAcceleration
-        self.estimatedAcceleration = Vec3((self.estimatedVelocity.x - lastVelocity.x) / deltaTime, (self.estimatedVelocity.y - lastVelocity.x) / deltaTime, (self.estimatedVelocity.z - lastVelocity.x) / deltaTime)
+        self.estimatedAcceleration = Vec3((self.estimatedVelocity.x - lastVelocity.x) / deltaTime, (self.estimatedVelocity.y - lastVelocity.y) / deltaTime, (self.estimatedVelocity.z - lastVelocity.z) / deltaTime)
         return oldAcceleration
 
     def __estimatePhysics(self) -> bool:
@@ -116,10 +116,9 @@ class Danook(StigChopper):
         if deltaTime < 0.001:
             return updated
         updated = True
-        base.dbg(self.TAG, "Estimating Physics", self.DEBUG_BIT)
         oldVelocity = self.__estimateVelocity(deltaTime)
         if (not oldVelocity is None):
-            oldAcceleration = self.__estimateAcceleration(oldVelocity, deltaTime)
+            self.__estimateAcceleration(oldVelocity, deltaTime)
         return updated
 
     # returns numeric (double) type
@@ -158,7 +157,7 @@ class Danook(StigChopper):
             actualDestination = self.actualPosition
         targetXVelocity = 0.0
         if justStop == False:
-            targetXVelocity = self.__computeDesiredVelocity(self.actualPosition.x, self.currentDestination.x, False)
+            targetXVelocity = self.__computeDesiredVelocity(self.actualPosition.x, actualDestination.x, False)
         targetXAcceleration = self.__computeDesiredAcceleration(self.estimatedVelocity.x, targetXVelocity, False)
         xMultiplier = 1.0
         deltaXAcceleration = targetXAcceleration - self.estimatedAcceleration.x
@@ -169,7 +168,7 @@ class Danook(StigChopper):
         # repeat for Y
         targetYVelocity = 0.0
         if justStop == False:
-            targetYVelocity = self.__computeDesiredVelocity(self.actualPosition.y, self.currentDestination.y, False)
+            targetYVelocity = self.__computeDesiredVelocity(self.actualPosition.y, actualDestination.y, False)
         targetYAcceleration = self.__computeDesiredAcceleration(self.estimatedVelocity.y, targetYVelocity, False)
         yMultiplier = 1.0
         deltaYAcceleration = targetYAcceleration - self.estimatedAcceleration.y
@@ -191,6 +190,7 @@ class Danook(StigChopper):
         deltaAngle = abs(accelHeading - moveHeading)
         if deltaAngle > 90:
             deltaAcceleration *= -1.0
+        base.dbg(self.TAG, "Desired Acceleration: (" + str(deltaXAcceleration) + ", " + str(deltaYAcceleration) + ") current tilt: " + str(self.desTilt_Degrees), self.DEBUG_BIT)
         self.desTilt_Degrees += deltaAcceleration * self.HORZ_CONTROL_FACTOR
         if justStop:
             base.dbg(self.TAG, "Trying to stop...", self.DEBUG_BIT)
@@ -208,6 +208,8 @@ class Danook(StigChopper):
             distance = math.sqrt(deltaX * deltaX + deltaY * deltaY)
             if distance > 5.0:
                 self.desiredAltitude = 110.0
+            else:
+                base.dbg(self.TAG, "Landing -- Delta (" + str(deltaX) + ", " + str(deltaY) + ")", self.DEBUG_BIT)
         else:
             base.dbg(self.TAG, "No destination yet", self.DEBUG_BIT)
 
@@ -236,15 +238,11 @@ class Danook(StigChopper):
                         base.dbg(self.TAG, "Couldn't deliver package (why?)" , self.DEBUG_BIT)
                 else:
                     base.dbg(self.TAG, "Too far to deliver package", self.DEBUG_BIT)
-                outState = State.FINDING_HEADING
             else:
                 base.dbg(self.TAG, "Landed with no destination?", self.DEBUG_BIT)
-            base.dbg(self.TAG,"done with ground stuff", self.DEBUG_BIT)
             if inState == State.APPROACHING:
                 outState = State.LANDED
-            return outState
         else:
-            base.dbg(self.TAG, "Something else", self.DEBUG_BIT)
             if inState == State.LANDED:
                 outState = State.FINDING_HEADING
         targetVertVelocity = self.__computeDesiredVelocity(self.actualPosition.z, self.desiredAltitude, True)
@@ -255,14 +253,15 @@ class Danook(StigChopper):
         if deltaAcceleration < (-self.MAX_VERT_ACCEL):
             deltaAcceleration = -self.MAX_VERT_ACCEL
         self.desMainRotorSpeed_RPM += deltaAcceleration * self.VERT_CONTROL_FACTOR
+        base.dbg(self.TAG, "desMain: " + str(self.desMainRotorSpeed_RPM) + ", desTilt: " + str(self.desTilt_Degrees) + ", desTail: " + str(self.desTailRotorSpeed_RPM),self.DEBUG_BIT)
         base.requestSettings(self.getId(), self.desMainRotorSpeed_RPM, self.desTilt_Degrees, self.desTailRotorSpeed_RPM)
         return outState
         
     def __controlTheShip(self, isCloser):
-        base.dbg(self.TAG, "Control the ship -- state: " + str(self.myState), self.DEBUG_BIT)
         if self.myState == State.APPROACHING and isCloser == False:
             self.myState = State.STOP_NOW
         nextState = self.myState
+        base.dbg(self.TAG, "Control the ship -- state: " + str(self.myState), self.DEBUG_BIT)
         match self.myState:
             case State.LANDED:
                 base.dbg(self.TAG, "No Action Needed", self.DEBUG_BIT)
@@ -290,6 +289,8 @@ class Danook(StigChopper):
 
     def update(self,dt,tick):
         StigChopper.update(self,dt,tick)
+        transformation = base.transformations(self.getId())
+        self.actor.setHpr(transformation.x, transformation.y, transformation.z)
         '''
         self.actAngle += 1
         if (abs(self.actAngle) > 3600):
