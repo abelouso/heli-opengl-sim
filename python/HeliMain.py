@@ -189,7 +189,7 @@ class HeliMain(ShowBase):
         return Vec3(50.0, 48.0 + chopperID * 2.0, 0.0)
     
     def insertChopper(self, chopper):
-        chInfo = ChopperInfo(chopper.id, chopper.fuelCapacity, chopper.actor.getPos(), 0.0)
+        chInfo = ChopperInfo(chopper.id, chopper.fuelCapacity(), chopper.actor.getPos(), 0.0)
         self.myChoppers[chopper.id] = (chopper,chInfo)
 
     def timeRatio(self):
