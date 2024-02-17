@@ -9,7 +9,7 @@ import random
 
 
 class ChopperInfo:
-    def __init__(self, fuelCap, id, startPos, startHeading):
+    def __init__(self, id, fuelCap, startPos, startHeading):
         self.TAG = "ChopperInfo"
         self.CI_DBG = 0x20000000
         self.THRUST_PER_RPM = 11.1111 # N (kg * m/s^2)
@@ -49,7 +49,7 @@ class ChopperInfo:
         self.m_time_sum = 0.0
 
     def getFuelRemaining(self):
-        return self.self.remainingFuel_kg
+        return self.remainingFuel_kg
 
 
     def getMainRotorPosition(self):
@@ -220,6 +220,8 @@ class ChopperInfo:
         self.updateTiltLevel(elapsedTime)
         cargoMass_kg = 0.0
         thisChopper = base.getChopper(self.chopperID)
+        if (self.chopperID == 0):
+            base.dbg(thisChopper, "Fuel: " + str(self.getFuelRemaining()) + ", main rotor: " + str(self.actMainRotorSpeed_RPM) + ", tail rotor: " + str(self.actTailRotorSpeed_RPM), 65536)
         if (thisChopper is not None):
         
             cargoMass_kg = base.ITEM_WEIGHT * thisChopper.itemCount()

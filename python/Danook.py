@@ -40,7 +40,7 @@ class Danook(StigChopper):
 
         # Control factors ported from Danook Controller
         self.myState = State(State.LANDED)
-        self.desMainRotorSpeed_RPM = 0.0
+        self.desMainRotorSpeed_RPM = 360.0
         self.desTailRotorSpeed_RPM = 0.0
         self.desTilt_Degrees = 0.0
         self.estimatedAcceleration = None
@@ -158,8 +158,8 @@ class Danook(StigChopper):
             actualDestination = self.actualPosition
         targetXVelocity = 0.0
         if justStop == False:
-            targetXVelocity = self.__computeDesiredVelocity(self, self.actualPosition.x, self.currentDestination.x, False)
-        targetXAcceleration = self.__computeDesiredAcceleration(self, self.estimatedVelocity.x, targetXVelocity, False)
+            targetXVelocity = self.__computeDesiredVelocity(self.actualPosition.x, self.currentDestination.x, False)
+        targetXAcceleration = self.__computeDesiredAcceleration(self.estimatedVelocity.x, targetXVelocity, False)
         xMultiplier = 1.0
         deltaXAcceleration = targetXAcceleration - self.estimatedAcceleration.x
         if deltaXAcceleration > self.MAX_HORZ_ACCEL:
@@ -169,8 +169,8 @@ class Danook(StigChopper):
         # repeat for Y
         targetYVelocity = 0.0
         if justStop == False:
-            targetYVelocity = self.__computeDesiredVelocity(self, self.actualPosition.y, self.currentDestination.y, False)
-        targetYAcceleration = self.__computeDesiredAcceleration(self, self.estimatedVelocity.y, targetYVelocity, False)
+            targetYVelocity = self.__computeDesiredVelocity(self.actualPosition.y, self.currentDestination.y, False)
+        targetYAcceleration = self.__computeDesiredAcceleration(self.estimatedVelocity.y, targetYVelocity, False)
         yMultiplier = 1.0
         deltaYAcceleration = targetYAcceleration - self.estimatedAcceleration.y
         if deltaYAcceleration > self.MAX_HORZ_ACCEL:
@@ -248,15 +248,14 @@ class Danook(StigChopper):
             if inState == State.LANDED:
                 outState = State.FINDING_HEADING
         targetVertVelocity = self.__computeDesiredVelocity(self.actualPosition.z, self.desiredAltitude, True)
-        targetVertAcceleration = self.__computeDesiredAcceleration(self.estimatedVelocity.z - targetVertVelocity, True)
+        targetVertAcceleration = self.__computeDesiredAcceleration(self.estimatedVelocity.z, targetVertVelocity, True)
         deltaAcceleration = targetVertAcceleration - self.estimatedAcceleration.z
         if deltaAcceleration > self.MAX_VERT_ACCEL:
             deltaAcceleration = self.MAX_VERT_ACCEL
         if deltaAcceleration < (-self.MAX_VERT_ACCEL):
             deltaAcceleration = -self.MAX_VERT_ACCEL
         self.desMainRotorSpeed_RPM += deltaAcceleration * self.VERT_CONTROL_FACTOR
-        base.dbg(self.TAG, "Desired main rotor: " + str(desMainRotorSpeed_RPM) + ", tail rotor: " + str(desTailRotorSpeed_RPM),self.DEBUG_BIT)
-        base.request_settings(self.desMainRotorSpeed_RPM, self.desTilt_Degrees, self.desTailRotorSpeed_RPM)
+        base.requestSettings(self.getId(), self.desMainRotorSpeed_RPM, self.desTilt_Degrees, self.desTailRotorSpeed_RPM)
         return outState
         
     def __controlTheShip(self, isCloser):
