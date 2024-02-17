@@ -9,7 +9,7 @@ import random
 
 
 class ChopperInfo:
-    def __init__(self, fuelCap, id, startPos, startHeading):
+    def __init__(self, id, fuelCap, startPos, startHeading):
         self.TAG = "ChopperInfo"
         self.CI_DBG = 0x20000000
         self.THRUST_PER_RPM = 11.1111 # N (kg * m/s^2)
@@ -180,7 +180,7 @@ class ChopperInfo:
             self.remainingFuel_kg = 0.0
             outOfGas = True
         
-            return self.outOfGas
+            return outOfGas
 		
 	
 	

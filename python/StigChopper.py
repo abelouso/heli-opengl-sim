@@ -23,7 +23,7 @@ class StigChopper(BaseObject):
         self.cargoCapacity = base.TOTAL_CAPACITY * 0.5
         self.inventory = int(self.cargoCapacity / base.ITEM_WEIGHT)
 
-        self.fuelCapacity = base.TOTAL_CAPACITY * 0.5
+        self.m_fuelCapacity = base.TOTAL_CAPACITY * 0.5
         self.landed = True
 
         self.homeBase = None
@@ -34,7 +34,7 @@ class StigChopper(BaseObject):
         self.targetWaypoints = wp
     
     def fuelCapacity(self):
-        return self.fuelCapacity
+        return self.m_fuelCapacity
     
     def itemCount(self):
         return self.inventory
