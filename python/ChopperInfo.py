@@ -179,7 +179,7 @@ class ChopperInfo:
             self.remainingFuel_kg = 0.0
             outOfGas = True
         
-            return outOfGas
+        return outOfGas
 		
 	
 	
