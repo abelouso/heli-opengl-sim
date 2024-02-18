@@ -11,7 +11,7 @@ from panda3d.core import CardMaker
 #generic python
 import random
 import argparse
-
+import math
 
 #our imports
 from Apachi import *
@@ -39,8 +39,8 @@ class HeliMain(ShowBase):
         self.WORLD_DBG = 0x10000000
         self.nextChopperID = 0
         self.m_rtToRndRatio = 1.0
-        self.sizeX = 30
-        self.sizeY = 30
+        self.sizeX = 50
+        self.sizeY = 50
         self.sizeZ = 2
         self.curTimeStamp = 0.0
         
@@ -157,13 +157,13 @@ class HeliMain(ShowBase):
     
     def update(self,task):
         dt = globalClock.getDt()
-        self.curTimeStamp = task.time * self.m_rtToRndRatio
         self.tick(dt)
         for chopper in self.myChoppers:
             try:
-                self.myChoppers[chopper][gCH_ID].update(dt,task.time)
+                self.myChoppers[chopper][gCH_ID].update(self.curTimeStamp,self.TICK_TIME)
             except Exception as ex:
                 self.dbg(self.TAG, f"ERROR in update(): exception with id {chopper}: {ex}",self.WORLD_DBG)
+        self.curTimeStamp += self.TICK_TIME
         
         if self.firstUpdate:
             self.cam.setPos(self.initialCameraPosition)
@@ -203,8 +203,8 @@ class HeliMain(ShowBase):
             chopper = self.myChoppers[key][gCH_ID]
             targetPoints = []
             for _ in range(0,chopper.itemCount()):
-                whichRow = random.randint(0,20) - 10
-                whichCol = random.randint(0,20) - 10
+                whichRow = random.randint(0,self.sizeX) - self.sizeX / 2
+                whichCol = random.randint(0,self.sizeY) - self.sizeY / 2
                 targetPoints.append(Vec3(whichCol, whichRow, 0.1))
             chopper.setWaypoints(targetPoints)
             self.allPackageLocs.append(targetPoints)
@@ -223,20 +223,29 @@ class HeliMain(ShowBase):
         return retVal
     
     def deliverPackage(self, id):
+        self.dbg(self.TAG,"Chopper " + str(id) + " trying to deliver a package", self.WORLD_DBG)
         success = False
         if id in self.myChoppers:
             chop,info = self.myChoppers[id]
             myPos = self.gps(id)
             if info.onGround():
+                self.dbg(self.TAG,"Chopper " + str(id) + " confirmed on ground", self.WORLD_DBG)
 				## OK, check position
 				## NOTE: I believe the hashCode function is used to determine
 				## if the container has the object.  That only includes X,Y,Z
 				## which is what I think we want.
                 for object in self.allPackageLocs:
-                    if object.getXy().distanceTo(myPos.getXy()) < 0.5:
-                        self.allPackageLocs.remove(object)
-                        success = True
-                        break
+                    for avec3 in object:
+                        deltaX = avec3.x - myPos.x
+                        deltaY = avec3.y - myPos.y
+                        delta = math.sqrt(deltaX * deltaX + deltaY * deltaY)
+                        if delta < 0.5:
+                            object.remove(avec3)
+                            # Key to remove the waypoint from the chopper's list
+                            # Otherwise it could try again at the same location
+                            chop.setWaypoints(object)
+                            success = True
+                            break
                 if not success:
                     self.dbg(self.TAG,f"Couldn't find package to deliver at ({myPos})", self.WORLD_DBG)
         return success
@@ -266,6 +275,7 @@ class HeliMain(ShowBase):
             if id == self.nextChopperID:
                 getNext = True
 
+    # I think dt is deprecated unless we want to pass self.TICK_TIME to it
     def tick(self, dt):
         outOfTime = False
         for id in self.myChoppers:
@@ -284,7 +294,7 @@ class HeliMain(ShowBase):
     def transformations(self,id):
         if id in self.myChoppers:
             info = self.myChoppers[id][gIN_ID]
-            txfm = Vec3(info.getHeading(), info.getTilt(), 0.0)
+            txfm = Vec3(info.getHeading(), -info.getTilt(), 0.0)
             return txfm
         else:
             return Vec3(0,0,0)
