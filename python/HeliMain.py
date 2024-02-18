@@ -11,7 +11,7 @@ from panda3d.core import CardMaker
 #generic python
 import random
 import argparse
-
+import math
 
 #our imports
 from Apachi import *
@@ -220,20 +220,29 @@ class HeliMain(ShowBase):
         return retVal
     
     def deliverPackage(self, id):
+        self.dbg(self.TAG,"Chopper " + str(id) + " trying to deliver a package", self.WORLD_DBG)
         success = False
         if id in self.myChoppers:
             chop,info = self.myChoppers[id]
             myPos = self.gps(id)
             if info.onGround():
+                self.dbg(self.TAG,"Chopper " + str(id) + " confirmed on ground", self.WORLD_DBG)
 				## OK, check position
 				## NOTE: I believe the hashCode function is used to determine
 				## if the container has the object.  That only includes X,Y,Z
 				## which is what I think we want.
                 for object in self.allPackageLocs:
-                    if object.getXy().distanceTo(myPos.getXy()) < 0.5:
-                        self.allPackageLocs.remove(object)
-                        success = True
-                        break
+                    for avec3 in object:
+                        deltaX = avec3.x - myPos.x
+                        deltaY = avec3.y - myPos.y
+                        delta = math.sqrt(deltaX * deltaX + deltaY * deltaY)
+                        if delta < 0.5:
+                            object.remove(avec3)
+                            # Key to remove the waypoint from the chopper's list
+                            # Otherwise it could try again at the same location
+                            chop.setWaypoints(object)
+                            success = True
+                            break
                 if not success:
                     self.dbg(self.TAG,f"Couldn't find package to deliver at ({myPos})", self.WORLD_DBG)
         return success
@@ -279,7 +288,7 @@ class HeliMain(ShowBase):
     def transformations(self,id):
         if id in self.myChoppers:
             info = self.myChoppers[id][gIN_ID]
-            txfm = Vec3(info.getHeading(), info.getTilt(), 0.0)
+            txfm = Vec3(info.getHeading(), -info.getTilt(), 0.0)
             return txfm
         else:
             return Vec3(0,0,0)

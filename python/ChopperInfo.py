@@ -209,7 +209,6 @@ class ChopperInfo:
     def fly(self, currentTime,  elapsedTime):
         outOfGas = self.updateFuelRemaining(elapsedTime)
         if (outOfGas):
-        
             self.desMainRotorSpeed_RPM *= 0.99
             self.desTailRotorSpeed_RPM *= 0.99
             self.desTilt_Degrees += -1.5 + 2.0 * random.randint(0,100) * 0.01
@@ -237,41 +236,31 @@ class ChopperInfo:
                 base.dbg(self.TAG,f"Chopper {self.chopperID} has lifted off!",self.CI_DBG)
                 self.takenOff = True
         else: 
-        
             # Simple landing check when close to zero
             if (self.actPosition_m.getZ() < 0.25):
-            
                 lateralMagnitude = self.actVelocity_ms.getXy().length()
+                base.dbg(self.TAG, "Chopper " + str(self.chopperID) + " Landing check lateral velocity: " + str(lateralMagnitude) + ", vert Velocity: " + str(self.actVelocity_ms.getZ()), self.CI_DBG)
                 if (lateralMagnitude < 0.25 and (self.actVelocity_ms.getZ() > (-2.0) and self.actVelocity_ms.getZ() < 0)):
                 
                     if (self.takenOff == True):
-                    
                         base.dbg(self.TAG,f"Chopper {self.chopperID} has landed!",self.CI_DBG)
-                    
                     self.takenOff = False
                 
             
             if (self.takenOff == True):
-            
                 self.actAcceleration_ms2.setZ( deltaForce_N / totalMass_kg )
-            
             else: 
-            
                 self.actAcceleration_ms2.setZ(0.0)
                 self.actVelocity_ms.setZ(0.0)
                 self.actPosition_m.setZ(0.0)
             
-        
         if (self.takenOff): # Tail rotor comes into play
-        
             self.updateCurrentHeading(elapsedTime)
             # Now that we have our heading, we can compute the direction of our thrust
             heading_radians = math.radians(self.heading_Degrees)
             self.actAcceleration_ms2.setX(lateralAcceleration * math.sin(heading_radians))
             self.actAcceleration_ms2.setY(lateralAcceleration * math.cos(heading_radians))
-        
         else: 
-        
             # For now, we're preventing skating -- chopper sliding along the ground
             self.actAcceleration_ms2.setX(0.0)
             self.actAcceleration_ms2.setY(0.0)
@@ -287,7 +276,6 @@ class ChopperInfo:
         self.actPosition_m.addY((self.actVelocity_ms.getY() * elapsedTime))
         self.actPosition_m.addZ((self.actVelocity_ms.getZ() * elapsedTime))
         self.actPosition_m.setW(currentTime)
-	
 	
     def onGround(self,):
         return not self.takenOff
