@@ -39,8 +39,8 @@ class HeliMain(ShowBase):
         self.WORLD_DBG = 0x10000000
         self.nextChopperID = 0
         self.m_rtToRndRatio = 1.0
-        self.sizeX = 30
-        self.sizeY = 30
+        self.sizeX = 50
+        self.sizeY = 50
         self.sizeZ = 2
         self.curTimeStamp = 0.0
         
@@ -200,8 +200,8 @@ class HeliMain(ShowBase):
             chopper = self.myChoppers[key][gCH_ID]
             targetPoints = []
             for _ in range(0,chopper.itemCount()):
-                whichRow = random.randint(0,20) - 10
-                whichCol = random.randint(0,20) - 10
+                whichRow = random.randint(0,self.sizeX) - self.sizeX / 2
+                whichCol = random.randint(0,self.sizeY) - self.sizeY / 2
                 targetPoints.append(Vec3(whichCol, whichRow, 0.1))
             chopper.setWaypoints(targetPoints)
             self.allPackageLocs.append(targetPoints)

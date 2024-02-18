@@ -200,7 +200,10 @@ class Danook(StigChopper):
         self.desTilt_Degrees += deltaAcceleration * self.HORZ_CONTROL_FACTOR
         if justStop:
             base.dbg(self.TAG, "Trying to stop...", self.DEBUG_BIT)
-            if self.estimatedVelocity.xyLength() < 0.1:
+            deltaVx = self.estimatedVelocity.x
+            deltaVy = self.estimatedVelocity.y
+            delta = math.sqrt(deltaVx * deltaVx + deltaVy * deltaVy)
+            if delta < 0.1:
                 success = True
         else:
             success = True
@@ -344,7 +347,7 @@ class Danook(StigChopper):
                     newDistance = math.sqrt(deltaX * deltaX + deltaY * deltaY)
                     if newDistance > (oldDistance + 0.5):
                         closer = False
-                        base.dbg(self.TAG, "Wrong way now: " + newDistance + " then: " + oldDistance, self.DEBUG_BIT)
+                        base.dbg(self.TAG, "Wrong way now: " + str(newDistance) + " then: " + str(oldDistance), self.DEBUG_BIT)
                 self.__controlTheShip(closer)
             else:
                 base.dbg(self.TAG, "No physics estimate?", self.DEBUG_BIT)
