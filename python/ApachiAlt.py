@@ -9,8 +9,10 @@ import queue
 import inspect
 import time
 
+from BaseStateMachine import *
 
-class ApachiAlt:
+
+class ApachiAlt(BaseStateMachine):
     TAG = "ApachiAlt"
     DBG_MASK = 0x0002
     GND_ST = 1
@@ -281,35 +283,6 @@ class ApachiAlt:
         self.setMainRotorSpeed(0)
         self.prevAltRate = -1 # artificial rate change to start correcting
 
-        
-    def sendEvent(self,evt):
-        self.eventQ.put(evt)
-        
-    def next(self):
-        while not self.eventQ.empty():
-            evt = self.eventQ.get()
-            stMap = self.StateMachine[self.state]
-            newState = self.state
-            if evt in stMap:
-                newState, evtHndl = stMap[evt]
-                enter, handle, leave = self.StateHandlers[newState]
-                if newState != self.state or self.firstTick:
-                    self.db(f"State TX: {self.state}: {evt} -> {newState}")
-                    if self.leave is not None:
-                        self.leave(self)
-                    if evtHndl is not None:
-                        evtHndl(self)
-                    self.leave = leave
-                    if enter is not None:
-                        enter(self)
-                    self.state = newState
-                else:
-                    pass
-                if handle is not None:
-                    handle(self)
-                self.handle = handle
-                self.firstTick = False
-
     def tick(self, act, spd, dt):
         now = time.time_ns()
         dt = (now - self.lastStamp) * 0.00000001 #ns
@@ -373,13 +346,6 @@ class ApachiAlt:
         self.changeStamp = time.time_ns()
         self.db(f"Rotor speed changed to {self.rotSpd:5.2f}, alt: {self.act:5.2f}")
 
-    def db(self, msg):
-        calFn = inspect.getouterframes(inspect.currentframe(),2)[1][3]
-        msg = f"{self.state}> {msg} [{calFn}]"
-        try:
-            base.dbg(self.TAG,msg,self.DBG_MASK)
-        except:
-            print(msg)
     def rateChanged(m,dir, update = True):
         drA = math.fabs(m.prevAltRate - m.altRate)
         if dir == "up":

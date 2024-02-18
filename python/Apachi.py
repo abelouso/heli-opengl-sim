@@ -14,6 +14,7 @@ import time
 from BaseObject import *
 from StigChopper import *
 from ApachiAlt import *
+from ApachiHead import *
 
 class Apachi(StigChopper):
     startTime = time.time_ns()
@@ -28,6 +29,9 @@ class Apachi(StigChopper):
         self.altCtrl = ApachiAlt()
         self.altCtrl.trg = 70
         self.altCtrl.sendEvent(self.altCtrl.NULL_EVT)
+        self.hdCtrl = ApachiHead()
+        self.hdCtrl.setHeading(-45)
+        self.tailSpeed = self.hdCtrl.STABLE_SPEED
         #self.m_fuelCapacity = 100
 
     def update(self,dt,tick):
@@ -37,26 +41,22 @@ class Apachi(StigChopper):
         StigChopper.runLogic(self,dt,tick)
         pos = base.gps(self.id)
         alt = pos.getZ()
-        self.tailSpeed = 100.0
+        orient = base.transformations(self.id)
+        hdng = orient.getX()
         #TODO: provide access to this
         actSpd = base.myChoppers[self.id][1].actMainRotorSpeed_RPM
+        tailSpd = base.myChoppers[self.id][1].actTailRotorSpeed_RPM
         self.mainSpeed = self.altCtrl.tick(alt,actSpd,dt)
+        self.tailSpeed = self.hdCtrl.tick(hdng,tailSpd,dt,alt)
 
         base.requestSettings(self.id,self.mainSpeed,self.tilt,self.tailSpeed)
         deltalNs = time.time_ns() - self.startTime
         TIME_IVAL = 35e9
         if self.altCtrl.state == self.altCtrl.AT_ALT_ST:
             if deltalNs > TIME_IVAL and self.altCtrl.trg == 70:
+                self.hdCtrl.db(f"=================== Requesting heading of 45 and alt of 30 ===========================")
                 self.altCtrl.setTarget(30)
+                self.hdCtrl.setHeading(45)
             elif deltalNs > (2 * TIME_IVAL) and self.altCtrl.trg == 30:
                 self.altCtrl.setTarget(0.3)
-
-
-
-
-if __name__ == '__main__':
-    print("Starting....")
-    alt = AltHold()
-    alt.sendEvent(alt.NULL_EVT)
-    alt.tick(20,100)
-    alt.tick(20,alt.rotorSpeed())
+                self.hdCtrl.setHeading(234)

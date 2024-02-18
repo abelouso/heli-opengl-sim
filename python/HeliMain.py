@@ -160,7 +160,10 @@ class HeliMain(ShowBase):
         self.curTimeStamp = task.time * self.m_rtToRndRatio
         self.tick(dt)
         for chopper in self.myChoppers:
-            self.myChoppers[chopper][gCH_ID].update(dt,task.time)
+            try:
+                self.myChoppers[chopper][gCH_ID].update(dt,task.time)
+            except Exception as ex:
+                self.dbg(self.TAG, f"ERROR in update(): exception with id {chopper}: {ex}",self.WORLD_DBG)
         
         if self.firstUpdate:
             self.cam.setPos(self.initialCameraPosition)
@@ -266,7 +269,10 @@ class HeliMain(ShowBase):
     def tick(self, dt):
         outOfTime = False
         for id in self.myChoppers:
-            self.myChoppers[id][gIN_ID].fly(self.curTimeStamp, self.TICK_TIME)
+            try:
+                self.myChoppers[id][gIN_ID].fly(self.curTimeStamp, self.TICK_TIME)
+            except Exception as ex:
+                self.dbg(self.TAG, f"ERROR in tick(): exception with id {id}: {ex}",self.WORLD_DBG)
         return outOfTime
                
     def gps(self,id):
