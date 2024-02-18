@@ -255,7 +255,7 @@ class Danook(StigChopper):
             deltaAcceleration = self.MAX_VERT_ACCEL
         if deltaAcceleration < (-self.MAX_VERT_ACCEL):
             deltaAcceleration = -self.MAX_VERT_ACCEL
-        base.dbg(self.TAG, "(Alt Control) -- targetVelocity: " + str(targetVertVelocity) + ", target Accel: " + str(targetVertAcceleration) + ", actAccel: " + str(self.estimatedAcceleration.z) + ", deltaAccel: " + str(deltaAcceleration), self.DEBUG_BIT)
+        base.dbg(self.TAG, "(Alt Control) -- Actual Height: " + str(self.actualPosition.z) + ", desired height: " + str(self.desiredAltitude) + ", targetVelocity: " + str(targetVertVelocity) + ", target Accel: " + str(targetVertAcceleration) + ", actAccel: " + str(self.estimatedAcceleration.z) + ", deltaAccel: " + str(deltaAcceleration), self.DEBUG_BIT)
         self.desMainRotorSpeed_RPM += deltaAcceleration * self.VERT_CONTROL_FACTOR
         base.requestSettings(self.getId(), self.desMainRotorSpeed_RPM, self.desTilt_Degrees, self.desTailRotorSpeed_RPM)
         return outState
@@ -301,9 +301,9 @@ class Danook(StigChopper):
         # I added the negative sign because pitch looked backwards to me
         #self.actor.setHpr(transformation.x, -transformation.y, transformation.z)
 
-    def runLogic(self,dt,tick):
+    def runLogic(self,currentTime,elapsedTime):
         self.actualPosition = base.gps(self.getId())
-        self.currTime = tick
+        self.currTime = currentTime
         if self.currentDestination is None:
             self.currentDestination = self.__findClosestDestination()
             if not self.currentDestination is None:

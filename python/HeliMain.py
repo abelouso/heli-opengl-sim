@@ -157,10 +157,10 @@ class HeliMain(ShowBase):
     
     def update(self,task):
         dt = globalClock.getDt()
-        self.curTimeStamp = task.time * self.m_rtToRndRatio
         self.tick(dt)
         for chopper in self.myChoppers:
-            self.myChoppers[chopper][gCH_ID].update(dt,task.time)
+            self.myChoppers[chopper][gCH_ID].update(self.curTimeStamp,self.TICK_TIME)
+        self.curTimeStamp += self.TICK_TIME
         
         if self.firstUpdate:
             self.cam.setPos(self.initialCameraPosition)
@@ -263,6 +263,7 @@ class HeliMain(ShowBase):
             if id == self.nextChopperID:
                 getNext = True
 
+    # I think dt is deprecated unless we want to pass self.TICK_TIME to it
     def tick(self, dt):
         outOfTime = False
         for id in self.myChoppers:

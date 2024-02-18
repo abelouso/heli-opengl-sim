@@ -52,8 +52,8 @@ class StigChopper(BaseObject):
     def getSize(self):
         return self.size
 
-    def update(self,dt,tick):
-        BaseObject.update(self,dt,tick)
+    def update(self,currentTime,elapsedTime):
+        BaseObject.update(self,currentTime,elapsedTime)
         if base is not None:
             myPos = base.gps(self.id)
             if self.homeBase is None:
@@ -62,7 +62,7 @@ class StigChopper(BaseObject):
             rotation = base.transformations(self.id)
             self.actor.setHpr(rotation)
 
-        self.runLogic(dt,tick)
+        self.runLogic(currentTime,elapsedTime)
 
     def runLogic(self,dt,tick):
         pass
