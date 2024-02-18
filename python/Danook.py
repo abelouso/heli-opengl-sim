@@ -15,7 +15,8 @@ class State(Enum):
     LANDED = 0,
     STOP_NOW = 1,
     FINDING_HEADING = 2,
-    APPROACHING = 3
+    STABILIZE_ROTATION = 3,
+    APPROACHING = 4
 
 class Danook(StigChopper):
     def __init__(self,id, pos, scale=0.2):
@@ -37,6 +38,7 @@ class Danook(StigChopper):
         self.MAX_FAIL_COUNT = 40
         self.TAG = "Danook"
         self.DEBUG_BIT = 0x8000
+        self.MAX_STABILIZE = 10
 
         # Control factors ported from Danook Controller
         self.myState = State(State.LANDED)
@@ -50,6 +52,7 @@ class Danook(StigChopper):
         self.currentDestination = None
         self.lastTime = 0.0
         self.currTime = 0.0
+        self.stableCount = 0
 
     def __findClosestDestination(self) -> Vec3:
         resultPoint = None
@@ -94,17 +97,20 @@ class Danook(StigChopper):
             elif deltaRotor < -5.0:
                 deltaRotor = -5.0
             self.desTailRotorSpeed_RPM = 100.0 + deltaRotor
-        base.dbg(self.TAG, "Desired Heading: " + str(desiredHeading) + ", actual heading: " + str(actHeading) + ", desTail: " + str(self.desTailRotorSpeed_RPM), self.DEBUG_BIT)
         return headingOK
 
     def __estimateVelocity(self, deltaTime) -> Vec3:
-        oldVelocity = self.estimatedVelocity
+        oldVelocity = None
+        if not self.estimatedVelocity is None:
+            oldVelocity = Vec3(self.estimatedVelocity)
         self.estimatedVelocity = Vec3((self.actualPosition.x - self.lastPosition.x) / deltaTime, (self.actualPosition.y - self.lastPosition.y) / deltaTime, (self.actualPosition.z - self.lastPosition.z) / deltaTime)
         base.dbg(self.TAG, "deltaTime: " + str(deltaTime) + ", velocity: (" + str(self.estimatedVelocity.x) + ", " + str(self.estimatedVelocity.y) + ", " + str(self.estimatedVelocity.z) + ")", self.DEBUG_BIT )
         return oldVelocity
 
     def __estimateAcceleration(self, lastVelocity, deltaTime) -> Vec3:
-        oldAcceleration = self.estimatedAcceleration
+        oldAcceleration = None
+        if not self.estimatedAcceleration is None:
+            oldAcceleration = Vec3(self.estimatedAcceleration)
         self.estimatedAcceleration = Vec3((self.estimatedVelocity.x - lastVelocity.x) / deltaTime, (self.estimatedVelocity.y - lastVelocity.y) / deltaTime, (self.estimatedVelocity.z - lastVelocity.z) / deltaTime)
         base.dbg(self.TAG, "deltaTime: " + str(deltaTime) + ", acceleration: (" + str(self.estimatedAcceleration.x) + ", " + str(self.estimatedAcceleration.y) + ", " + str(self.estimatedAcceleration.z) + ")", self.DEBUG_BIT )
         return oldAcceleration
@@ -271,6 +277,11 @@ class Danook(StigChopper):
             case State.FINDING_HEADING:
                 headingOK = self.__adjustHeading(False)
                 if headingOK:
+                    nextState = State.STABILIZE_ROTATION
+                    self.stableCount = 0
+            case State.STABILIZE_ROTATION:
+                self.stableCount += 1
+                if self.stableCount >= self.MAX_STABILIZE:
                     nextState = State.APPROACHING
             case State.APPROACHING:
                 self.__approachTarget(False)
