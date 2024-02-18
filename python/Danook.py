@@ -2,7 +2,7 @@
 
 # (c) 2015-2024, A Beloussov, D. Lafuze
 
-from panda3d.core import Vec3, Vec2
+from panda3d.core import Vec4, Vec3, Vec2
 from direct.actor.Actor import Actor
 from panda3d.core import CollisionSphere, CollisionNode
 import math
@@ -41,12 +41,12 @@ class Danook(StigChopper):
         # Control factors ported from Danook Controller
         self.myState = State(State.LANDED)
         self.desMainRotorSpeed_RPM = 360.0
-        self.desTailRotorSpeed_RPM = 0.0
+        self.desTailRotorSpeed_RPM = 100.0
         self.desTilt_Degrees = 0.0
         self.estimatedAcceleration = None
         self.estimatedVelocity = None
         self.lastPosition = None
-        self.actualPosition = pos
+        self.actualPosition = None
         self.currentDestination = None
         self.lastTime = 0.0
         self.currTime = 0.0
@@ -84,9 +84,8 @@ class Danook(StigChopper):
             deltaHeading += 360.0
         elif deltaHeading > 180.0:
             deltaHeading -= 360.0
-        if abs(deltaHeading < 0.05):
+        if abs(deltaHeading) < 0.05:
             self.desTailRotorSpeed_RPM = 100.0
-            base.requestSettings(self.getId(), self.desMainRotorSpeed_RPM, self.desTilt_Degrees, self.desTailRotorSpeed_RPM)
             headingOK = True
         else:
             deltaRotor = (deltaHeading / 10.0) * 20.0
@@ -95,25 +94,26 @@ class Danook(StigChopper):
             elif deltaRotor < -5.0:
                 deltaRotor = -5.0
             self.desTailRotorSpeed_RPM = 100.0 + deltaRotor
-            base.requestSettings(self.getId(), self.desMainRotorSpeed_RPM, self.desTilt_Degrees, self.desTailRotorSpeed_RPM)
+        base.dbg(self.TAG, "Desired Heading: " + str(desiredHeading) + ", actual heading: " + str(actHeading) + ", desTail: " + str(self.desTailRotorSpeed_RPM), self.DEBUG_BIT)
         return headingOK
 
     def __estimateVelocity(self, deltaTime) -> Vec3:
-        deltaX = self.lastPosition.x - self.actualPosition.x
-        deltaY = self.lastPosition.y - self.actualPosition.y
         oldVelocity = self.estimatedVelocity
         self.estimatedVelocity = Vec3((self.actualPosition.x - self.lastPosition.x) / deltaTime, (self.actualPosition.y - self.lastPosition.y) / deltaTime, (self.actualPosition.z - self.lastPosition.z) / deltaTime)
+        base.dbg(self.TAG, "deltaTime: " + str(deltaTime) + ", velocity: (" + str(self.estimatedVelocity.x) + ", " + str(self.estimatedVelocity.y) + ", " + str(self.estimatedVelocity.z) + ")", self.DEBUG_BIT )
         return oldVelocity
 
     def __estimateAcceleration(self, lastVelocity, deltaTime) -> Vec3:
         oldAcceleration = self.estimatedAcceleration
         self.estimatedAcceleration = Vec3((self.estimatedVelocity.x - lastVelocity.x) / deltaTime, (self.estimatedVelocity.y - lastVelocity.y) / deltaTime, (self.estimatedVelocity.z - lastVelocity.z) / deltaTime)
+        base.dbg(self.TAG, "deltaTime: " + str(deltaTime) + ", acceleration: (" + str(self.estimatedAcceleration.x) + ", " + str(self.estimatedAcceleration.y) + ", " + str(self.estimatedAcceleration.z) + ")", self.DEBUG_BIT )
         return oldAcceleration
 
     def __estimatePhysics(self) -> bool:
         updated = False
         deltaTime = self.currTime - self.lastTime
         if deltaTime < 0.001:
+            base.dbg(self.TAG, "No time change -- no physics estimate",self.DEBUG_BIT)
             return updated
         updated = True
         oldVelocity = self.__estimateVelocity(deltaTime)
@@ -190,7 +190,7 @@ class Danook(StigChopper):
         deltaAngle = abs(accelHeading - moveHeading)
         if deltaAngle > 90:
             deltaAcceleration *= -1.0
-        base.dbg(self.TAG, "Desired Acceleration: (" + str(deltaXAcceleration) + ", " + str(deltaYAcceleration) + ") current tilt: " + str(self.desTilt_Degrees), self.DEBUG_BIT)
+        base.dbg(self.TAG, "Desired Acceleration: (" + str(deltaAcceleration) + ") move heading: " + str(moveHeading) + ", accelHeading: " + str(accelHeading) + ", current tilt: " + str(self.desTilt_Degrees), self.DEBUG_BIT)
         self.desTilt_Degrees += deltaAcceleration * self.HORZ_CONTROL_FACTOR
         if justStop:
             base.dbg(self.TAG, "Trying to stop...", self.DEBUG_BIT)
@@ -214,12 +214,9 @@ class Danook(StigChopper):
             base.dbg(self.TAG, "No destination yet", self.DEBUG_BIT)
 
     def __controlAltitude(self, inState) -> State:
-        base.dbg(self.TAG, "In control altitude...", self.DEBUG_BIT)
         outState = inState
         if self.estimatedVelocity is None or self.estimatedAcceleration is None:
             return outState
-        base.dbg(self.TAG, "Proceeding to ground check", self.DEBUG_BIT)
-        #flightState = base.isAirborn(self.getId())
         flightState = self.actualPosition.getZ() > 0.0
         onGround = flightState == 0
         if onGround:
@@ -229,7 +226,6 @@ class Danook(StigChopper):
                 deltaY = self.currentDestination.y - self.actualPosition.y
                 actDistance = math.sqrt(deltaX * deltaX + deltaY * deltaY)
                 if (actDistance < base.MAX_PACKAGE_DISTANCE):
-                    base.dbg(self.TAG, "Try to deliver...", self.DEBUG_BIT)
                     delivered = base.deliverPackage(self.getId())
                     if delivered:
                         #TODO: Delete waypoint if world didn't
@@ -242,6 +238,7 @@ class Danook(StigChopper):
                 base.dbg(self.TAG, "Landed with no destination?", self.DEBUG_BIT)
             if inState == State.APPROACHING:
                 outState = State.LANDED
+                self.desTilt_Degrees = 0.0
         else:
             if inState == State.LANDED:
                 outState = State.FINDING_HEADING
@@ -252,8 +249,8 @@ class Danook(StigChopper):
             deltaAcceleration = self.MAX_VERT_ACCEL
         if deltaAcceleration < (-self.MAX_VERT_ACCEL):
             deltaAcceleration = -self.MAX_VERT_ACCEL
+        base.dbg(self.TAG, "(Alt Control) -- targetVelocity: " + str(targetVertVelocity) + ", target Accel: " + str(targetVertAcceleration) + ", actAccel: " + str(self.estimatedAcceleration.z) + ", deltaAccel: " + str(deltaAcceleration), self.DEBUG_BIT)
         self.desMainRotorSpeed_RPM += deltaAcceleration * self.VERT_CONTROL_FACTOR
-        base.dbg(self.TAG, "desMain: " + str(self.desMainRotorSpeed_RPM) + ", desTilt: " + str(self.desTilt_Degrees) + ", desTail: " + str(self.desTailRotorSpeed_RPM),self.DEBUG_BIT)
         base.requestSettings(self.getId(), self.desMainRotorSpeed_RPM, self.desTilt_Degrees, self.desTailRotorSpeed_RPM)
         return outState
         
@@ -289,34 +286,13 @@ class Danook(StigChopper):
 
     def update(self,dt,tick):
         StigChopper.update(self,dt,tick)
-        transformation = base.transformations(self.getId())
-        self.actor.setHpr(transformation.x, transformation.y, transformation.z)
-        '''
-        self.actAngle += 1
-        if (abs(self.actAngle) > 3600):
-            self.rotDir *= -1.0
-            self.actAngle = 0
-
-        angDeg = tick * 6.0
-        angRad = math.radians(angDeg)
-        radius = 28 + 2.2 * self.id
-        if True:
-            pos = self.actor.getPos()
-            pos.setX(radius * math.sin(angRad))
-            pos.setY(-radius * math.cos(angRad))
-            pos.setZ(0)
-            self.actor.setPos(self.actualPosition)
-        else:
-            self.actor.setPos(radius * math.cos(angRad), -radius * math.sin(angRad), 70)
-        self.actor.setHpr(angDeg - 90.0,-5,-15)
-        '''
+        #transformation = base.transformations(self.getId())
+        # I added the negative sign because pitch looked backwards to me
+        #self.actor.setHpr(transformation.x, -transformation.y, transformation.z)
 
     def runLogic(self,dt,tick):
-        StigChopper.runLogic(self,dt,tick)
-        self.lastPosition = self.actualPosition
         self.actualPosition = base.gps(self.getId())
         self.currTime = tick
-        base.dbg(self.TAG, "Current Tick: " + str(self.currTime), self.DEBUG_BIT)
         if self.currentDestination is None:
             self.currentDestination = self.__findClosestDestination()
             if not self.currentDestination is None:
@@ -339,3 +315,4 @@ class Danook(StigChopper):
             else:
                 base.dbg(self.TAG, "No physics estimate?", self.DEBUG_BIT)
         self.lastTime = self.currTime
+        self.lastPosition = Vec4(self.actualPosition)
