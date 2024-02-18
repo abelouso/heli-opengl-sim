@@ -66,7 +66,7 @@ class HeliMain(ShowBase):
         ap.add_argument("-x",help="World's x size",default = self.sizeX,dest="sizeX")
         ap.add_argument("-y",help="World's y size",default = self.sizeY,dest="sizeY")
         ap.add_argument("-z",help="World's z size",default = self.sizeZ,dest="sizeZ")
-        ap.add_argument("-d",help="Debug mask",default=0,dest="debugMask")
+        ap.add_argument("-d",help="Debug mask",default="0",dest="debugMask")
         ap.add_argument("-c",help="Index of a chopper to follow",dest="camToFollow",default=0)
         ap.add_argument("-f",help="ratio of world to real time 1 - for real-time 10 - 10x faster",default=self.m_rtToRndRatio,dest="rtRatio")
 
@@ -75,7 +75,7 @@ class HeliMain(ShowBase):
         self.sizeX = int(args.sizeX)
         self.sizeY = int(args.sizeY)
         self.sizeZ = int(args.sizeZ)
-        self.m_dbgMask = int(args.debugMask)
+        self.m_dbgMask = int(args.debugMask,0)
         self.m_rtToRndRatio = float(args.rtRatio)
         self.m_camToFollow = float(args.camToFollow)
 
