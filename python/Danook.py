@@ -26,19 +26,20 @@ class Danook(StigChopper):
         self.rotDir = 1.0
         self.actAngle = 0
         # constants
-        self.VERT_CONTROL_FACTOR = 3.0  # original 2.5
-        self.HORZ_CONTROL_FACTOR = 0.15 # original 0.15
-        self.MAX_VERT_VELOCITY = 2.85   # original 2.5
-        self.MAX_HORZ_VELOCITY = 2.85   # original 2.5
-        self.MAX_VERT_ACCEL = 0.46      # original 0.4
-        self.MAX_HORZ_ACCEL = 0.46      # original 0.4
-        self.DECEL_DISTANCE_VERT = 10.0 # original 12
-        self.DECEL_DISTANCE_HORZ = 10.0 # original 16
-        self.VERT_DECEL_SPEED = 0.4     # original 0.5
-        self.HORZ_DECEL_SPEED = 1.8     # original 2.0
-        self.MAX_STABILIZE = 10         # original 10
-        self.MAX_FAIL_COUNT = 40        # original 40
-        self.SAFE_ALTITUDE = 60.0       # Must be higher than buildings/terrain -- ask world?
+        self.VERT_CONTROL_FACTOR   = 3.0   # original 2.5
+        self.HORZ_CONTROL_FACTOR   = 0.15  # original 0.15
+        self.MAX_VERT_VELOCITY     = 2.90  # original 2.5
+        self.MAX_HORZ_VELOCITY     = 2.90  # original 2.5
+        self.MAX_VERT_ACCEL        = 0.50  # original 0.4
+        self.MAX_HORZ_ACCEL        = 0.46  # original 0.4
+        self.DECEL_DISTANCE_VERT   = 9.0   # original 12
+        self.DECEL_DISTANCE_HORZ   = 10.0  # original 16
+        self.VERT_DECEL_SPEED      = 0.4   # original 0.5
+        self.HORZ_DECEL_SPEED      = 1.8   # original 2.0
+        self.MAX_STABILIZE         = 10    # original 10
+        self.MAX_FAIL_COUNT        = 40    # original 40
+        self.SAFE_ALTITUDE         = 60.0  # Must be higher than buildings/terrain -- ask world?
+        self.START_ROTOR_SPEED_RPM = 290.0 # Original 360
         self.HEADING_TOL_DEG = 0.05
         self.ALTITUDE_MARGIN = 8.0
         self.TAG = "Danook"
@@ -49,7 +50,8 @@ class Danook(StigChopper):
 
         # Control factors ported from Danook Controller
         self.myState = State(State.LANDED)
-        self.desMainRotorSpeed_RPM = 360.0
+        self.wasOnGround = False
+        self.desMainRotorSpeed_RPM = self.START_ROTOR_SPEED_RPM
         self.desTailRotorSpeed_RPM = 100.0
         self.desTilt_Degrees = 0.0
         self.estimatedAcceleration = None
@@ -161,7 +163,8 @@ class Danook(StigChopper):
         targetVelocity = self.MAX_VERT_VELOCITY if doVertical else self.MAX_HORZ_VELOCITY
         deltaValue = abs(desAlt - actAlt)
         DECEL_DISTANCE = self.DECEL_DISTANCE_VERT if doVertical else self.DECEL_DISTANCE_HORZ
-        if deltaValue < DECEL_DISTANCE:
+        ratio = deltaValue / DECEL_DISTANCE
+        if ratio < 1.0:
             targetVelocity = deltaValue / DECEL_DISTANCE
         if actAlt > desAlt:
             targetVelocity *= -1.0
@@ -264,22 +267,29 @@ class Danook(StigChopper):
                 actDistance = math.sqrt(deltaX * deltaX + deltaY * deltaY)
                 if (actDistance < base.MAX_PACKAGE_DISTANCE):
                     delivered = base.deliverPackage(self.getId())
-                    base.dbg(self.TAG, "Try to deliver package at (" + str(self.actualPosition.x) + ", " + str(self.actualPosition.y) + ")", self.DEBUG_PKG_BIT)
+                    if self.wasOnGround == False:
+                        base.dbg(self.TAG, "Try to deliver package at (" + str(self.actualPosition.x) + ", " + str(self.actualPosition.y) + ")", self.DEBUG_PKG_BIT)
                     if delivered:
                         #TODO: Delete waypoint if world didn't
-                        base.dbg(self.TAG, "Delivered a package", self.DEBUG_PKG_BIT)
+                        if self.wasOnGround == False:
+                            base.dbg(self.TAG, "Delivered a package", self.DEBUG_PKG_BIT)
                         self.currentDestination = None
                         self.desiredAltitude = self.SAFE_ALTITUDE + self.ALTITUDE_MARGIN
                         outState = State.CLIMB
                     else:
-                        base.dbg(self.TAG, "Couldn't deliver package (why?)" , self.DEBUG_PKG_BIT)
+                        if self.wasOnGround == False:
+                            base.dbg(self.TAG, "Couldn't deliver package (why?)" , self.DEBUG_PKG_BIT)
                 else:
-                    base.dbg(self.TAG, "Too far to deliver package", self.DEBUG_PKG_BIT)
+                    if self.wasOnGround == False:
+                        base.dbg(self.TAG, "Too far to deliver package: act: {:.2}, tol: {:.2}".format(actDistance, base.MAX_PACKAGE_DISTANCE), self.DEBUG_PKG_BIT)
             else:
-                base.dbg(self.TAG, "Landed with no destination?", self.DEBUG_PKG_BIT)
+                if self.wasOnGround == False:
+                    base.dbg(self.TAG, "Landed with no destination?", self.DEBUG_PKG_BIT)
+            self.wasOnGround = onGround
         else:
             if inState == State.LANDED:
                 outState = State.CLIMB
+            self.wasOnGround = False
         targetVertVelocity = self.__computeDesiredVelocity(self.actualPosition.z, self.desiredAltitude, True)
         targetVertAcceleration = self.__computeDesiredAcceleration(self.estimatedVelocity.z, targetVertVelocity, True)
         deltaAcceleration = targetVertAcceleration - self.estimatedAcceleration.z
