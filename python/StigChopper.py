@@ -32,7 +32,7 @@ class StigChopper(BaseObject):
         base.cTrav.addCollider(self.collider, base.pusher)
 
         #constants
-        self.VERT_OFFSET = 2.0
+        self.VERT_OFFSET = 1.0
         #ported stuff
         self.size = Vec3(1,4,1.4)
         self.id = 0

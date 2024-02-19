@@ -193,7 +193,7 @@ class HeliMain(ShowBase):
             print("DEBUG: [",tag,"]:", msg)
 
     def getStartingPosition(self, chopperID):
-        return Vec3(44.0 + chopperID * 4.0, 50.0, 0.0)
+        return Vec3(50.0, 44.0 + chopperID * 4.0, 0.0)
     
     def insertChopper(self, chopper):
         chInfo = ChopperInfo(chopper.id, chopper.fuelCapacity(), chopper.actor.getPos(), 0.0)
