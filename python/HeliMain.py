@@ -159,10 +159,14 @@ class HeliMain(ShowBase):
         dt = globalClock.getDt()
         self.tick(dt)
         for chopper in self.myChoppers:
+            
+            self.myChoppers[chopper][gCH_ID].update(self.curTimeStamp,self.TICK_TIME)
+            '''
             try:
                 self.myChoppers[chopper][gCH_ID].update(self.curTimeStamp,self.TICK_TIME)
             except Exception as ex:
                 self.dbg(self.TAG, f"ERROR in update(): exception with id {chopper}: {ex}",self.WORLD_DBG)
+            '''
         self.curTimeStamp += self.TICK_TIME
         
         if self.firstUpdate:

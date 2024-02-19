@@ -38,9 +38,6 @@ class ApachiAlt(BaseStateMachine):
     WAIT_FOR_CHANGE_NS = 200.0e3 #200 ms
     rotSpdDelta = ROT_SPD_DELTA_FAST
 
-    handle = None
-    leave = None
-
     accelAlt = 0
     linAlt = 0
     decelAlt = 0
@@ -53,6 +50,13 @@ class ApachiAlt(BaseStateMachine):
 
     changeStamp = time.time_ns()
     lastStamp = time.time_ns()
+    
+    leave = None
+    handle = None
+    
+    dt = 0
+    state = GND_ST
+    firstTick = True
 
     def gndHndl(self):
         da = self.getDeltaAlt()
@@ -266,7 +270,7 @@ class ApachiAlt(BaseStateMachine):
         self.trg = 0
         self.act = 0
         self.diff = 0.25
-        self.tol = 2.0
+        self.tol = 0.5
         self.spCoeff = 0.5
         self.prevAct = None
         self.maxDeltaSpd = 10

@@ -20,16 +20,6 @@ class BaseStateMachine:
     RESET_EVT = 2
     ERROR_EVT = 3
 
-    leave = None
-    handle = None
-
-    dt = 0
-    lastStamp = time.time_ns()
-    eventQ = queue.Queue()
-    lastChange = lastStamp
-    state = INIT_ST
-    firstTick = True
-
     def initHndl(self):
         self.db("In Init state")
 
@@ -61,16 +51,18 @@ class BaseStateMachine:
     }
     '''
     def __init__(self, TAG, DBG):
-        self.db("Initialied Generic State Machine")
+        self.db(f"Initialied Generic State Machine for tag {TAG}")
         self.TAG = TAG
         self.DBG_MASK = DBG
 
     def sendEvent(self,evt):
         self.eventQ.put(evt)
+        self.db(f"Sent event: {evt}, queue empty: {self.eventQ.empty()}")
         
     def next(self):
         while not self.eventQ.empty():
             evt = self.eventQ.get()
+            self.db(f"processing evt: {evt}")
             stMap = self.StateMachine[self.state]
             newState = self.state
             if evt in stMap:

@@ -60,7 +60,7 @@ class StigChopper(BaseObject):
                 self.homeBase = myPos
             self.actor.setPos(Vec3(myPos.x, myPos.y, myPos.z))
             rotation = base.transformations(self.id)
-            self.actor.setHpr(rotation)
+            self.actor.setHpr(Vec3(rotation.x - 90.0,rotation.y, rotation.z))
 
         self.runLogic(currentTime,elapsedTime)
 

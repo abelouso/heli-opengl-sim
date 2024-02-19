@@ -12,14 +12,14 @@ from BaseStateMachine import *
 
 class ApachiHead(BaseStateMachine):
 
-    AT_HEAD_ST = 0
-    TURN_KICK_ST = 1
-    TURN_LOCK_ST = 2
+    AT_HEAD_ST = 20
+    TURN_KICK_ST = 21
+    TURN_LOCK_ST = 22
 
-    NULL_EVT = 0
-    NEW_HEAD_EVT = 1
-    STOP_EVT = 2
-    LOCK_EVT = 3
+    NULL_EVT = 20
+    NEW_HEAD_EVT = 21
+    STOP_EVT = 22
+    LOCK_EVT = 23
 
     STABLE_SPEED = 100.0
     MAX_ROT_RATE = 2.0
@@ -43,6 +43,16 @@ class ApachiHead(BaseStateMachine):
     tol = 0.3 #degrees
     alt = 0.0
 
+    eventQ = queue.Queue()
+    
+    leave = None
+    handle = None
+    
+    dt = 0
+    lastStamp = time.time_ns()
+    lastChange = lastStamp
+    state = AT_HEAD_ST
+    firstTick = True
 
     def dump(self, source):
         self.db(f"{source:10} ,T: {self.trg: 3.4f}, act: {self.act: 3.4f}, desRS: {self.desRotSpd: 3.4f}, actRotSpd: {self.actRotSpd: 3.4}, rotRate: {self.rotRate: 3.4f}, rotAccel: {self.rotAccel: 3.4f}")
@@ -149,8 +159,8 @@ class ApachiHead(BaseStateMachine):
 
 
     def __init__(self):
-        self.TAG = "ApachiHead"
-        self.DBG_MASK = 0x4
+        super().__init__("ApachiHead", 0x4)
+        self.state = self.AT_HEAD_ST
 
     def tick(self, act, spd, dt, alt):
         self.updateTimeStamp()

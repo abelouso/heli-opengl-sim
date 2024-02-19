@@ -15,6 +15,7 @@ from BaseObject import *
 from StigChopper import *
 from ApachiAlt import *
 from ApachiHead import *
+from ApachiVel import *
 
 class Apachi(StigChopper):
     startTime = time.time_ns()
@@ -30,8 +31,11 @@ class Apachi(StigChopper):
         self.altCtrl.trg = 70
         self.altCtrl.sendEvent(self.altCtrl.NULL_EVT)
         self.hdCtrl = ApachiHead()
-        self.hdCtrl.setHeading(-45)
+        self.hdCtrl.setHeading(45)
         self.tailSpeed = self.hdCtrl.STABLE_SPEED
+        self.velCtrl = ApachiVel()
+        self.velCtrl.sendEvent(self.velCtrl.NULL_EVT)
+        self.velCtrl.setSpeed(0.0)
         #self.m_fuelCapacity = 100
 
     def update(self,dt,tick):
@@ -46,17 +50,21 @@ class Apachi(StigChopper):
         #TODO: provide access to this
         actSpd = base.myChoppers[self.id][1].actMainRotorSpeed_RPM
         tailSpd = base.myChoppers[self.id][1].actTailRotorSpeed_RPM
+        actTilt = base.myChoppers[self.id][1].actTilt_Degrees
         self.mainSpeed = self.altCtrl.tick(alt,actSpd,dt)
         self.tailSpeed = self.hdCtrl.tick(hdng,tailSpd,dt,alt)
+        self.tilt = self.velCtrl.tick(pos,actTilt,dt,alt,hdng)
 
         base.requestSettings(self.id,self.mainSpeed,self.tilt,self.tailSpeed)
         deltalNs = time.time_ns() - self.startTime
-        TIME_IVAL = 35e9
+        TIME_IVAL = 50e9
         if self.altCtrl.state == self.altCtrl.AT_ALT_ST:
             if deltalNs > TIME_IVAL and self.altCtrl.trg == 70:
-                self.hdCtrl.db(f"=================== Requesting heading of 45 and alt of 30 ===========================")
-                self.altCtrl.setTarget(30)
-                self.hdCtrl.setHeading(45)
-            elif deltalNs > (2 * TIME_IVAL) and self.altCtrl.trg == 30:
-                self.altCtrl.setTarget(0.3)
-                self.hdCtrl.setHeading(234)
+                self.hdCtrl.db(f"=================== Requesting heading of 45 and velocity ===========================")
+                self.altCtrl.setTarget(50)
+                #self.hdCtrl.setHeading(45)
+                self.velCtrl.setSpeed(0.7)
+            elif deltalNs > (2 * TIME_IVAL) and self.altCtrl.trg == 50:
+                self.altCtrl.setTarget(0.0)
+                self.velCtrl.setSpeed(0.0)
+                #self.hdCtrl.setHeading(234)
