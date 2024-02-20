@@ -14,11 +14,15 @@ class ApachiVel(BaseStateMachine):
 
     MAINT_ST = 30
     CHANGE_ST = 31
+    SIDE_ST = 32
 
     NULL_EVT = 30
     ACCEL_EVT = 31
     AT_SPEED_EVT = 32
     STOP_EVT = 33
+    SIDE_EVT = 34
+    FWD_EVT = 35
+
 
     TILT_STEP = 0.03
     MAX_SPEED = 1.0
@@ -28,6 +32,7 @@ class ApachiVel(BaseStateMachine):
     prevSpeed = 0.0
     trg = 0.0
     actPos = Vec3(0,0,0)
+    lastPs = Vec3(0,0,0)
 
     desTilt = 0.0
     actTilt = 0.0
@@ -55,7 +60,12 @@ class ApachiVel(BaseStateMachine):
     facing = 0.0
 
     def dump(self, source):
-        self.db(f"{source:10},T: {self.trg: 3.4f}, spd: {self.speed: 3.4f}, desT: {self.desTilt: 3.4f}, actT: {self.actTilt: 3.4f}, accel: {self.accel: 3.4f}, facing: {self.facing: 3.4f}, moving: {self.velocityHeading: 3.4f}")
+        pDiff = self.pDiffN()
+
+        self.db(f"{source:10},T: {self.trg: 3.4f}, spd: {self.speed: 3.4f}, \
+desT: {self.desTilt: 3.4f}, actT: {self.actTilt: 3.4f}, accel: {self.accel: 3.4f}, \
+facing: {self.facing: 3.4f}, moving: {self.velocityHeading: 3.4f} \
+dir: ({pDiff.x: 3.4f},{pDiff.y: 3.4f},{pDiff.z: 3.4f})")
 
     def stopEvt(self):
         self.setTilt(0.0)
@@ -64,7 +74,9 @@ class ApachiVel(BaseStateMachine):
         
         dV = self.delta()
         self.db(f" delta V: {dV:3.4f}")
-        if abs(dV) > self.tol:
+        if not self.isFwd():
+            self.sendEvent(self.SIDE_EVT)
+        elif abs(dV) > self.tol:
             self.db(f" transition to ACCEL ST")
             self.sendEvent(self.ACCEL_EVT)
 
@@ -73,6 +85,8 @@ class ApachiVel(BaseStateMachine):
         if abs(dV) < self.tol:
             #self.sendEvent(self.AT_SPEED_EVT)
             pass
+        elif not self.isFwd():
+            self.sendEvent(self.SIDE_EVT)
         else:
             chUp = self.speedChanged("up",False)
             chDn = self.speedChanged("dn",True)
@@ -85,10 +99,20 @@ class ApachiVel(BaseStateMachine):
                 if self.speed > self.trg and not chDn:
                     self.setTilt(self.desTilt - self.TILT_STEP)
 
-    
+    def sideHndl(self):
+        if self.isFwd():
+            self.db(f"Moving forward again...")
+            self.sendEvent(self.FWD_EVT)
+        else:
+            self.db("Moving sideways, setting tilt to 0.0, drifting")
+            self.setTilt(0.0)
+            self.setSpeed(0.0)
+                    
+
     StateHandlers = {
         MAINT_ST: (     None,   maintHndl,   None),
         CHANGE_ST: (   None,   changeHndl,   None),
+        SIDE_ST: (   None,   sideHndl,   None),
     }
 
     StateMachine = {
@@ -97,12 +121,17 @@ class ApachiVel(BaseStateMachine):
             STOP_EVT: (MAINT_ST, stopEvt),
             AT_SPEED_EVT: (MAINT_ST, None),
             NULL_EVT: (MAINT_ST, None),
+            SIDE_EVT: (SIDE_ST, None),
         },
         CHANGE_ST: {
             ACCEL_EVT: (CHANGE_ST, None),
             STOP_EVT: (MAINT_ST, stopEvt),
             AT_SPEED_EVT: (MAINT_ST, None),
             NULL_EVT: (CHANGE_ST, None),
+            SIDE_EVT: (SIDE_ST, None),
+        },
+        SIDE_ST: {
+            FWD_EVT: (MAINT_ST, None),
         },
     }
 
@@ -117,6 +146,7 @@ class ApachiVel(BaseStateMachine):
         pos3d = Vec3(actPos.getX(), actPos.getY(), actPos.getZ())
         self.actTilt = tilt
         self.updateSpeed(pos3d)
+        self.lstPos = self.actPos
         self.actPos = pos3d
         self.facing = facing
         if abs(self.desTilt - self.actTilt) > 0.0001 or (alt < 1.0):
@@ -138,14 +168,10 @@ class ApachiVel(BaseStateMachine):
             self.velocityHeading = math.degrees(math.atan2(pos2d.getY(), pos2d.getX()))
             if self.velocityHeading < 0.0:
                 self.velocityHeading += 360.0
-            if abs(abs(self.velocityHeading - self.facing) - 180.0) < 2.0:
+            pD = self.pDiffN()
+            if pD.x < 0.0 or pD.y < 0: #abs(abs(self.velocityHeading - self.facing) - 180.0) < 2.0:
                 #going backgwards 
                 speed *= -1.0
-            elif abs(self.velocityHeading - self.facing) > 3.0 and abs(self.speed) > self.tol:
-                #drifting, stop
-                #self.setTilt(0.0)
-                #self.sendEvent(self.STOP_EVT)
-                pass
             speedAvg = self.speed * self.lgShare + speed * self.smShare
             accel = (speedAvg - self.speed) / self.dt
             self.accel = self.accel * self.lgShare + accel * self.smShare
@@ -156,13 +182,14 @@ class ApachiVel(BaseStateMachine):
         if speed > self.MAX_SPEED: speed = self.MAX_SPEED
         if abs(speed) < 0.0001:
             self.trg = 0.0
-            self.sendEvent(self.STOP_EVT)
+            #self.sendEvent(self.STOP_EVT)
             self.db(f" ============================== STOP, zero: {self.trg:3.4f}")
         else:
             if abs(self.trg - speed) > self.tol:
                 self.trg = speed
                 self.sendEvent(self.ACCEL_EVT)
                 self.dump("SET SPD")
+                self.velocityHeading = self.facing #reset the lock if a new speed target is set to start moving
                 self.db(f" ============================== set velocity: {self.trg:3.4f}")
 
     def delta(self):
@@ -188,3 +215,15 @@ class ApachiVel(BaseStateMachine):
             self.prevTilt = self.desTilt
             self.prevSpeed = self.speed
             self.db(f"Tilt Changed to: {val: 3.4f}")
+
+    def pDiffN(self):
+        pD = self.lstPos - self.actPos
+        pD.normalize()
+        return pD
+
+    def isFwd(self):
+        #facing forward if postive speed and DOT matches heading or speed is negative
+        movingFwd = (abs(self.velocityHeading - self.facing) < 3.0 and self.speed > self.tol) or self.speed < 0.0
+        stopped = abs(self.speed) <= self.tol
+        self.db(f" mv: {self.velocityHeading: 3.4f}, facing: {self.facing: 3.4f}, speed: {self.speed: 3.12f}, fwd: {movingFwd} or stopped {stopped}")
+        return  movingFwd or stopped

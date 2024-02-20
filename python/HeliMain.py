@@ -206,9 +206,12 @@ class HeliMain(ShowBase):
         for key in self.myChoppers:
             chopper = self.myChoppers[key][gCH_ID]
             targetPoints = []
-            for _ in range(0,chopper.itemCount()):
+            for idx in range(0,chopper.itemCount()):
                 whichRow = random.randint(0,self.sizeX) - self.sizeX / 2
                 whichCol = random.randint(0,self.sizeY) - self.sizeY / 2
+                if idx == 0:
+                    whichRow = 45.0
+                    whichCol = 45.0
                 targetPoints.append(Vec3(whichCol, whichRow, 0.1))
             chopper.setWaypoints(targetPoints)
             self.allPackageLocs[key] = targetPoints

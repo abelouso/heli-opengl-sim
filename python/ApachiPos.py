@@ -36,6 +36,7 @@ class ApachiPos(BaseStateMachine):
     LAND_EVT = 157
     DROP_EVT = 158
     NULL_EVT = 159
+    HOVER_EVT = 160
 
     POS_TOL = Vec3(0.5, 0.5, 0.5)
     POS_MAG_TOL = 1.0
@@ -109,6 +110,7 @@ class ApachiPos(BaseStateMachine):
         _,_, mv = self.canMove()
         if mv:
             self.inAccelHndl()
+            pass
 
     def inTurnHndl(self):
         trgHdg = self.calcTargetHeading()
@@ -138,7 +140,7 @@ class ApachiPos(BaseStateMachine):
             #speed directly proprotional to distance to target
             trgSpd = 0.002 * dist + 0.3 #ensure minimum speed
             #let's make acceleration and deceleration zones, cut them in half
-            self.decelDist = 0.42 * dist
+            self.decelDist = 0.48 * dist
             self.velCtrl.setSpeed(trgSpd)
             self.db(f"Distance to target: {dist:3.4f}, speed: {trgSpd:3.4f}")
 
@@ -148,7 +150,7 @@ class ApachiPos(BaseStateMachine):
         what = "Acceleraing "
         vel = self.velCtrl.speed
         acc = self.maxAccel
-        stopDist = 0.976 * ((vel / acc) ** 2)
+        stopDist = 1.02 * ((vel / acc) ** 2)
         
         if self.wentTooFar():
             what = " Went too far, stop, turn around"
@@ -183,7 +185,7 @@ class ApachiPos(BaseStateMachine):
 
             elif abs(self.velCtrl.speed) < 0.03:
                 #TODO: tighten this
-                if abs(distR) < 15.0:
+                if abs(distR) < 2.0:
                     self.sendEvent(self.LAND_EVT)
                     what += "DONE. Close, Landing "
                 else:
@@ -194,7 +196,7 @@ class ApachiPos(BaseStateMachine):
                     else:
                         what += "Not close enough, need to adjust "
                         self.sendEvent(self.ACCEL_EVT)
-        self.db(f"{what}> speed: {self.velCtrl.speed:3.4f}, tilt: {self.velCtrl.actTilt:3.4f}, dist: {distR:3.4f}, prevD: {self.deltaPos: 3.4f} hdg: {self.headCtrl.act:3.4f}, trgHdg: {desHdg:3.4f}")
+        self.db(f"{what}> distT: {distR:3.4f}, prevD: {self.deltaPos: 3.4f}, speed: {self.velCtrl.speed:3.4f}, tilt: {self.velCtrl.actTilt:3.4f},  hdg: {self.headCtrl.act:3.4f}, trgHdg: {desHdg:3.4f}")
 
     def inDecHndl(self):
         self.altCtrl.setTarget(0.0)
@@ -213,8 +215,22 @@ class ApachiPos(BaseStateMachine):
     def landedHndl(self):
         #TODO: stopped here
         if self.curPos.z < 1.5:
-            base.deliverPackage(self.id)
+            self.sendEvent(self.DROP_EVT)
             
+    def inHoverHndl(self):
+        self.headCtrl.setHeading(self.velCtrl.velocityHeading)
+        
+    def hoverHndl(self):
+        faceFwd = abs(self.velCtrl.velocityHeading - self.headCtrl.act) < self.headCtrl.tol
+        stable = self.headCtrl.isStable()
+        stopped = abs(self.velCtrl.speed) < self.velCtrl.tol
+        if stable and not faceFwd:
+            #adjust it again
+            self.headCtrl.setHeading(self.velCtrl.velocityHeading)
+        elif stable and faceFwd and stopped:
+            #we are stable, facing forward and stopped, ready to move
+            self.sendEvent(self.GO_EVT)
+
 
     StateHandlers = {
         INIT_ST: (None, initHndl, None),
@@ -224,7 +240,7 @@ class ApachiPos(BaseStateMachine):
         ACCEL_ST: (inAccelHndl, accelHndl, None),
         APPROACH_ST: (None, None, None),
         DECEL_ST: (inDecelHndl, decelHndl, None),
-        HOVER_ST: (None, None, None),
+        HOVER_ST: (inHoverHndl, hoverHndl, None),
         DECEND_ST: (inDecHndl, decHndl, None),
         LANDED_ST: (inLandedHndl, landedHndl, None),
         DELIVER_ST: (None, None, None),
@@ -242,6 +258,7 @@ class ApachiPos(BaseStateMachine):
                     LAND_EVT: (INIT_ST, None),
                     DROP_EVT: (INIT_ST, None),
                     NULL_EVT: (INIT_ST, None),
+                    HOVER_EVT: (INIT_ST, None),
                 },
         ON_GND_ST: {
                     GO_EVT: (ALT_CHANGE_ST, None),
@@ -254,6 +271,7 @@ class ApachiPos(BaseStateMachine):
                     LAND_EVT: (INIT_ST, None),
                     DROP_EVT: (INIT_ST, None),
                     NULL_EVT: (INIT_ST, None),
+                    HOVER_EVT: (INIT_ST, None),
                 },
         ALT_CHANGE_ST: {
                     GO_EVT: (INIT_ST, None),
@@ -266,6 +284,7 @@ class ApachiPos(BaseStateMachine):
                     LAND_EVT: (INIT_ST, None),
                     DROP_EVT: (INIT_ST, None),
                     NULL_EVT: (INIT_ST, None),
+                    HOVER_EVT: (HOVER_ST, None),
                 },
         TURNING_ST: {
                     GO_EVT: (INIT_ST, None),
@@ -278,6 +297,7 @@ class ApachiPos(BaseStateMachine):
                     LAND_EVT: (INIT_ST, None),
                     DROP_EVT: (INIT_ST, None),
                     NULL_EVT: (INIT_ST, None),
+                    HOVER_EVT: (HOVER_ST, None),
                 },
         ACCEL_ST: {
                     GO_EVT: (INIT_ST, None),
@@ -290,6 +310,7 @@ class ApachiPos(BaseStateMachine):
                     LAND_EVT: (INIT_ST, None),
                     DROP_EVT: (INIT_ST, None),
                     NULL_EVT: (INIT_ST, None),
+                    HOVER_EVT: (HOVER_ST, None),
                 },
         APPROACH_ST: {
                     GO_EVT: (INIT_ST, None),
@@ -301,7 +322,7 @@ class ApachiPos(BaseStateMachine):
                     DECEL_EVT: (INIT_ST, None),
                     LAND_EVT: (INIT_ST, None),
                     DROP_EVT: (INIT_ST, None),
-                    NULL_EVT: (INIT_ST, None),
+                    HOVER_EVT: (HOVER_ST, None),
                 },
         DECEL_ST: {
                     GO_EVT: (INIT_ST, None),
@@ -314,9 +335,10 @@ class ApachiPos(BaseStateMachine):
                     LAND_EVT: (DECEND_ST, None),
                     DROP_EVT: (INIT_ST, None),
                     NULL_EVT: (INIT_ST, None),
+                    HOVER_EVT: (HOVER_ST, None),
                 },
         HOVER_ST: {
-                    GO_EVT: (INIT_ST, None),
+                    GO_EVT: (ALT_CHANGE_ST, None),
                     LEVEL_EVT: (INIT_ST, None),
                     DIR_EVT: (INIT_ST, None),
                     START_MOVE_EVT: (INIT_ST, None),
@@ -326,6 +348,7 @@ class ApachiPos(BaseStateMachine):
                     LAND_EVT: (INIT_ST, None),
                     DROP_EVT: (INIT_ST, None),
                     NULL_EVT: (INIT_ST, None),
+                    HOVER_EVT: (HOVER_ST, None),
                 },
         DECEND_ST: {
                     GO_EVT: (INIT_ST, None),
@@ -338,6 +361,7 @@ class ApachiPos(BaseStateMachine):
                     LAND_EVT: (INIT_ST, None),
                     DROP_EVT: (LANDED_ST, None),
                     NULL_EVT: (INIT_ST, None),
+                    HOVER_EVT: (HOVER_ST, None),
                 },
         LANDED_ST: {
                     GO_EVT: (INIT_ST, None),
@@ -348,11 +372,12 @@ class ApachiPos(BaseStateMachine):
                     FLY_EVT: (INIT_ST, None),
                     DECEL_EVT: (INIT_ST, None),
                     LAND_EVT: (INIT_ST, None),
-                    DROP_EVT: (INIT_ST, None),
+                    DROP_EVT: (DELIVER_ST, None),
                     NULL_EVT: (INIT_ST, None),
+                    HOVER_EVT: (INIT_ST, None),
                 },
         DELIVER_ST: {
-                    GO_EVT: (INIT_ST, None),
+                    GO_EVT: (ALT_CHANGE_ST, None),
                     LEVEL_EVT: (INIT_ST, None),
                     DIR_EVT: (INIT_ST, None),
                     START_MOVE_EVT: (INIT_ST, None),
@@ -362,6 +387,7 @@ class ApachiPos(BaseStateMachine):
                     LAND_EVT: (INIT_ST, None),
                     DROP_EVT: (INIT_ST, None),
                     NULL_EVT: (INIT_ST, None),
+                    HOVER_EVT: (INIT_ST, None),
                 },
     }
 
@@ -429,9 +455,9 @@ class ApachiPos(BaseStateMachine):
     
     def canMove(self):
         trgHdg = self.calcTargetHeading()
-        turnRt = abs(self.headCtrl.rotRate)
-        res = abs(trgHdg - self.headCtrl.act) <= self.headCtrl.tol and abs(turnRt < 0.01)
-        return trgHdg, turnRt, res
+        isStable = self.headCtrl.isStable()
+        res = abs(trgHdg - self.headCtrl.act) <= self.headCtrl.tol and isStable
+        return trgHdg, abs(self.headCtrl.rotRate), res
 
     def wentTooFar(self):
         distR = self.calcDistToTarget()

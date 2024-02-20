@@ -22,6 +22,7 @@ class ApachiHead(BaseStateMachine):
     LOCK_EVT = 23
 
     STABLE_SPEED = 100.0
+    MAX_ROT_SPEED = 10.0
     MAX_ROT_RATE = 2.0
     SPD_DELTA = 2.0
     trg = 0.0
@@ -228,10 +229,11 @@ class ApachiHead(BaseStateMachine):
         return self.trg - self.act
     
     def setRotorSpeed(self, spd):
-        self.desRotSpd = spd
-        self.lastChange = time.time_ns()
-        self.prevRotRate = self.rotRate
-        self.dump("CHG ROT SPD")
+        if abs(self.STABLE_SPEED - spd) <= self.MAX_ROT_SPEED:
+            self.desRotSpd = spd
+            self.lastChange = time.time_ns()
+            self.prevRotRate = self.rotRate
+            self.dump("CHG ROT SPD")
 
     def rateChanged(self,dir, update = True):
         drA = abs(self.prevRotRate - self.rotRate)
@@ -243,3 +245,7 @@ class ApachiHead(BaseStateMachine):
             res = (self.rotRate > self.prevRotRate and drA > self.RATE_TOL) or (self.rotRate < self.prevRotRate and drA > self.RATE_TOL)
         if update: self.prevRotRate = self.prevRotRate
         return res
+
+    def isStable(self):
+        stable = abs(self.rotRate) < 0.01 and self.actRotSpd == self.STABLE_SPEED
+        return stable

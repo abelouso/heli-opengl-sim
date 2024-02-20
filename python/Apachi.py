@@ -29,7 +29,9 @@ class Apachi(StigChopper):
         self.tilt = 0.0
         self.tailSpeed = 0.0
         self.ctrl = ApachiPos(self.id)
-        self.ctrl.setPosition(Vec3(-100,-100,70))
+        #self.ctrl.setPosition(Vec3(-100,-105,70))
+        #self.ctrl.setPosition(Vec3(15.0,-11.00,70))
+
         '''
         self.altCtrl = ApachiAlt()
         self.altCtrl.trg = 70
@@ -42,6 +44,13 @@ class Apachi(StigChopper):
         self.velCtrl.setSpeed(0.0)
         '''
         #self.m_fuelCapacity = 100
+
+
+    def setWaypoints(self, wp):
+        self.targetWaypoints = wp
+        self.cargoIdx = 0
+        pt = self.targetWaypoints[self.cargoIdx]
+        self.ctrl.setPosition(Vec3(pt.x, pt.y, 70))
 
     def update(self,dt,tick):
         StigChopper.update(self,dt,tick)
@@ -58,6 +67,20 @@ class Apachi(StigChopper):
         actTilt = base.myChoppers[self.id][1].actTilt_Degrees
         self.mainSpeed, self.tailSpeed, self.tilt = self.ctrl.tick(pos, hdng, actSpd, tailSpd, actTilt, dt)
         base.requestSettings(self.id,self.mainSpeed,self.tilt,self.tailSpeed)
+        if self.ctrl.velCtrl.state == self.ctrl.velCtrl.SIDE_ST and not self.ctrl.state == self.ctrl.HOVER_ST:
+            #transition to however
+            self.ctrl.sendEvent(self.ctrl.HOVER_EVT)
+        if self.ctrl.state == self.ctrl.DELIVER_ST:
+            delviered = base.deliverPackage(self.id)
+            if delviered:
+                self.ctrl.db(f"================== DELIVERED PACKAGE ===================== #{self.cargoIdx}")
+                self.cargoIdx += 1
+                if self.cargoIdx >= len(self.targetWaypoints):
+                    self.ctrl.db(f"================== DELIVERED ALL PACKAGES ===================== #{self.cargoIdx}")
+                else:
+                    self.ctrl.setPosition(self.targetWaypoints[self.cargoIdx])
+                    self.ctrl.sendEvent(self.ctrl.GO_EVT)
+        
 
         '''
         self.mainSpeed = self.altCtrl.tick(alt,actSpd,dt)
