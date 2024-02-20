@@ -53,11 +53,11 @@ class HeliMain(ShowBase):
         self.BUILDING_SPACE = (self.SQUARE_SIZE / 10.0)
         self.BUILDING_SIZE = 0.9 * self.BUILDING_SPACE
         self.HOUSES_PER_BLOCK = 10.0
-        self.MAX_PACKAGE_DISTANCE = 2.0
+        self.MAX_PACKAGE_DISTANCE = 1.0
         self.maxTime = 10000.0
 
         self.worldState = []
-        self.allPackageLocs = []
+        self.allPackageLocs = {}
 
         self.m_chopperInfoPanel = None
         self.m_camToFollow = 1
@@ -190,7 +190,7 @@ class HeliMain(ShowBase):
     '''
     def dbg(self, tag, msg, bit):
         if self.m_dbgMask & bit:
-            print("DEBUG: [",tag,"]:", msg)
+            print("DEBUG: [",tag,"]:", msg, flush=True)
 
     def getStartingPosition(self, chopperID):
         return Vec3(50.0, 44.0 + chopperID * 4.0, 0.0)
@@ -211,7 +211,7 @@ class HeliMain(ShowBase):
                 whichCol = random.randint(0,self.sizeY) - self.sizeY / 2
                 targetPoints.append(Vec3(whichCol, whichRow, 0.1))
             chopper.setWaypoints(targetPoints)
-            self.allPackageLocs.append(targetPoints)
+            self.allPackageLocs[key] = targetPoints
 
     def isAirborn(self,id):
         retVal = 1
@@ -238,18 +238,18 @@ class HeliMain(ShowBase):
 				## NOTE: I believe the hashCode function is used to determine
 				## if the container has the object.  That only includes X,Y,Z
 				## which is what I think we want.
-                for object in self.allPackageLocs:
-                    for avec3 in object:
-                        deltaX = avec3.x - myPos.x
-                        deltaY = avec3.y - myPos.y
-                        delta = math.sqrt(deltaX * deltaX + deltaY * deltaY)
-                        if delta < 0.5:
-                            object.remove(avec3)
-                            # Key to remove the waypoint from the chopper's list
-                            # Otherwise it could try again at the same location
-                            chop.setWaypoints(object)
-                            success = True
-                            break
+                object = self.allPackageLocs[id]
+                for avec3 in object:
+                    deltaX = avec3.x - myPos.x
+                    deltaY = avec3.y - myPos.y
+                    delta = math.sqrt(deltaX * deltaX + deltaY * deltaY)
+                    if delta < self.MAX_PACKAGE_DISTANCE:
+                        object.remove(avec3)
+                        # Key to remove the waypoint from the chopper's list
+                        # Otherwise it could try again at the same location
+                        chop.setWaypoints(object)
+                        success = True
+                        break
                 if not success:
                     self.dbg(self.TAG,f"Couldn't find package to deliver at ({myPos})", self.WORLD_DBG)
         return success

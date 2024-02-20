@@ -17,7 +17,9 @@ class State(Enum):
     FINDING_HEADING = 2,
     STABILIZE_ROTATION = 3,
     APPROACHING = 4,
-    STOP_NOW = 5
+    STOP_NOW = 5,
+    TASKS_COMPLETE = 6,
+    POWER_DOWN = 7
 
 class Danook(StigChopper):
     def __init__(self,id, pos, scale=0.2):
@@ -43,9 +45,10 @@ class Danook(StigChopper):
         self.HEADING_TOL_DEG = 0.05
         self.ALTITUDE_MARGIN = 8.0
         self.TAG = "Danook"
-        self.DEBUG_POS_BIT =   0x8000
-        self.DEBUG_ALT_BIT =   0x4000
-        self.DEBUG_PKG_BIT =   0x2000
+        self.FULL_DEBUG_MASK = 0xf000
+        self.DEBUG_POS_BIT   = 0x8000
+        self.DEBUG_ALT_BIT   = 0x4000
+        self.DEBUG_PKG_BIT   = 0x2000
         self.DEBUG_STATE_BIT = 0x1000
 
         # Control factors ported from Danook Controller
@@ -268,23 +271,23 @@ class Danook(StigChopper):
                 if (actDistance < base.MAX_PACKAGE_DISTANCE):
                     delivered = base.deliverPackage(self.getId())
                     if self.wasOnGround == False:
-                        base.dbg(self.TAG, "Try to deliver package at (" + str(self.actualPosition.x) + ", " + str(self.actualPosition.y) + ")", self.DEBUG_PKG_BIT)
+                        base.dbg(self.TAG, "Time: {:.2f} -- trying to deliver package at ({:.2f}, {:.2f})".format(self.currTime, self.actualPosition.x,self.actualPosition.y), self.DEBUG_PKG_BIT)
                     if delivered:
                         #TODO: Delete waypoint if world didn't
                         if self.wasOnGround == False:
-                            base.dbg(self.TAG, "Delivered a package", self.DEBUG_PKG_BIT)
+                            base.dbg(self.TAG, "Time: {:.2f} -- Delivered a package".format(self.currTime), self.DEBUG_PKG_BIT)
                         self.currentDestination = None
-                        self.desiredAltitude = self.SAFE_ALTITUDE + self.ALTITUDE_MARGIN
-                        outState = State.CLIMB
                     else:
                         if self.wasOnGround == False:
-                            base.dbg(self.TAG, "Couldn't deliver package (why?)" , self.DEBUG_PKG_BIT)
+                            base.dbg(self.TAG, "Time: {:.2f} -- Couldn't deliver package (why?) ".format(self.currTime) , self.DEBUG_PKG_BIT)
+                    self.desiredAltitude = self.SAFE_ALTITUDE + self.ALTITUDE_MARGIN
+                    outState = State.CLIMB
                 else:
                     if self.wasOnGround == False:
-                        base.dbg(self.TAG, "Too far to deliver package: act: {:.2}, tol: {:.2}".format(actDistance, base.MAX_PACKAGE_DISTANCE), self.DEBUG_PKG_BIT)
+                        base.dbg(self.TAG, "Time: {:.2f} -- Too far to deliver package: act: {:.2f}, tol: {:.2f}".format(self.currTime, actDistance, base.MAX_PACKAGE_DISTANCE), self.DEBUG_PKG_BIT)
             else:
                 if self.wasOnGround == False:
-                    base.dbg(self.TAG, "Landed with no destination?", self.DEBUG_PKG_BIT)
+                    base.dbg(self.TAG, "Time: {:.2f} Landed with no destination?".format(self.currTime), self.DEBUG_PKG_BIT)
             self.wasOnGround = onGround
         else:
             if inState == State.LANDED:
@@ -355,11 +358,19 @@ class Danook(StigChopper):
                 success = self.__approachTarget(True)
                 if success:
                     nextState = State.FINDING_HEADING
+            case State.TASKS_COMPLETE:
+                self.desMainRotorSpeed_RPM = 0.0
+                self.desiredAltitude = 0.0
+                base.dbg(self.TAG, "Time: {:.2f} -- All packages delivered.  (Powering Down)".format(self.currTime),self.FULL_DEBUG_MASK)
+                nextState = State.POWER_DOWN
+            case State.POWER_DOWN:
+                pass
             case _:
                 base.dbg(self.TAG, "Unexpected State", self.DEBUG_STATE_BIT)
                 raise RuntimeError
         self.myState = nextState
-        self.myState = self.__controlAltitude(self.myState)
+        if self.myState != State.POWER_DOWN:
+            self.myState = self.__controlAltitude(self.myState)
 
     def update(self,dt,tick):
         StigChopper.update(self,dt,tick)
@@ -373,7 +384,10 @@ class Danook(StigChopper):
         if self.currentDestination is None:
             self.currentDestination = self.__findClosestDestination()
             if not self.currentDestination is None:
-                base.dbg(self.TAG, "Got a destination (" + str(len(self.targetWaypoints)) + " points remaining)", self.DEBUG_PKG_BIT)
+                base.dbg(self.TAG, "Got a destination ({:2} points remaining)".format(len(self.targetWaypoints)), self.DEBUG_PKG_BIT)
+            else:
+                if self.myState != State.POWER_DOWN:
+                    self.myState = State.TASKS_COMPLETE
         if (not self.lastPosition is None and self.lastTime < self.currTime):
             updated = self.__estimatePhysics()
             if updated:
