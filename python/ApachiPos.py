@@ -23,7 +23,7 @@ class ApachiPos(BaseStateMachine):
     DECEL_ST = 106
     HOVER_ST = 110
     DECEND_ST = 107
-    LAND_ST = 108
+    LANDED_ST = 108
     DELIVER_ST = 109
 
     GO_EVT = 150
@@ -39,7 +39,7 @@ class ApachiPos(BaseStateMachine):
 
     POS_TOL = Vec3(0.5, 0.5, 0.5)
     POS_MAG_TOL = 1.0
-    MAX_ACCEL = 0.083 #empricially defined
+    MAX_ACCEL = 0.088 #empricially defined
     MIN_ACCEL = 0.0001 # not to divied by zero
 
     eventQ = queue.Queue()
@@ -66,6 +66,8 @@ class ApachiPos(BaseStateMachine):
 
     trgHdg = 0.0
     deltaPos = 0.0
+
+    id = 1000
 
     def pv(self, w, v):
         return f"({w:6}: ({v.x: 3.4f}, {v.y: 3.4f}, {v.z: 3.4f})"
@@ -136,7 +138,7 @@ class ApachiPos(BaseStateMachine):
             #speed directly proprotional to distance to target
             trgSpd = 0.002 * dist + 0.3 #ensure minimum speed
             #let's make acceleration and deceleration zones, cut them in half
-            self.decelDist = 0.5 * dist
+            self.decelDist = 0.42 * dist
             self.velCtrl.setSpeed(trgSpd)
             self.db(f"Distance to target: {dist:3.4f}, speed: {trgSpd:3.4f}")
 
@@ -146,7 +148,7 @@ class ApachiPos(BaseStateMachine):
         what = "Acceleraing "
         vel = self.velCtrl.speed
         acc = self.maxAccel
-        stopDist = 1.2 * ((vel / acc) ** 2)
+        stopDist = 0.976 * ((vel / acc) ** 2)
         
         if self.wentTooFar():
             what = " Went too far, stop, turn around"
@@ -164,13 +166,14 @@ class ApachiPos(BaseStateMachine):
 
     def inDecelHndl(self):
         self.velCtrl.setSpeed(0.0)
+        self.altCtrl.setTarget(60.0)
 
     def decelHndl(self):
         what = "Wating to decelerate and stop"
         distR = self.calcDistToTarget()
         desHdg = self.calcTargetHeading()
 
-        stopped = abs(self.velCtrl.speed) < 0.01 and abs(self.velCtrl.actTilt) < 0.3
+        stopped = abs(self.velCtrl.speed) < 0.01 and abs(self.velCtrl.actTilt) < 0.6 and self.velCtrl.actTilt > 0.0
         if stopped:
             what = " Stopped, checking "
             if self.wentTooFar(): #distance increased by whole unit
@@ -179,7 +182,8 @@ class ApachiPos(BaseStateMachine):
                 self.sendEvent(self.DIR_EVT)
 
             elif abs(self.velCtrl.speed) < 0.03:
-                if abs(distR) < 2.0:
+                #TODO: tighten this
+                if abs(distR) < 15.0:
                     self.sendEvent(self.LAND_EVT)
                     what += "DONE. Close, Landing "
                 else:
@@ -192,6 +196,25 @@ class ApachiPos(BaseStateMachine):
                         self.sendEvent(self.ACCEL_EVT)
         self.db(f"{what}> speed: {self.velCtrl.speed:3.4f}, tilt: {self.velCtrl.actTilt:3.4f}, dist: {distR:3.4f}, prevD: {self.deltaPos: 3.4f} hdg: {self.headCtrl.act:3.4f}, trgHdg: {desHdg:3.4f}")
 
+    def inDecHndl(self):
+        self.altCtrl.setTarget(0.0)
+
+    def decHndl(self):
+        wh = "Wating for zero alt "
+        if self.curPos.z < 0.2 and abs(self.altCtrl.altRate) < 0.1:
+            wh = "Landed!"
+            self.sendEvent(self.DROP_EVT)
+
+        self.db(f"{wh}: alt: {self.curPos.z: 3.4f}, altRt: {self.altCtrl.altRate: 3.4f}")
+
+    def inLandedHndl(self):
+        self.altCtrl.setTarget(0.1)
+
+    def landedHndl(self):
+        #TODO: stopped here
+        if self.curPos.z < 1.5:
+            base.deliverPackage(self.id)
+            
 
     StateHandlers = {
         INIT_ST: (None, initHndl, None),
@@ -202,8 +225,8 @@ class ApachiPos(BaseStateMachine):
         APPROACH_ST: (None, None, None),
         DECEL_ST: (inDecelHndl, decelHndl, None),
         HOVER_ST: (None, None, None),
-        DECEND_ST: (None, None, None),
-        LAND_ST: (None, None, None),
+        DECEND_ST: (inDecHndl, decHndl, None),
+        LANDED_ST: (inLandedHndl, landedHndl, None),
         DELIVER_ST: (None, None, None),
     }
 
@@ -313,10 +336,10 @@ class ApachiPos(BaseStateMachine):
                     FLY_EVT: (INIT_ST, None),
                     DECEL_EVT: (INIT_ST, None),
                     LAND_EVT: (INIT_ST, None),
-                    DROP_EVT: (INIT_ST, None),
+                    DROP_EVT: (LANDED_ST, None),
                     NULL_EVT: (INIT_ST, None),
                 },
-        LAND_ST: {
+        LANDED_ST: {
                     GO_EVT: (INIT_ST, None),
                     LEVEL_EVT: (INIT_ST, None),
                     DIR_EVT: (INIT_ST, None),
@@ -342,9 +365,10 @@ class ApachiPos(BaseStateMachine):
                 },
     }
 
-    def __init__(self):
+    def __init__(self,id):
         super().__init__("ApachiPos",0x10)
         self.state = self.INIT_ST
+        self.id = id
 
     def tick(self, actPos, actHdg, actMainRot, actTailRot, actTilt, dt):
         self.updateTimeStamp()

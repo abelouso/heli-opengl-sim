@@ -28,7 +28,7 @@ class Apachi(StigChopper):
         self.mainSpeed = 0.0
         self.tilt = 0.0
         self.tailSpeed = 0.0
-        self.ctrl = ApachiPos()
+        self.ctrl = ApachiPos(self.id)
         self.ctrl.setPosition(Vec3(-100,-100,70))
         '''
         self.altCtrl = ApachiAlt()
