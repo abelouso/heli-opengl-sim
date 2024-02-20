@@ -13,10 +13,13 @@ from StigChopper import *
 
 class State(Enum):
     LANDED = 0,
-    STOP_NOW = 1,
+    CLIMB = 1,
     FINDING_HEADING = 2,
     STABILIZE_ROTATION = 3,
-    APPROACHING = 4
+    APPROACHING = 4,
+    STOP_NOW = 5,
+    TASKS_COMPLETE = 6,
+    POWER_DOWN = 7
 
 class Danook(StigChopper):
     def __init__(self,id, pos, scale=0.2):
@@ -25,27 +28,33 @@ class Danook(StigChopper):
         self.rotDir = 1.0
         self.actAngle = 0
         # constants
-        self.VERT_CONTROL_FACTOR = 3.0  # original 2.5
-        self.HORZ_CONTROL_FACTOR = 0.15 # original 0.15
-        self.MAX_VERT_VELOCITY = 2.85   # original 2.5
-        self.MAX_HORZ_VELOCITY = 2.85   # original 2.5
-        self.MAX_VERT_ACCEL = 0.46      # original 0.4
-        self.MAX_HORZ_ACCEL = 0.46      # original 0.4
-        self.DECEL_DISTANCE_VERT = 10.0 # original 12
-        self.DECEL_DISTANCE_HORZ = 10.0 # original 16
-        self.VERT_DECEL_SPEED = 0.4     # original 0.5
-        self.HORZ_DECEL_SPEED = 1.8     # original 2.0
-        self.MAX_STABILIZE = 10         # original 10
-        self.MAX_FAIL_COUNT = 40        # original 40
+        self.VERT_CONTROL_FACTOR   = 3.0   # original 2.5
+        self.HORZ_CONTROL_FACTOR   = 0.15  # original 0.15
+        self.MAX_VERT_VELOCITY     = 2.90  # original 2.5
+        self.MAX_HORZ_VELOCITY     = 2.90  # original 2.5
+        self.MAX_VERT_ACCEL        = 0.50  # original 0.4
+        self.MAX_HORZ_ACCEL        = 0.46  # original 0.4
+        self.DECEL_DISTANCE_VERT   = 9.0   # original 12
+        self.DECEL_DISTANCE_HORZ   = 10.0  # original 16
+        self.VERT_DECEL_SPEED      = 0.4   # original 0.5
+        self.HORZ_DECEL_SPEED      = 1.8   # original 2.0
+        self.MAX_STABILIZE         = 10    # original 10
+        self.MAX_FAIL_COUNT        = 40    # original 40
+        self.SAFE_ALTITUDE         = 60.0  # Must be higher than buildings/terrain -- ask world?
+        self.START_ROTOR_SPEED_RPM = 290.0 # Original 360
+        self.HEADING_TOL_DEG = 0.05
+        self.ALTITUDE_MARGIN = 8.0
         self.TAG = "Danook"
-        self.DEBUG_POS_BIT =   0x8000
-        self.DEBUG_ALT_BIT =   0x4000
-        self.DEBUG_PKG_BIT =   0x2000
+        self.FULL_DEBUG_MASK = 0xf000
+        self.DEBUG_POS_BIT   = 0x8000
+        self.DEBUG_ALT_BIT   = 0x4000
+        self.DEBUG_PKG_BIT   = 0x2000
         self.DEBUG_STATE_BIT = 0x1000
 
         # Control factors ported from Danook Controller
         self.myState = State(State.LANDED)
-        self.desMainRotorSpeed_RPM = 360.0
+        self.wasOnGround = False
+        self.desMainRotorSpeed_RPM = self.START_ROTOR_SPEED_RPM
         self.desTailRotorSpeed_RPM = 100.0
         self.desTilt_Degrees = 0.0
         self.estimatedAcceleration = None
@@ -56,6 +65,7 @@ class Danook(StigChopper):
         self.lastTime = 0.0
         self.currTime = 0.0
         self.stableCount = 0
+        self.desiredAltitude = self.SAFE_ALTITUDE + self.ALTITUDE_MARGIN
 
     def __findClosestDestination(self) -> Vec3:
         resultPoint = None
@@ -69,13 +79,16 @@ class Danook(StigChopper):
                 minDistance = curDistance
         return resultPoint
 
-    def __adjustHeading(self, useVelocity) -> bool:
-        headingOK = False
-        if self.currentDestination is None:
-            return headingOK
+    def __headingValid(self) -> bool:
+        headingValid = False
         transformation = base.transformations(self.getId())
-        if transformation is None:
-            return headingOK
+        if not (self.currentDestination is None or transformation is None):
+            headingValid = True
+        return headingValid
+
+    def __getHeadingDelta(self, useVelocity) -> float:
+        deltaHeading = 0.0
+        transformation = base.transformations(self.getId())
         actHeading = transformation.x
         deltaY = self.currentDestination.y - self.actualPosition.y
         deltaX = self.currentDestination.x - self.actualPosition.x
@@ -90,16 +103,23 @@ class Danook(StigChopper):
             deltaHeading += 360.0
         elif deltaHeading > 180.0:
             deltaHeading -= 360.0
-        if abs(deltaHeading) < 0.05:
-            self.desTailRotorSpeed_RPM = 100.0
-            headingOK = True
-        else:
-            deltaRotor = (deltaHeading / 10.0) * 20.0
-            if deltaRotor > 5.0:
-                deltaRotor = 5.0
-            elif deltaRotor < -5.0:
-                deltaRotor = -5.0
-            self.desTailRotorSpeed_RPM = 100.0 + deltaRotor
+        return deltaHeading
+
+    def __adjustHeading(self, useVelocity) -> bool:
+        headingOK = False
+        validHeading = self.__headingValid()
+        if validHeading:
+            deltaHeading = self.__getHeadingDelta(useVelocity)
+            if abs(deltaHeading) < self.HEADING_TOL_DEG:
+                self.desTailRotorSpeed_RPM = 100.0
+                headingOK = True
+            else:
+                deltaRotor = (deltaHeading / 10.0) * 20.0
+                if deltaRotor > 5.0:
+                    deltaRotor = 5.0
+                elif deltaRotor < -5.0:
+                    deltaRotor = -5.0
+                self.desTailRotorSpeed_RPM = 100.0 + deltaRotor
         return headingOK
 
     def __estimateVelocity(self, deltaTime) -> Vec3:
@@ -146,7 +166,8 @@ class Danook(StigChopper):
         targetVelocity = self.MAX_VERT_VELOCITY if doVertical else self.MAX_HORZ_VELOCITY
         deltaValue = abs(desAlt - actAlt)
         DECEL_DISTANCE = self.DECEL_DISTANCE_VERT if doVertical else self.DECEL_DISTANCE_HORZ
-        if deltaValue < DECEL_DISTANCE:
+        ratio = deltaValue / DECEL_DISTANCE
+        if ratio < 1.0:
             targetVelocity = deltaValue / DECEL_DISTANCE
         if actAlt > desAlt:
             targetVelocity *= -1.0
@@ -187,13 +208,15 @@ class Danook(StigChopper):
         if deltaYAcceleration < -self.MAX_HORZ_ACCEL:
             yMultiplier = (-self.MAX_HORZ_ACCEL) / deltaYAcceleration
 
+        deltaXAcceleration *= xMultiplier
+        deltaYAcceleration *= yMultiplier
         # Limit size of the vector but do not change the proportion
-        if xMultiplier < yMultiplier:
-            deltaXAcceleration *= yMultiplier
-            deltaYAcceleration *= yMultiplier
-        else:
-            deltaXAcceleration *= xMultiplier
-            deltaYAcceleration *= xMultiplier
+        #if xMultiplier < yMultiplier:
+            #deltaXAcceleration *= yMultiplier
+            #deltaYAcceleration *= yMultiplier
+        #else:
+            #deltaXAcceleration *= xMultiplier
+            #deltaYAcceleration *= xMultiplier
         deltaAcceleration = math.sqrt(deltaXAcceleration * deltaXAcceleration + deltaYAcceleration * deltaYAcceleration)
         accelHeading = math.degrees(math.atan2(deltaXAcceleration, deltaYAcceleration))
         moveHeading = math.degrees(math.atan2(deltaVector.x, deltaVector.y))
@@ -222,7 +245,7 @@ class Danook(StigChopper):
             distance = math.sqrt(deltaX * deltaX + deltaY * deltaY)
             # This might be where we screw up
             if distance > 2.0:
-                self.desiredAltitude = 110.0
+                self.desiredAltitude = self.SAFE_ALTITUDE + self.ALTITUDE_MARGIN
             else:
                 base.dbg(self.TAG, "Landing -- Delta (" + str(deltaX) + ", " + str(deltaY) + ")", self.DEBUG_ALT_BIT)
         else:
@@ -247,22 +270,29 @@ class Danook(StigChopper):
                 actDistance = math.sqrt(deltaX * deltaX + deltaY * deltaY)
                 if (actDistance < base.MAX_PACKAGE_DISTANCE):
                     delivered = base.deliverPackage(self.getId())
-                    base.dbg(self.TAG, "Try to deliver package at (" + str(self.actualPosition.x) + ", " + str(self.actualPosition.y) + ")", self.DEBUG_PKG_BIT)
+                    if self.wasOnGround == False:
+                        base.dbg(self.TAG, "Time: {:.2f} -- trying to deliver package at ({:.2f}, {:.2f})".format(self.currTime, self.actualPosition.x,self.actualPosition.y), self.DEBUG_PKG_BIT)
                     if delivered:
                         #TODO: Delete waypoint if world didn't
-                        base.dbg(self.TAG, "Delivered a package", self.DEBUG_PKG_BIT)
+                        if self.wasOnGround == False:
+                            base.dbg(self.TAG, "Time: {:.2f} -- Delivered a package".format(self.currTime), self.DEBUG_PKG_BIT)
                         self.currentDestination = None
-                        self.desiredAltitude = 110.0
-                        outState = State.FINDING_HEADING
                     else:
-                        base.dbg(self.TAG, "Couldn't deliver package (why?)" , self.DEBUG_PKG_BIT)
+                        if self.wasOnGround == False:
+                            base.dbg(self.TAG, "Time: {:.2f} -- Couldn't deliver package (why?) ".format(self.currTime) , self.DEBUG_PKG_BIT)
+                    self.desiredAltitude = self.SAFE_ALTITUDE + self.ALTITUDE_MARGIN
+                    outState = State.CLIMB
                 else:
-                    base.dbg(self.TAG, "Too far to deliver package", self.DEBUG_PKG_BIT)
+                    if self.wasOnGround == False:
+                        base.dbg(self.TAG, "Time: {:.2f} -- Too far to deliver package: act: {:.2f}, tol: {:.2f}".format(self.currTime, actDistance, base.MAX_PACKAGE_DISTANCE), self.DEBUG_PKG_BIT)
             else:
-                base.dbg(self.TAG, "Landed with no destination?", self.DEBUG_PKG_BIT)
+                if self.wasOnGround == False:
+                    base.dbg(self.TAG, "Time: {:.2f} Landed with no destination?".format(self.currTime), self.DEBUG_PKG_BIT)
+            self.wasOnGround = onGround
         else:
             if inState == State.LANDED:
-                outState = State.FINDING_HEADING
+                outState = State.CLIMB
+            self.wasOnGround = False
         targetVertVelocity = self.__computeDesiredVelocity(self.actualPosition.z, self.desiredAltitude, True)
         targetVertAcceleration = self.__computeDesiredAcceleration(self.estimatedVelocity.z, targetVertVelocity, True)
         deltaAcceleration = targetVertAcceleration - self.estimatedAcceleration.z
@@ -270,24 +300,27 @@ class Danook(StigChopper):
             deltaAcceleration = self.MAX_VERT_ACCEL
         if deltaAcceleration < (-self.MAX_VERT_ACCEL):
             deltaAcceleration = -self.MAX_VERT_ACCEL
-        base.dbg(self.TAG, "(Alt Control) -- Actual Height: " + str(self.actualPosition.z) + ", desired height: " + str(self.desiredAltitude) + ", targetVelocity: " + str(targetVertVelocity) + ", target Accel: " + str(targetVertAcceleration) + ", actAccel: " + str(self.estimatedAcceleration.z) + ", deltaAccel: " + str(deltaAcceleration), self.DEBUG_ALT_BIT)
+        base.dbg(self.TAG, "ActHeight: {:.2f}, desHeight: {:.2f}, actVel: {:.2f}, targetVel: {:.2f}, actAccel: {:.2f}, targetAccel: {:.2f}, deltaAccel: {:.2f}".format(self.actualPosition.z,self.desiredAltitude,self.estimatedVelocity.z, targetVertVelocity, self.estimatedAcceleration.z, targetVertAcceleration, deltaAcceleration), self.DEBUG_ALT_BIT)
         self.desMainRotorSpeed_RPM += deltaAcceleration * self.VERT_CONTROL_FACTOR
         base.requestSettings(self.getId(), self.desMainRotorSpeed_RPM, self.desTilt_Degrees, self.desTailRotorSpeed_RPM)
         return outState
 
-    def __isSafeAltitude(self) -> bool:
+    def __isSafeAltitude(self, climbing) -> bool:
         # TODO: Scan radar in direction of target for obstacles
         deltaX = self.currentDestination.x - self.actualPosition.x
         deltaY = self.currentDestination.y - self.actualPosition.y
         retVal = True
         if deltaX > self.DECEL_DISTANCE_HORZ or deltaY > self.DECEL_DISTANCE_HORZ:
-            if self.actualPosition.z > 100.0:
+            if self.actualPosition.z > self.SAFE_ALTITUDE:
                 retVal = True
             else:
                 retVal = False
         else:
-            retVal = True
-        base.dbg(self.TAG, "Altitude Safety check result: " + str(retVal) + " Altitude: " + str(self.actualPosition.z), self.DEBUG_ALT_BIT)
+            if climbing:
+                retVal = self.actualPosition.z > self.SAFE_ALTITUDE
+            else:
+                retVal = True
+        base.dbg(self.TAG, "Altitude Safety check result: (climbing? " + str(climbing) + ")" + str(retVal) + " Altitude: " + str(self.actualPosition.z), self.DEBUG_ALT_BIT)
         return retVal
 
     def __controlTheShip(self, isCloser):
@@ -298,11 +331,8 @@ class Danook(StigChopper):
         match self.myState:
             case State.LANDED:
                 pass
-            case State.STOP_NOW:
-                # stop spinning
-                self.desTailRotorSpeed_RPM = 100.0 # Stable
-                success = self.__approachTarget(True)
-                if success:
+            case State.CLIMB:
+                if self.__isSafeAltitude(True):
                     nextState = State.FINDING_HEADING
             case State.FINDING_HEADING:
                 headingOK = self.__adjustHeading(False)
@@ -310,20 +340,37 @@ class Danook(StigChopper):
                     nextState = State.STABILIZE_ROTATION
                     self.stableCount = 0
             case State.STABILIZE_ROTATION:
-                self.stableCount += 1
+                headingValid = self.__headingValid()
+                if headingValid:
+                    headingOK = self.__getHeadingDelta(False)
+                    self.stableCount += 1
+                else:
+                    self.stableCount = 0
+                    base.dbg(self.TAG, "STABILIZE: Heading fluctuated... waiting", self.DEBUG_POS_BIT)
                 if self.stableCount >= self.MAX_STABILIZE:
                     nextState = State.APPROACHING
             case State.APPROACHING:
-                if self.__isSafeAltitude():
-                    self.__approachTarget(False)
-                else:
-                    base.dbg(self.TAG, "Waiting for safe altitude", self.DEBUG_ALT_BIT)
+                self.__selectDesiredAltitude()
+                self.__approachTarget(False)
+            case State.STOP_NOW:
+                # stop spinning
+                self.desTailRotorSpeed_RPM = 100.0 # Stable
+                success = self.__approachTarget(True)
+                if success:
+                    nextState = State.FINDING_HEADING
+            case State.TASKS_COMPLETE:
+                self.desMainRotorSpeed_RPM = 0.0
+                self.desiredAltitude = 0.0
+                base.dbg(self.TAG, "Time: {:.2f} -- All packages delivered.  (Powering Down)".format(self.currTime),self.FULL_DEBUG_MASK)
+                nextState = State.POWER_DOWN
+            case State.POWER_DOWN:
+                pass
             case _:
                 base.dbg(self.TAG, "Unexpected State", self.DEBUG_STATE_BIT)
                 raise RuntimeError
         self.myState = nextState
-        self.__selectDesiredAltitude()
-        self.myState = self.__controlAltitude(self.myState)
+        if self.myState != State.POWER_DOWN:
+            self.myState = self.__controlAltitude(self.myState)
 
     def update(self,dt,tick):
         StigChopper.update(self,dt,tick)
@@ -337,7 +384,10 @@ class Danook(StigChopper):
         if self.currentDestination is None:
             self.currentDestination = self.__findClosestDestination()
             if not self.currentDestination is None:
-                base.dbg(self.TAG, "Got a destination (" + str(len(self.targetWaypoints)) + " points remaining)", self.DEBUG_PKG_BIT)
+                base.dbg(self.TAG, "Got a destination ({:2} points remaining)".format(len(self.targetWaypoints)), self.DEBUG_PKG_BIT)
+            else:
+                if self.myState != State.POWER_DOWN:
+                    self.myState = State.TASKS_COMPLETE
         if (not self.lastPosition is None and self.lastTime < self.currTime):
             updated = self.__estimatePhysics()
             if updated:
