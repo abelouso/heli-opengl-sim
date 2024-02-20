@@ -16,6 +16,7 @@ from StigChopper import *
 from ApachiAlt import *
 from ApachiHead import *
 from ApachiVel import *
+from ApachiPos import *
 
 class Apachi(StigChopper):
     startTime = time.time_ns()
@@ -27,6 +28,9 @@ class Apachi(StigChopper):
         self.mainSpeed = 0.0
         self.tilt = 0.0
         self.tailSpeed = 0.0
+        self.ctrl = ApachiPos()
+        self.ctrl.setPosition(Vec3(-100,-100,70))
+        '''
         self.altCtrl = ApachiAlt()
         self.altCtrl.trg = 70
         self.altCtrl.sendEvent(self.altCtrl.NULL_EVT)
@@ -36,6 +40,7 @@ class Apachi(StigChopper):
         self.velCtrl = ApachiVel()
         self.velCtrl.sendEvent(self.velCtrl.NULL_EVT)
         self.velCtrl.setSpeed(0.0)
+        '''
         #self.m_fuelCapacity = 100
 
     def update(self,dt,tick):
@@ -51,9 +56,14 @@ class Apachi(StigChopper):
         actSpd = base.myChoppers[self.id][1].actMainRotorSpeed_RPM
         tailSpd = base.myChoppers[self.id][1].actTailRotorSpeed_RPM
         actTilt = base.myChoppers[self.id][1].actTilt_Degrees
+        self.mainSpeed, self.tailSpeed, self.tilt = self.ctrl.tick(pos, hdng, actSpd, tailSpd, actTilt, dt)
+        base.requestSettings(self.id,self.mainSpeed,self.tilt,self.tailSpeed)
+
+        '''
         self.mainSpeed = self.altCtrl.tick(alt,actSpd,dt)
         self.tailSpeed = self.hdCtrl.tick(hdng,tailSpd,dt,alt)
         self.tilt = self.velCtrl.tick(pos,actTilt,dt,alt,hdng)
+
 
         base.requestSettings(self.id,self.mainSpeed,self.tilt,self.tailSpeed)
         deltalNs = time.time_ns() - self.startTime
@@ -68,3 +78,4 @@ class Apachi(StigChopper):
                 self.altCtrl.setTarget(0.0)
                 self.velCtrl.setSpeed(0.0)
                 #self.hdCtrl.setHeading(234)
+        '''

@@ -23,7 +23,7 @@ class ApachiHead(BaseStateMachine):
 
     STABLE_SPEED = 100.0
     MAX_ROT_RATE = 2.0
-    SPD_DELTA = 1.0
+    SPD_DELTA = 2.0
     trg = 0.0
     act = 0.0
     desRotSpd = STABLE_SPEED
@@ -40,7 +40,7 @@ class ApachiHead(BaseStateMachine):
     smShare = 1.0 / NUM_SAMP
     lgShare = 1.0 - smShare
 
-    tol = 0.3 #degrees
+    tol = 0.15 #degrees
     alt = 0.0
 
     eventQ = queue.Queue()
@@ -61,67 +61,94 @@ class ApachiHead(BaseStateMachine):
         # figure out positive or negative kick in the turn
         dh = self.deltaHead()
         dha = abs(dh)
+        step = 2.0 * dha / 360.0 * self.SPD_DELTA
         if dha > self.tol:
             #find the shortest turn
             if dha < 180:
                 if self.trg > self.act:
-                    self.setRotorSpeed(self.desRotSpd + self.SPD_DELTA)
+                    self.setRotorSpeed(self.desRotSpd + step)
                     self.rateSign = 1.0
                 else:
-                    self.setRotorSpeed(self.desRotSpd - self.SPD_DELTA)
+                    self.setRotorSpeed(self.desRotSpd - step)
                     self.rateSign = -1.0
             else:
                 if self.trg > self.act:
-                    self.setRotorSpeed(self.desRotSpd - self.SPD_DELTA)
+                    self.setRotorSpeed(self.desRotSpd - step)
                     self.rateSign = -1.0
                 else:
-                    self.setRotorSpeed(self.desRotSpd + self.SPD_DELTA)
+                    self.setRotorSpeed(self.desRotSpd + step)
                     self.rateSign = 1.0
 
     def kickHndl(self):
         dh = self.deltaHead()
+        rrA = abs(self.rotRate)
+        ch = abs(rrA) >= 0.001
         if abs(dh) < self.tol:
             self.db(f" Going to LOCK: {self.trg: 3.4f}, act: {self.act: 3.4f}, dh: {dh: 3.4f}")
             self.sendEvent(self.STOP_EVT)
+            self.setRotorSpeed(self.STABLE_SPEED)
         #elif abs(dh) < 1:
         #    self.sendEvent(self.DONE_EVT)
         else:
-            chUp = self.rateChanged("up")
-            adjRt = self.rateSign * self.rotRate
-            adjRtMax = self.rateSign * self.MAX_ROT_RATE
-            adj = self.rateSign * self.SPD_DELTA
-            self.db(f"In kick hdn: {adjRt: 3.4f}, MAX: {adjRtMax: 3.4f}, step: {adj: 3.4f}")
-            if abs(adjRt < adjRtMax):
-                if  adjRt < 0.2 * self.rateSign * adjRtMax:
-                    self.setRotorSpeed(self.desRotSpd + adj)
-                elif adjRt > 0.7 * adjRtMax:
-                    self.setRotorSpeed(self.desRotSpd - adj)
-            else:
-                if adjRt < -adjRtMax:
-                    self.setRotorSpeed(self.desRotSpd + adj)
-                elif adjRt > adjRtMax:
-                    self.setRotorSpeed(self.desRotSpd - adj)
+            if not ch:
+                adjRt = self.rateSign * self.rotRate
+                adjRtMax = self.rateSign * self.MAX_ROT_RATE
+                adj = self.rateSign * self.SPD_DELTA
+                self.db(f"In kick hdn: {adjRt: 3.4f}, MAX: {adjRtMax: 3.4f}, step: {adj: 3.4f}, rotRate: {rrA: 3.4f}, ch: {ch}")
+                if abs(adjRt < adjRtMax):
+                    if  adjRt < 0.2 * self.rateSign * adjRtMax:
+                        self.setRotorSpeed(self.desRotSpd + adj)
+                    elif adjRt > 0.7 * adjRtMax:
+                        self.setRotorSpeed(self.desRotSpd - adj)
+                else:
+                    if adjRt < -adjRtMax:
+                        self.setRotorSpeed(self.desRotSpd + adj)
+                    elif adjRt > adjRtMax:
+                        self.setRotorSpeed(self.desRotSpd - adj)
 
     def InTurnLockHndl(self):
         self.setRotorSpeed(self.STABLE_SPEED)
 
     def lockHndl(self):
+        
+        chUp = self.rateChanged("up", False)
+        chDn = self.rateChanged("dn", True)
+        ch = abs(self.rotRate) < 0.01
         dh = self.deltaHead()
-        if abs(dh) < self.tol:
+        wt = "Locking it down"
+        if abs(dh) < self.tol and ch:
+            wt = "Locked in tol, not moving"
             self.sendEvent(self.LOCK_EVT)
+        elif abs(dh) < self.tol:
+            wt = "In tol, moving"
+            self.setRotorSpeed(self.STABLE_SPEED)
+        elif abs(dh) > self.tol:
+            wt = "OOT"
+            if not ch:
+                wt += " still, adjusting"
+                if self.trg > self.act:
+                    self.setRotorSpeed(self.desRotSpd + 0.1 * self.SPD_DELTA)
+                    wt += " up"
+                else:
+                    self.setRotorSpeed(self.desRotSpd - 0.1 * self.SPD_DELTA)
+                    wt += " down"
         else:
-            chDn = self.rateChanged("dn")
             if not chDn and self.rotRate > 0.0:
                 self.setRotorSpeed(self.desRotSpd - self.SPD_DELTA)
+                wt = "constant pos rate kick down"
             elif chDn and self.rotRate < 0.0:
+                wt = "varying negative rate, kick up"
                 self.setRotorSpeed(self.desRotSpd + self.SPD_DELTA)
+        self.db(f"{wt} > chUP: {chUp}, chDn: {chDn}, rt: {self.rotRate: 3.4f}, reqspd: {self.desRotSpd: 3.4f}")
+            
+
     def atHeadHndl(self):
         dh = self.deltaHead()
         self.db(f" dh:  {dh:3.4f}")
         if abs(dh) > (1.5 * self.tol):
             #correct if too far out
             self.newHeadEvt()
-            self.sendEvent(self.DONE_EVT)
+            self.sendEvent(self.NEW_HEAD_EVT)
         else:
             chUp = self.rateChanged("up",False)
             chDn = self.rateChanged("dn",False)

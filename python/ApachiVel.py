@@ -136,16 +136,19 @@ class ApachiVel(BaseStateMachine):
             pos2d = p1 - p2
             speed = pos2d.length() / self.dt
             self.velocityHeading = math.degrees(math.atan2(pos2d.getY(), pos2d.getX()))
-            if abs(abs(self.velocityHeading - self.facing) - 180.0) < 0.01:
+            if self.velocityHeading < 0.0:
+                self.velocityHeading += 360.0
+            if abs(abs(self.velocityHeading - self.facing) - 180.0) < 2.0:
                 #going backgwards 
                 speed *= -1.0
-            elif abs(self.velocityHeading - self.facing) > 0.4 and abs(self.speed) > self.tol:
+            elif abs(self.velocityHeading - self.facing) > 3.0 and abs(self.speed) > self.tol:
                 #drifting, stop
-                self.setTilt(0.0)
-                self.sendEvent(self.STOP_EVT)
+                #self.setTilt(0.0)
+                #self.sendEvent(self.STOP_EVT)
                 pass
             speedAvg = self.speed * self.lgShare + speed * self.smShare
-            self.accel = (speedAvg - self.speed) / self.dt
+            accel = (speedAvg - self.speed) / self.dt
+            self.accel = self.accel * self.lgShare + accel * self.smShare
             self.speed = speedAvg
 
     def setSpeed(self, speed):
