@@ -6,6 +6,7 @@ from panda3d.core import Vec4, Vec3, Vec2
 from direct.actor.Actor import Actor
 from panda3d.core import CollisionSphere, CollisionNode
 import math
+import time
 from enum import Enum
 
 from BaseObject import *
@@ -224,12 +225,12 @@ class Danook(StigChopper):
         if deltaAngle > 90:
             deltaAcceleration *= -1.0
         transformation = base.transformations(self.getId())
-        base.dbg(self.TAG, "Dist to target: " + str(deltaVector.getXy()) + ", Want Accel: (" + str(deltaAcceleration) + ") compass heading: " + str(transformation.x) + ", move heading: " + str(moveHeading) + ", accelHeading: " + str(accelHeading) + ", current tilt: " + str(self.desTilt_Degrees), self.DEBUG_POS_BIT)
+        base.dbg(self.TAG, "Dist to target: {:.2}, Want Accel: {:.2}, compass heading: {:.2}, move heading: {:.2}, accelHeading: {:.2}, current pitch: {:.2}".format(deltaVector.getXy().length(), deltaAcceleration, transformation.x, moveHeading, accelHeading, self.desTilt_Degrees), self.DEBUG_POS_BIT)
         self.desTilt_Degrees += deltaAcceleration * self.HORZ_CONTROL_FACTOR
         if justStop:
             deltaVx = self.estimatedVelocity.x
             deltaVy = self.estimatedVelocity.y
-            base.dbg(self.TAG, "Trying to stop -- vel: (" + str(self.estimatedVelocity.x) + ", " + str(self.estimatedVelocity) + ")", self.DEBUG_POS_BIT)
+            base.dbg(self.TAG, "Trying to stop -- vel: ({:.2}, {:.2})".format(self.estimatedVelocity.x, self.estimatedVelocity.y), self.DEBUG_POS_BIT)
             delta = math.sqrt(deltaVx * deltaVx + deltaVy * deltaVy)
             if delta < 0.1:
                 success = True
@@ -379,6 +380,7 @@ class Danook(StigChopper):
         #self.actor.setHpr(transformation.x, -transformation.y, transformation.z)
 
     def runLogic(self,currentTime,elapsedTime):
+        startTime = time.time_ns()
         self.actualPosition = base.gps(self.getId())
         self.currTime = currentTime
         if self.currentDestination is None:
@@ -407,3 +409,5 @@ class Danook(StigChopper):
                 base.dbg(self.TAG, "No physics estimate?", self.DEBUG_POS_BIT)
         self.lastTime = self.currTime
         self.lastPosition = Vec4(self.actualPosition)
+        endTime = time.time_ns()
+        #base.dbg(self.TAG, "Ran Logic in: {} ns".format(endTime-startTime), 0x10000)

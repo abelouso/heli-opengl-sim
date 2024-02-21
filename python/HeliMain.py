@@ -7,6 +7,8 @@ from panda3d.core import AmbientLight
 from panda3d.core import DirectionalLight
 from panda3d.core import Vec4, Vec3
 from panda3d.core import CardMaker
+from panda3d.core import loadPrcFile
+from panda3d.core import ExecutionEnvironment
 
 #generic python
 import random
@@ -310,5 +312,10 @@ class HeliMain(ShowBase):
     End of World.java port ======================================================================
     '''
 
+# Any config must be loaded before ShowBase is instantiated in constructor
+root = ExecutionEnvironment.getCwd()
+fullPath = root + "/config/Config.prc"
+print("Trying to open config: " + str(fullPath))
+loadPrcFile(fullPath)
 heliMain = HeliMain()
 heliMain.run()
