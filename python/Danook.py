@@ -32,10 +32,10 @@ class Danook(StigChopper):
         self.VERT_CONTROL_FACTOR   = 3.0   # original 2.5
         self.HORZ_CONTROL_FACTOR   = 0.15  # original 0.15
         self.MAX_VERT_VELOCITY     = 2.90  # original 2.5
-        self.MAX_HORZ_VELOCITY     = 2.90  # original 2.5
+        self.MAX_HORZ_VELOCITY     = 3.00  # original 2.5
         self.MAX_VERT_ACCEL        = 0.50  # original 0.4
-        self.MAX_HORZ_ACCEL        = 0.46  # original 0.4
-        self.DECEL_DISTANCE_VERT   = 9.0   # original 12
+        self.MAX_HORZ_ACCEL        = 0.50  # original 0.4
+        self.DECEL_DISTANCE_VERT   = 9.2   # original 12
         self.DECEL_DISTANCE_HORZ   = 10.0  # original 16
         self.VERT_DECEL_SPEED      = 0.4   # original 0.5
         self.HORZ_DECEL_SPEED      = 1.8   # original 2.0
@@ -96,7 +96,7 @@ class Danook(StigChopper):
         if useVelocity:
             deltaY = self.estimatedVelocity.y
             deltaX = self.estimatedVelocity.x
-        desiredHeading = math.degrees(math.atan2(deltaX, deltaY))
+        desiredHeading = math.degrees(math.atan2(deltaY, deltaX))
         if desiredHeading < 0.0:
             desiredHeading += 360.0
         deltaHeading = desiredHeading - actHeading
@@ -219,8 +219,8 @@ class Danook(StigChopper):
             #deltaXAcceleration *= xMultiplier
             #deltaYAcceleration *= xMultiplier
         deltaAcceleration = math.sqrt(deltaXAcceleration * deltaXAcceleration + deltaYAcceleration * deltaYAcceleration)
-        accelHeading = math.degrees(math.atan2(deltaXAcceleration, deltaYAcceleration))
-        moveHeading = math.degrees(math.atan2(deltaVector.x, deltaVector.y))
+        accelHeading = math.degrees(math.atan2(deltaYAcceleration, deltaXAcceleration))
+        moveHeading = math.degrees(math.atan2(deltaVector.y, deltaVector.x))
         deltaAngle = abs(accelHeading - moveHeading)
         if deltaAngle > 90:
             deltaAcceleration *= -1.0
@@ -279,8 +279,7 @@ class Danook(StigChopper):
                             base.dbg(self.TAG, "Time: {:.2f} -- Delivered a package".format(self.currTime), self.DEBUG_PKG_BIT)
                         self.currentDestination = None
                     else:
-                        if self.wasOnGround == False:
-                            base.dbg(self.TAG, "Time: {:.2f} -- Couldn't deliver package (why?) ".format(self.currTime) , self.DEBUG_PKG_BIT)
+                        onGround = False
                     self.desiredAltitude = self.SAFE_ALTITUDE + self.ALTITUDE_MARGIN
                     outState = State.CLIMB
                 else:

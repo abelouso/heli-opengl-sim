@@ -249,6 +249,7 @@ class HeliMain(ShowBase):
                     deltaY = avec3.y - myPos.y
                     delta = math.sqrt(deltaX * deltaX + deltaY * deltaY)
                     if delta < self.MAX_PACKAGE_DISTANCE:
+                        self.dbg(self.TAG,"Chopper {} delivered package to ({:.2f}, {:.2f})".format(id, avec3.x, avec3.y), self.WORLD_DBG)
                         object.remove(avec3)
                         # Key to remove the waypoint from the chopper's list
                         # Otherwise it could try again at the same location
