@@ -65,8 +65,16 @@ class ApachiHead(BaseStateMachine):
         step = 2.0 * dha / 360.0 * self.SPD_DELTA
         if dha > self.tol:
             #find the shortest turn
+            if (dh > -180.0 and dh < 0.0) or (dh > 180):
+                self.setRotorSpeed(self.desRotSpd - step)
+                self.rateSign = -1.0
+            else:
+                self.setRotorSpeed(self.desRotSpd + step)
+                self.rateSign = 1.0
+
+            '''
             if dha < 180:
-                if self.trg > self.act:
+                if self.trg < self.act:
                     self.setRotorSpeed(self.desRotSpd + step)
                     self.rateSign = 1.0
                 else:
@@ -79,11 +87,13 @@ class ApachiHead(BaseStateMachine):
                 else:
                     self.setRotorSpeed(self.desRotSpd + step)
                     self.rateSign = 1.0
+            '''
 
     def kickHndl(self):
+        #TODO: stopped here, make this relaiable turn in the correct direction every time! add slower procceing, better accel numbers
         dh = self.deltaHead()
         rrA = abs(self.rotRate)
-        ch = abs(rrA) >= 0.001
+        ch = abs(rrA) >= 0.003
         if abs(dh) < self.tol:
             self.db(f" Going to LOCK: {self.trg: 3.4f}, act: {self.act: 3.4f}, dh: {dh: 3.4f}")
             self.sendEvent(self.STOP_EVT)
@@ -247,5 +257,5 @@ class ApachiHead(BaseStateMachine):
         return res
 
     def isStable(self):
-        stable = abs(self.rotRate) < 0.01 and self.actRotSpd == self.STABLE_SPEED
+        stable = abs(self.rotRate) < 0.01 and abs(self.actRotSpd - self.STABLE_SPEED) <= 0.13
         return stable

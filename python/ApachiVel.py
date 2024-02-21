@@ -24,7 +24,7 @@ class ApachiVel(BaseStateMachine):
     FWD_EVT = 35
 
 
-    TILT_STEP = 0.03
+    TILT_STEP = 0.1
     MAX_SPEED = 1.0
     MAX_TILT = 4.0
     SPEED_CH_TOL = 0.00002
@@ -32,7 +32,7 @@ class ApachiVel(BaseStateMachine):
     prevSpeed = 0.0
     trg = 0.0
     actPos = Vec3(0,0,0)
-    lastPs = Vec3(0,0,0)
+    lstPos = Vec3(0,0,0)
 
     desTilt = 0.0
     actTilt = 0.0
@@ -58,13 +58,16 @@ class ApachiVel(BaseStateMachine):
     state = MAINT_ST
     firstTick = True
     facing = 0.0
+    lastUpdate = time.time_ns()
 
     def dump(self, source):
         pDiff = self.pDiffN()
-
+        cp = self.actPos
+        lp = self.lstPos
         self.db(f"{source:10},T: {self.trg: 3.4f}, spd: {self.speed: 3.4f}, \
 desT: {self.desTilt: 3.4f}, actT: {self.actTilt: 3.4f}, accel: {self.accel: 3.4f}, \
 facing: {self.facing: 3.4f}, moving: {self.velocityHeading: 3.4f} \
+lp: ({lp.x: 3.4f},{lp.y: 3.4f},{lp.z: 3.4f}), cp: ({cp.x: 3.4f},{cp.y: 3.4f},{cp.z: 3.4f}) \
 dir: ({pDiff.x: 3.4f},{pDiff.y: 3.4f},{pDiff.z: 3.4f})")
 
     def stopEvt(self):
@@ -82,25 +85,43 @@ dir: ({pDiff.x: 3.4f},{pDiff.y: 3.4f},{pDiff.z: 3.4f})")
 
     def changeHndl(self):
         dV = self.delta()
-        if abs(dV) < self.tol:
+        dva = abs(dV)
+        wh = "Handling speed change: "
+        if dva < self.tol:
             #self.sendEvent(self.AT_SPEED_EVT)
             pass
         elif not self.isFwd():
             self.sendEvent(self.SIDE_EVT)
+            wh = "not along axis"
         else:
             chUp = self.speedChanged("up",False)
             chDn = self.speedChanged("dn",True)
-            if self.speed < self.trg - self.tol:
+            wh = "Noting to correct"
+            if self.speed > self.MAX_SPEED and self.accel > 0.0:
+                wh = "above high limit, zeroed out"
+                self.setTilt(0.0)
+            elif self.speed < -self.MAX_SPEED and self.accel < 0.0:
+                wh = "below low limit, zeroed out"
+                self.setTilt(0.0)
+            elif self.speed < (self.trg - self.tol):
                 #accelerating
-                if self.speed < self.trg and not chUp:
-                    self.setTilt(self.desTilt + self.TILT_STEP)
-            elif self.speed > self.trg:
+                if self.accel <= 0.0:
+                    #self.setTilt(self.desTilt + self.TILT_STEP * abs(dV) / self.MAX_SPEED)
+                    self.setTilt(self.MAX_TILT * abs(dV) / self.MAX_SPEED)
+                    wh = "kicked up"
+            elif self.speed > (self.trg + self.tol):
                 #decelerating
-                if self.speed > self.trg and not chDn:
-                    self.setTilt(self.desTilt - self.TILT_STEP)
+                if self.accel >= 0.0:
+                    #self.setTilt(self.desTilt - self.TILT_STEP * abs(dV) / self.MAX_SPEED)
+                    self.setTilt(-self.MAX_TILT * abs(dV) / self.MAX_SPEED)
+                    wh = "kicked down"
+            elif dva < 1.03 * self.tol and abs(self.accel) < 0.00001:
+                wh = "about at the right speed"
+                self.setTilt(0.0)
+        self.db(f"{wh} > dV: {dV:3.4f}, speed: {self.speed: 3.4f}, acc: {self.accel: 3.4f},tilt: {self.desTilt: 3.4f}, step: {self.TILT_STEP * abs(dV) / self.MAX_SPEED: 3.4f}")
 
     def sideHndl(self):
-        if self.isFwd():
+        if self.isFwd() and abs(self.accel) < 0.00001:
             self.db(f"Moving forward again...")
             self.sendEvent(self.FWD_EVT)
         else:
@@ -139,6 +160,7 @@ dir: ({pDiff.x: 3.4f},{pDiff.y: 3.4f},{pDiff.z: 3.4f})")
         super().__init__("ApachiVel",0x8)
         self.state = self.MAINT_ST
         self.velocityHeading = 0.0
+        self.lstPos = self.actPos
 
     def tick(self, actPos, tilt, dt, alt, facing):
         self.updateTimeStamp()
@@ -146,8 +168,6 @@ dir: ({pDiff.x: 3.4f},{pDiff.y: 3.4f},{pDiff.z: 3.4f})")
         pos3d = Vec3(actPos.getX(), actPos.getY(), actPos.getZ())
         self.actTilt = tilt
         self.updateSpeed(pos3d)
-        self.lstPos = self.actPos
-        self.actPos = pos3d
         self.facing = facing
         if abs(self.desTilt - self.actTilt) > 0.0001 or (alt < 1.0):
             self.dump("WAIT")
@@ -160,22 +180,35 @@ dir: ({pDiff.x: 3.4f},{pDiff.y: 3.4f},{pDiff.z: 3.4f})")
         return self.desTilt
     
     def updateSpeed(self, actPos):
-        if self.alt > 0.2:
-            p1 = actPos.xy
-            p2 = self.actPos.xy
-            pos2d = p1 - p2
-            speed = pos2d.length() / self.dt
-            self.velocityHeading = math.degrees(math.atan2(pos2d.getY(), pos2d.getX()))
-            if self.velocityHeading < 0.0:
-                self.velocityHeading += 360.0
-            pD = self.pDiffN()
-            if pD.x < 0.0 or pD.y < 0: #abs(abs(self.velocityHeading - self.facing) - 180.0) < 2.0:
-                #going backgwards 
-                speed *= -1.0
-            speedAvg = self.speed * self.lgShare + speed * self.smShare
-            accel = (speedAvg - self.speed) / self.dt
-            self.accel = self.accel * self.lgShare + accel * self.smShare
-            self.speed = speedAvg
+        if self.alt > 0.0:
+            now = time.time_ns()
+            if now - self.lastUpdate > 80.0e6: #ms
+                self.dt = (now - self.lastUpdate ) * 0.00000001
+                p1 = actPos.xy
+                p2 = self.actPos.xy
+                pos2d = p1 - p2
+                speed = pos2d.length() / self.dt
+                vc = math.degrees(math.atan2(pos2d.getY(), pos2d.getX()))
+                if vc < 0.0:
+                    vc += 360.0
+                if abs(vc - self.velocityHeading) > 1:
+                    self.db(f" Velocity vector changed: lstPos: ({p1.x:3.4f},{p1.y:3.4f}) now: ({p2.x:3.4f},{p2.y:3.4f})")
+                self.velocityHeading = vc
+                self.lstPos = self.actPos
+                self.actPos = actPos
+                vh = self.velocityHeading
+                fc = self.facing
+                if vh > 180.0: vh -= 360.0
+                if fc > 180.0: fc -= 360.0
+                #TODO: figure out speed direct wrt to tilt to be able to accelerate and decelerate correctly.
+                if abs (vh - fc) >= 90.0: #pD.x < 0.0 or pD.y < 0: #abs(abs(self.velocityHeading - self.facing) - 180.0) < 2.0:
+                    #going backgwards 
+                    speed *= -1.0
+                speedAvg = self.speed * self.lgShare + speed * self.smShare
+                accel = (speedAvg - self.speed) / self.dt
+                self.accel = self.accel * self.lgShare + accel * self.smShare
+                self.speed = speedAvg
+                self.lastUpdate = now
 
     def setSpeed(self, speed):
         self.db(f" ============================== requested velocity: {speed:3.4f}")
@@ -209,7 +242,7 @@ dir: ({pDiff.x: 3.4f},{pDiff.y: 3.4f},{pDiff.z: 3.4f})")
         return res
 
     def setTilt(self, val):
-        if abs(val) < self.MAX_TILT:
+        if abs(val) <= self.MAX_TILT:
             self.desTilt = val
             self.lastChange = time.time_ns()
             self.prevTilt = self.desTilt
@@ -223,7 +256,16 @@ dir: ({pDiff.x: 3.4f},{pDiff.y: 3.4f},{pDiff.z: 3.4f})")
 
     def isFwd(self):
         #facing forward if postive speed and DOT matches heading or speed is negative
-        movingFwd = (abs(self.velocityHeading - self.facing) < 3.0 and self.speed > self.tol) or self.speed < 0.0
+        vh = self.velocityHeading
+        fc = self.facing
+        fc180 = fc - 180.0
+        if vh > 180.0: vh -= 360.0
+        if fc > 180.0: fc -= 360.0
+        if fc180 > 180.0: fc -= 360.0
+        movingFwd = ((abs(vh - fc) < 3.0) or (abs((vh - fc180) < 3.0))) and abs(self.speed) > self.tol
         stopped = abs(self.speed) <= self.tol
-        self.db(f" mv: {self.velocityHeading: 3.4f}, facing: {self.facing: 3.4f}, speed: {self.speed: 3.12f}, fwd: {movingFwd} or stopped {stopped}")
+        self.db(f" vh: {vh: 3.4f}, fc: {fc: 3.4f}, fc1s80: {fc180: 3.4f}, speed: {self.speed: 3.4f}, fwd: {movingFwd} or stopped {stopped}")
         return  movingFwd or stopped
+
+    def isStopped(self):
+        return abs(self.speed) <= self.tol and abs(self.accel) < 0.0005 and abs(self.actTilt) < 0.094

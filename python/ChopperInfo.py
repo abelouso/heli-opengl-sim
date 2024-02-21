@@ -258,8 +258,8 @@ class ChopperInfo:
             self.updateCurrentHeading(elapsedTime)
             # Now that we have our heading, we can compute the direction of our thrust
             heading_radians = math.radians(self.heading_Degrees)
-            self.actAcceleration_ms2.setX(lateralAcceleration * math.sin(heading_radians))
-            self.actAcceleration_ms2.setY(lateralAcceleration * math.cos(heading_radians))
+            self.actAcceleration_ms2.setY(lateralAcceleration * math.sin(heading_radians))
+            self.actAcceleration_ms2.setX(lateralAcceleration * math.cos(heading_radians))
         else: 
             # For now, we're preventing skating -- chopper sliding along the ground
             self.actAcceleration_ms2.setX(0.0)

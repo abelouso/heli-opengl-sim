@@ -107,6 +107,8 @@ class ApachiPos(BaseStateMachine):
         else:
             #TODO check if alt changes towards the goal...
             self.db(f"Not at alt, waiting")
+            if abs(self.altCtrl.trg - self.trgPos.z) > 0.1:
+                self.altCtrl.setTarget(self.trgPos.z)
         _,_, mv = self.canMove()
         if mv:
             self.inAccelHndl()
@@ -119,17 +121,18 @@ class ApachiPos(BaseStateMachine):
 
     def turnHndl(self):
         trgHdg = self.calcTargetHeading()
+        dist = self.calcDistToTarget()
         turnRt = abs(self.headCtrl.rotRate)
         trgHdg, turnRt, move = self.canMove()
         what = "check for heading target "
-        if abs(trgHdg - self.headCtrl.trg) > self.headCtrl.tol:
+        if abs(trgHdg - self.headCtrl.trg) > self.headCtrl.tol and self.headCtrl.state == self.headCtrl.AT_HEAD_ST:
             self.inTurnHndl()
         what = "Waiting for direction "
-        if move:
+        if move or dist < 4.0:
             what = "At heading, going to location "
             self.sendEvent(self.START_MOVE_EVT)
         
-        self.db(f"{what}> headT: {trgHdg:3.4f}, actH: {self.headCtrl.act:3.4f}, rate: {turnRt:3.4f}")
+        self.db(f"{what}> headT: {trgHdg:3.4f}, actH: {self.headCtrl.act:3.4f}, rate: {turnRt:3.4f}, dist: {dist:3.4f}")
     
     def inAccelHndl(self):
         if self.velCtrl.trg > 0.031:
@@ -138,9 +141,9 @@ class ApachiPos(BaseStateMachine):
             #calcluate motion profiles to arrive to x,y
             dist = self.calcDistToTarget()
             #speed directly proprotional to distance to target
-            trgSpd = 0.002 * dist + 0.3 #ensure minimum speed
+            trgSpd = 0.0015 * dist + 0.25 #ensure minimum speed
             #let's make acceleration and deceleration zones, cut them in half
-            self.decelDist = 0.48 * dist
+            self.decelDist = 0.535 * dist
             self.velCtrl.setSpeed(trgSpd)
             self.db(f"Distance to target: {dist:3.4f}, speed: {trgSpd:3.4f}")
 
@@ -150,7 +153,7 @@ class ApachiPos(BaseStateMachine):
         what = "Acceleraing "
         vel = self.velCtrl.speed
         acc = self.maxAccel
-        stopDist = 1.02 * ((vel / acc) ** 2)
+        stopDist = 1.06 * ((vel / acc) ** 2)
         
         if self.wentTooFar():
             what = " Went too far, stop, turn around"
@@ -168,14 +171,14 @@ class ApachiPos(BaseStateMachine):
 
     def inDecelHndl(self):
         self.velCtrl.setSpeed(0.0)
-        self.altCtrl.setTarget(60.0)
+        self.altCtrl.setTarget(30.0)
 
     def decelHndl(self):
         what = "Wating to decelerate and stop"
         distR = self.calcDistToTarget()
         desHdg = self.calcTargetHeading()
 
-        stopped = abs(self.velCtrl.speed) < 0.01 and abs(self.velCtrl.actTilt) < 0.6 and self.velCtrl.actTilt > 0.0
+        stopped = abs(self.velCtrl.speed) < 0.005 and abs(self.velCtrl.actTilt) < 0.095 # and self.velCtrl.actTilt > 0.0
         if stopped:
             what = " Stopped, checking "
             if self.wentTooFar(): #distance increased by whole unit
@@ -185,7 +188,7 @@ class ApachiPos(BaseStateMachine):
 
             elif abs(self.velCtrl.speed) < 0.03:
                 #TODO: tighten this
-                if abs(distR) < 2.0:
+                if abs(distR) < 0.7:
                     self.sendEvent(self.LAND_EVT)
                     what += "DONE. Close, Landing "
                 else:
@@ -213,23 +216,26 @@ class ApachiPos(BaseStateMachine):
         self.altCtrl.setTarget(0.1)
 
     def landedHndl(self):
-        #TODO: stopped here
-        if self.curPos.z < 1.5:
+        if self.curPos.z < 0.5:
             self.sendEvent(self.DROP_EVT)
             
     def inHoverHndl(self):
         self.headCtrl.setHeading(self.velCtrl.velocityHeading)
         
     def hoverHndl(self):
-        faceFwd = abs(self.velCtrl.velocityHeading - self.headCtrl.act) < self.headCtrl.tol
+        faceFwd = self.velCtrl.isFwd()
         stable = self.headCtrl.isStable()
-        stopped = abs(self.velCtrl.speed) < self.velCtrl.tol
+        stopped = self.velCtrl.isStopped()
+        wh = "In hover"
         if stable and not faceFwd:
             #adjust it again
             self.headCtrl.setHeading(self.velCtrl.velocityHeading)
-        elif stable and faceFwd and stopped:
+            wh = "Heading is not correct"
+        elif faceFwd and stopped:
             #we are stable, facing forward and stopped, ready to move
+            wh = "all stable, get out"
             self.sendEvent(self.GO_EVT)
+        self.db(f"{wh} faceFwd: {faceFwd}, stable: {stable}, stopped: {stopped}")
 
 
     StateHandlers = {
@@ -271,7 +277,7 @@ class ApachiPos(BaseStateMachine):
                     LAND_EVT: (INIT_ST, None),
                     DROP_EVT: (INIT_ST, None),
                     NULL_EVT: (INIT_ST, None),
-                    HOVER_EVT: (INIT_ST, None),
+                    HOVER_EVT: (HOVER_ST, None),
                 },
         ALT_CHANGE_ST: {
                     GO_EVT: (INIT_ST, None),
@@ -407,8 +413,8 @@ class ApachiPos(BaseStateMachine):
         if self.maxAccel < self.velCtrl.accel:
             self.maxAccel = self.velCtrl.accel
         #cap to prevent glitches
-        if self.maxAccel > self.MAX_ACCEL:
-            self.maxAccel = self.MAX_ACCEL
+        #if self.maxAccel > self.MAX_ACCEL:
+        #    self.maxAccel = self.MAX_ACCEL
         self.dump("TICK")
         if self.handle is not None:
             self.handle(self)

@@ -209,7 +209,7 @@ class HeliMain(ShowBase):
             for idx in range(0,chopper.itemCount()):
                 whichRow = random.randint(0,self.sizeX) - self.sizeX / 2
                 whichCol = random.randint(0,self.sizeY) - self.sizeY / 2
-                if idx == 0:
+                if False: #idx == 0:
                     whichRow = 45.0
                     whichCol = 45.0
                 targetPoints.append(Vec3(whichCol, whichRow, 0.1))

@@ -50,7 +50,7 @@ class Apachi(StigChopper):
         self.targetWaypoints = wp
         self.cargoIdx = 0
         pt = self.targetWaypoints[self.cargoIdx]
-        self.ctrl.setPosition(Vec3(pt.x, pt.y, 70))
+        self.ctrl.setPosition(Vec3(pt.x, pt.y, 50))
 
     def update(self,dt,tick):
         StigChopper.update(self,dt,tick)
@@ -78,8 +78,11 @@ class Apachi(StigChopper):
                 if self.cargoIdx >= len(self.targetWaypoints):
                     self.ctrl.db(f"================== DELIVERED ALL PACKAGES ===================== #{self.cargoIdx}")
                 else:
-                    self.ctrl.setPosition(self.targetWaypoints[self.cargoIdx])
+                    pt = self.targetWaypoints[self.cargoIdx]
+                    self.ctrl.setPosition(Vec3(pt.x, pt.y, 50))
                     self.ctrl.sendEvent(self.ctrl.GO_EVT)
+            else:
+                self.ctrl.db(f"======= TRYING TO DROP OFF =========== #{self.cargoIdx}")
         
 
         '''
