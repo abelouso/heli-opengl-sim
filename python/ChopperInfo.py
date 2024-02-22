@@ -239,9 +239,8 @@ class ChopperInfo:
             # Simple landing check when close to zero
             if (self.actPosition_m.getZ() < 0.25):
                 lateralMagnitude = self.actVelocity_ms.getXy().length()
-                base.dbg(self.TAG, "Chopper " + str(self.chopperID) + " Landing check lateral velocity: " + str(lateralMagnitude) + ", vert Velocity: " + str(self.actVelocity_ms.getZ()), self.CI_DBG)
+                base.dbg(self.TAG, "Chopper {} Landing check lateral velocity: {:.2f} (Limit 0.25), Vert: {:.2f} [-0.0 to -2.0]".format(self.chopperID, lateralMagnitude, self.actVelocity_ms.getZ()), self.CI_DBG)
                 if (lateralMagnitude < 0.25 and (self.actVelocity_ms.getZ() > (-2.0) and self.actVelocity_ms.getZ() < 0)):
-                
                     if (self.takenOff == True):
                         base.dbg(self.TAG,f"Chopper {self.chopperID} has landed!",self.CI_DBG)
                     self.takenOff = False
@@ -258,8 +257,8 @@ class ChopperInfo:
             self.updateCurrentHeading(elapsedTime)
             # Now that we have our heading, we can compute the direction of our thrust
             heading_radians = math.radians(self.heading_Degrees)
-            self.actAcceleration_ms2.setY(lateralAcceleration * math.sin(heading_radians))
             self.actAcceleration_ms2.setX(lateralAcceleration * math.cos(heading_radians))
+            self.actAcceleration_ms2.setY(lateralAcceleration * math.sin(heading_radians))
         else: 
             # For now, we're preventing skating -- chopper sliding along the ground
             self.actAcceleration_ms2.setX(0.0)

@@ -7,6 +7,8 @@ from panda3d.core import AmbientLight
 from panda3d.core import DirectionalLight
 from panda3d.core import Vec4, Vec3
 from panda3d.core import CardMaker
+from panda3d.core import loadPrcFile
+from panda3d.core import ExecutionEnvironment
 
 #generic python
 import random
@@ -247,6 +249,7 @@ class HeliMain(ShowBase):
                     deltaY = avec3.y - myPos.y
                     delta = math.sqrt(deltaX * deltaX + deltaY * deltaY)
                     if delta < self.MAX_PACKAGE_DISTANCE:
+                        self.dbg(self.TAG,"Chopper {} delivered package to ({:.2f}, {:.2f})".format(id, avec3.x, avec3.y), self.WORLD_DBG)
                         object.remove(avec3)
                         # Key to remove the waypoint from the chopper's list
                         # Otherwise it could try again at the same location
@@ -310,5 +313,10 @@ class HeliMain(ShowBase):
     End of World.java port ======================================================================
     '''
 
+# Any config must be loaded before ShowBase is instantiated in constructor
+root = ExecutionEnvironment.getCwd()
+fullPath = root + "/config/Config.prc"
+print("Trying to open config: " + str(fullPath))
+loadPrcFile(fullPath)
 heliMain = HeliMain()
 heliMain.run()
