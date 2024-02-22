@@ -29,6 +29,7 @@ class Apachi(StigChopper):
         self.tilt = 0.0
         self.tailSpeed = 0.0
         self.ctrl = ApachiPos(self.id)
+        #self.ctrl.sendEvent(self.ctrl.TEST_EVT)
         #self.ctrl.setPosition(Vec3(-100,-105,70))
         #self.ctrl.setPosition(Vec3(15.0,-11.00,70))
 

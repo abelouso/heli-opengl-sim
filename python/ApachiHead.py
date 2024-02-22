@@ -2,7 +2,7 @@
 
 # (c) 2015-2024, A Beloussov, D. Lafuze
 
-from panda3d.core import Vec3, Vec4
+from panda3d.core import Vec2
 
 import math
 import queue
@@ -54,6 +54,7 @@ class ApachiHead(BaseStateMachine):
     lastChange = lastStamp
     state = AT_HEAD_ST
     firstTick = True
+    lastUpdate = time.time_ns()
 
     def dump(self, source):
         self.db(f"{source:10} ,T: {self.trg: 3.4f}, act: {self.act: 3.4f}, desRS: {self.desRotSpd: 3.4f}, actRotSpd: {self.actRotSpd: 3.4}, rotRate: {self.rotRate: 3.4f}, rotAccel: {self.rotAccel: 3.4f}")
@@ -62,38 +63,23 @@ class ApachiHead(BaseStateMachine):
         # figure out positive or negative kick in the turn
         dh = self.deltaHead()
         dha = abs(dh)
-        step = 2.0 * dha / 360.0 * self.SPD_DELTA
+        share = self.kickShare()
+
+        step = share * self.SPD_DELTA
         if dha > self.tol:
             #find the shortest turn
-            if (dh > -180.0 and dh < 0.0) or (dh > 180):
+            if ((dh > -180.0 and dh < 0.0) or (dh > 180)):
                 self.setRotorSpeed(self.desRotSpd - step)
                 self.rateSign = -1.0
             else:
                 self.setRotorSpeed(self.desRotSpd + step)
                 self.rateSign = 1.0
 
-            '''
-            if dha < 180:
-                if self.trg < self.act:
-                    self.setRotorSpeed(self.desRotSpd + step)
-                    self.rateSign = 1.0
-                else:
-                    self.setRotorSpeed(self.desRotSpd - step)
-                    self.rateSign = -1.0
-            else:
-                if self.trg > self.act:
-                    self.setRotorSpeed(self.desRotSpd - step)
-                    self.rateSign = -1.0
-                else:
-                    self.setRotorSpeed(self.desRotSpd + step)
-                    self.rateSign = 1.0
-            '''
-
     def kickHndl(self):
         #TODO: stopped here, make this relaiable turn in the correct direction every time! add slower procceing, better accel numbers
         dh = self.deltaHead()
         rrA = abs(self.rotRate)
-        ch = abs(rrA) >= 0.003
+        ch = abs(rrA) >= 0.03
         if abs(dh) < self.tol:
             self.db(f" Going to LOCK: {self.trg: 3.4f}, act: {self.act: 3.4f}, dh: {dh: 3.4f}")
             self.sendEvent(self.STOP_EVT)
@@ -104,7 +90,7 @@ class ApachiHead(BaseStateMachine):
             if not ch:
                 adjRt = self.rateSign * self.rotRate
                 adjRtMax = self.rateSign * self.MAX_ROT_RATE
-                adj = self.rateSign * self.SPD_DELTA
+                adj = self.rateSign * self.kickShare()
                 self.db(f"In kick hdn: {adjRt: 3.4f}, MAX: {adjRtMax: 3.4f}, step: {adj: 3.4f}, rotRate: {rrA: 3.4f}, ch: {ch}")
                 if abs(adjRt < adjRtMax):
                     if  adjRt < 0.2 * self.rateSign * adjRtMax:
@@ -124,7 +110,7 @@ class ApachiHead(BaseStateMachine):
         
         chUp = self.rateChanged("up", False)
         chDn = self.rateChanged("dn", True)
-        ch = abs(self.rotRate) < 0.01
+        ch = abs(self.rotRate) < 0.0001
         dh = self.deltaHead()
         wt = "Locking it down"
         if abs(dh) < self.tol and ch:
@@ -138,10 +124,10 @@ class ApachiHead(BaseStateMachine):
             if not ch:
                 wt += " still, adjusting"
                 if self.trg > self.act:
-                    self.setRotorSpeed(self.desRotSpd + 0.1 * self.SPD_DELTA)
+                    self.setRotorSpeed(self.desRotSpd + 0.05 * self.SPD_DELTA)
                     wt += " up"
                 else:
-                    self.setRotorSpeed(self.desRotSpd - 0.1 * self.SPD_DELTA)
+                    self.setRotorSpeed(self.desRotSpd - 0.05 * self.SPD_DELTA)
                     wt += " down"
         else:
             if not chDn and self.rotRate > 0.0:
@@ -150,7 +136,7 @@ class ApachiHead(BaseStateMachine):
             elif chDn and self.rotRate < 0.0:
                 wt = "varying negative rate, kick up"
                 self.setRotorSpeed(self.desRotSpd + self.SPD_DELTA)
-        self.db(f"{wt} > chUP: {chUp}, chDn: {chDn}, rt: {self.rotRate: 3.4f}, reqspd: {self.desRotSpd: 3.4f}")
+        self.db(f"{wt} > chUP: {chUp}, chDn: {chDn}, rt: {self.rotRate: 3.8f}, reqspd: {self.desRotSpd: 3.4f}")
             
 
     def atHeadHndl(self):
@@ -205,7 +191,6 @@ class ApachiHead(BaseStateMachine):
         self.actRotSpd = spd
         self.alt = alt
         self.updateActRotRate(act)
-        self.act = act
         if abs(self.desRotSpd - self.actRotSpd) > 0.001 or not self.alt > 1.0:
             self.dump("WAIT")
         else:
@@ -214,16 +199,23 @@ class ApachiHead(BaseStateMachine):
                 self.handle(self)
         self.next()
         self.lastChange = time.time_ns()
+        self.act = act
         return self.desRotSpd
 
     def updateActRotRate(self,act):
-        rotRate = (act - self.act) / self.dt
-        if abs(rotRate - self.rotRate) > 4: #to accoutn large swings in rotation rate changes
-            rotRate = self.rotRate
-        rotRatAvg = self.rotRate * self.lgShare + rotRate * self.smShare
-        #self.db(f" act: {act:3.4f}, prev act: {self.act}, dt: {self.dt}, instRot: {rotRate:3.4f}, avg: {rotRatAvg:3.4f}, lgShare: {self.lgShare:3.4f}, smShare: {self.smShare:3.4f}")
-        self.rotAccel = (rotRatAvg - self.rotRate) / self.dt
-        self.rotRate = rotRatAvg
+        now = time.time_ns()
+        deltaT = now - self.lastUpdate
+        if (deltaT) > 90.0e6: #ms
+            self.dt = (deltaT ) * 0.00000001
+            rotRate = (act - self.act) / self.dt
+            if abs(rotRate - self.rotRate) > 4: #to account large swings in rotation rate changes
+                rotRate = self.rotRate
+            rotRatAvg = self.rotRate * self.lgShare + rotRate * self.smShare
+            accel = (rotRatAvg - self.rotRate) / self.dt
+            #self.db(f" act: {act:3.4f}, prev act: {self.act}, dt: {self.dt}, instRot: {rotRate:3.4f}, avg: {rotRatAvg:3.4f}, lgShare: {self.lgShare:3.4f}, smShare: {self.smShare:3.4f}")
+            self.rotAccel = self.rotAccel * self.lgShare + accel * self.smShare
+            self.rotRate = rotRatAvg
+            self.lastUpdate = now
 
     def setHeading(self, heading):
         self.db(f" ============================================= Requested heading: {heading: 3.4f}")
@@ -239,11 +231,10 @@ class ApachiHead(BaseStateMachine):
         return self.trg - self.act
     
     def setRotorSpeed(self, spd):
-        if abs(self.STABLE_SPEED - spd) <= self.MAX_ROT_SPEED:
-            self.desRotSpd = spd
-            self.lastChange = time.time_ns()
-            self.prevRotRate = self.rotRate
-            self.dump("CHG ROT SPD")
+        self.desRotSpd = spd
+        self.lastChange = time.time_ns()
+        self.prevRotRate = self.rotRate
+        self.dump("CHG ROT SPD")
 
     def rateChanged(self,dir, update = True):
         drA = abs(self.prevRotRate - self.rotRate)
@@ -259,3 +250,15 @@ class ApachiHead(BaseStateMachine):
     def isStable(self):
         stable = abs(self.rotRate) < 0.01 and abs(self.actRotSpd - self.STABLE_SPEED) <= 0.13
         return stable
+
+    def kickShare(self):
+        tRad = math.radians(self.trg)
+        aRad = math.radians(self.act)
+        trVec = Vec2(math.sin(tRad), math.cos(tRad))
+        aVec = Vec2(math.sin(aRad), math.cos(aRad))
+        dot = trVec.dot(aVec)
+        #1 - codirectional
+        #0 - +/- 90
+        #-1 180 (opposit)
+        share = 0.2 * ((1.0 - (dot + 0.0)) / 2.0)
+        return share

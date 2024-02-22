@@ -25,6 +25,7 @@ class ApachiPos(BaseStateMachine):
     DECEND_ST = 107
     LANDED_ST = 108
     DELIVER_ST = 109
+    TEST_ST = 110
 
     GO_EVT = 150
     LEVEL_EVT = 151
@@ -37,6 +38,7 @@ class ApachiPos(BaseStateMachine):
     DROP_EVT = 158
     NULL_EVT = 159
     HOVER_EVT = 160
+    TEST_EVT = 161
 
     POS_TOL = Vec3(0.5, 0.5, 0.5)
     POS_MAG_TOL = 1.0
@@ -70,6 +72,8 @@ class ApachiPos(BaseStateMachine):
 
     id = 1000
 
+    idx = 0
+
     def pv(self, w, v):
         return f"({w:6}: ({v.x: 3.4f}, {v.y: 3.4f}, {v.z: 3.4f})"
 
@@ -102,7 +106,7 @@ class ApachiPos(BaseStateMachine):
         self.trgHdg = trgHdg
 
     def altChHndl(self):
-        if abs(self.curPos.getZ() - self.trgPos.getZ()) < 15.0: #approximately high, turn 
+        if self.curPos.getZ() >= (self.trgPos.getZ() - 15.0): #above certain safe hight
             self.sendEvent(self.LEVEL_EVT)
         else:
             #TODO check if alt changes towards the goal...
@@ -143,7 +147,7 @@ class ApachiPos(BaseStateMachine):
             #speed directly proprotional to distance to target
             trgSpd = 0.0015 * dist + 0.25 #ensure minimum speed
             #let's make acceleration and deceleration zones, cut them in half
-            self.decelDist = 0.535 * dist
+            self.decelDist = 0.525 * dist
             self.velCtrl.setSpeed(trgSpd)
             self.db(f"Distance to target: {dist:3.4f}, speed: {trgSpd:3.4f}")
 
@@ -237,6 +241,44 @@ class ApachiPos(BaseStateMachine):
             self.sendEvent(self.GO_EVT)
         self.db(f"{wh} faceFwd: {faceFwd}, stable: {stable}, stopped: {stopped}")
 
+    def altTests(self):
+        alts = [70, 90, 30, 65, 110, 30, 45, 0.2, 70]
+        idx = 0
+        alt = alts[idx]
+        preLt = alt
+
+        now = time.time_ns()
+        deltaT = now - self.startStamp
+        if idx == 0:
+            #self.velCtrl.setSpeed(0.4)
+            self.altCtrl.setTarget(alt)
+            preAlt = alt
+            idx += 1
+        elif (idx < len(alts) and abs(self.altCtrl.trg - self.altCtrl.act) < self.altCtrl.tol) and self.altCtrl.state == self.altCtrl.AT_ALT_ST:
+            self.altCtrl.setTarget(alts[idx])
+            idx += 1
+
+    def headTests(self):
+        vals = [290,0.0, 90, 180, 45, 272, 70, 45, 355, 270, 273, 272, 70, 90, 180, 268, 100, 180, 45, 355, 270, 273, 272, 0.0]
+
+        now = time.time_ns()
+        deltaT = now - self.startStamp
+        idx = self.idx
+
+        if idx == 0:
+            #self.velCtrl.setSpeed(0.4)
+            if self.altCtrl.trg < 30:
+                self.altCtrl.setTarget(150)
+            if self.altCtrl.act > 5.0:
+                self.headCtrl.setHeading(vals[idx])
+                idx += 1
+        elif idx < len(vals) and abs(self.headCtrl.trg - self.headCtrl.act) < self.headCtrl.tol and self.headCtrl.state == self.headCtrl.AT_HEAD_ST:
+            self.headCtrl.setHeading(vals[idx])
+            idx += 1
+        self.idx = idx
+
+    def testHndl(self):
+        self.headTests()
 
     StateHandlers = {
         INIT_ST: (None, initHndl, None),
@@ -250,6 +292,7 @@ class ApachiPos(BaseStateMachine):
         DECEND_ST: (inDecHndl, decHndl, None),
         LANDED_ST: (inLandedHndl, landedHndl, None),
         DELIVER_ST: (None, None, None),
+        TEST_ST: (None, testHndl, None),
     }
 
     StateMachine = {
@@ -265,6 +308,7 @@ class ApachiPos(BaseStateMachine):
                     DROP_EVT: (INIT_ST, None),
                     NULL_EVT: (INIT_ST, None),
                     HOVER_EVT: (INIT_ST, None),
+                    TEST_EVT: (TEST_ST, None),
                 },
         ON_GND_ST: {
                     GO_EVT: (ALT_CHANGE_ST, None),
@@ -278,6 +322,7 @@ class ApachiPos(BaseStateMachine):
                     DROP_EVT: (INIT_ST, None),
                     NULL_EVT: (INIT_ST, None),
                     HOVER_EVT: (HOVER_ST, None),
+                    TEST_EVT: (TEST_ST, None),
                 },
         ALT_CHANGE_ST: {
                     GO_EVT: (INIT_ST, None),
@@ -394,13 +439,18 @@ class ApachiPos(BaseStateMachine):
                     DROP_EVT: (INIT_ST, None),
                     NULL_EVT: (INIT_ST, None),
                     HOVER_EVT: (INIT_ST, None),
+                    TEST_EVT: (TEST_ST, None),
                 },
+        TEST_ST: {
+            TEST_EVT: (INIT_ST, None),
+        },
     }
 
     def __init__(self,id):
         super().__init__("ApachiPos",0x10)
         self.state = self.INIT_ST
         self.id = id
+        self.startStamp = time.time_ns()
 
     def tick(self, actPos, actHdg, actMainRot, actTailRot, actTilt, dt):
         self.updateTimeStamp()
