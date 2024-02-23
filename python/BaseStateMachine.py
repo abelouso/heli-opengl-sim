@@ -5,7 +5,14 @@
 import queue
 import inspect
 import time
+import socket
+import struct
 
+#https://stackoverflow.com/questions/603852/how-do-you-udp-multicast-in-python
+MCAST_GRP = '224.1.1.1'
+MCAST_PORT = 50001
+IS_ALL_GROUPS = True
+MULTICAST_TTL = 2
 
 class BaseStateMachine:
 
@@ -54,6 +61,8 @@ class BaseStateMachine:
         self.db(f"Initialied Generic State Machine for tag {TAG}")
         self.TAG = TAG
         self.DBG_MASK = DBG
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+        self.sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, MULTICAST_TTL)
 
     def sendEvent(self,evt):
         self.eventQ.put(evt)
@@ -99,6 +108,10 @@ class BaseStateMachine:
     def db(self, msg):
         calFn = inspect.getouterframes(inspect.currentframe(),2)[1][3]
         msg = f"{self.state}> {msg} [{calFn}]"
+        try:
+            self.sock.sendto(msg.encode(), (MCAST_GRP, MCAST_PORT))
+        except Exception as ex:
+            print(f"Exception sendin, {ex}")
         try:
             base.dbg(self.TAG,msg,self.DBG_MASK)
         except:

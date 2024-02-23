@@ -57,7 +57,7 @@ class ApachiHead(BaseStateMachine):
     lastUpdate = time.time_ns()
 
     def dump(self, source):
-        self.db(f"{source:10} ,T: {self.trg: 3.4f}, act: {self.act: 3.4f}, desRS: {self.desRotSpd: 3.4f}, actRotSpd: {self.actRotSpd: 3.4}, rotRate: {self.rotRate: 3.4f}, rotAccel: {self.rotAccel: 3.4f}")
+        self.db(f"{source:10} ,T: {self.trg: 3.4f}, act: {self.act: 3.4f}, desRS: {self.desRotSpd: 3.4f}, actRotSpd: {self.actRotSpd: 3.4}, rotRate: {self.rotRate: 3.4f}, rotAccel: {self.rotAccel: 3.4f}, elapsed: {self.alt: 3.4f},")
 
     def newHeadEvt(self):
         # figure out positive or negative kick in the turn

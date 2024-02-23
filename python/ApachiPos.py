@@ -75,7 +75,7 @@ class ApachiPos(BaseStateMachine):
     idx = 0
 
     def pv(self, w, v):
-        return f"({w:6}: ({v.x: 3.4f}, {v.y: 3.4f}, {v.z: 3.4f})"
+        return f"{w:6}:({v.x: 3.4f}, {v.y: 3.4f}, {v.z: 3.4f})|"
 
     def dump(self,source):
         cp = self.pv("cur", self.curPos)

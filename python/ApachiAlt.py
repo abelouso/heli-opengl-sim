@@ -266,6 +266,7 @@ class ApachiAlt(BaseStateMachine):
     }
 
     def __init__(self):
+        super().__init__(self.TAG, self.DBG_MASK)
         self.state = self.GND_ST
         self.trg = 0
         self.act = 0
