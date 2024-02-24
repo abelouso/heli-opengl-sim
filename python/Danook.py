@@ -30,9 +30,9 @@ class Danook(StigChopper):
         self.actAngle = 0
         # constants
         self.VERT_CONTROL_FACTOR   = 2.9   # original 2.5
-        self.HORZ_CONTROL_FACTOR   = 0.14  # original 0.15
-        self.MAX_VERT_VELOCITY     = 3.15  # original 2.5
-        self.MAX_HORZ_VELOCITY     = 3.15  # original 2.5
+        self.HORZ_CONTROL_FACTOR   = 0.13  # original 0.15
+        self.MAX_VERT_VELOCITY     = 3.10  # original 2.5
+        self.MAX_HORZ_VELOCITY     = 3.10  # original 2.5
         self.MAX_VERT_ACCEL        = 0.50  # original 0.4
         self.MAX_HORZ_ACCEL        = 0.50  # original 0.4
         self.DECEL_DISTANCE_VERT   = 9.0   # original 12
@@ -42,7 +42,7 @@ class Danook(StigChopper):
         self.MAX_STABILIZE         = 10    # original 10
         self.SAFE_ALTITUDE         = 60.0  # Must be higher than buildings/terrain -- ask world?
         self.START_ROTOR_SPEED_RPM = 290.0 # Original 360
-        self.HEADING_TOL_DEG       = 0.01
+        self.HEADING_TOL_DEG       = 0.005
         self.TAIL_ROTOR_RANGE      = 10.0
         self.MAX_ROTATE_DELTA      = 6.0
         self.ALTITUDE_MARGIN = 8.0
@@ -122,7 +122,7 @@ class Danook(StigChopper):
                 elif deltaRotor < -self.TAIL_ROTOR_RANGE:
                     deltaRotor = -self.TAIL_ROTOR_RANGE
                 self.desTailRotorSpeed_RPM = 100.0 + deltaRotor
-                base.dbg(self.TAG, "Desired Tail Rotor: {:.2f}, deltaHeading: {:.2f}".format(self.desTailRotorSpeed_RPM, deltaHeading), self.DEBUG_POS_BIT)
+                base.dbg(self.TAG, "Desired Tail Rotor: {:.3f}, deltaHeading: {:.3f}".format(self.desTailRotorSpeed_RPM, deltaHeading), self.DEBUG_POS_BIT)
         return headingOK
 
     def __estimateVelocity(self, deltaTime) -> Vec3:
@@ -155,11 +155,14 @@ class Danook(StigChopper):
 
     # returns numeric (double) type
     def __computeDesiredAcceleration(self,actVel, desVel, doVertical):
+        maxAccel = self.MAX_VERT_ACCEL if doVertical else self.MAX_HORZ_ACCEL
         targetAccel = self.MAX_VERT_ACCEL if doVertical else self.MAX_HORZ_ACCEL
         deltaValue = abs(desVel - actVel)
         DECEL_SPEED = self.VERT_DECEL_SPEED if doVertical else self.HORZ_DECEL_SPEED
         if deltaValue < DECEL_SPEED:
             targetAccel = deltaValue / DECEL_SPEED
+            if targetAccel > maxAccel:
+                targetAccel = maxAccel
         if actVel > desVel:
             targetAccel *= -1.0
         return targetAccel
@@ -199,6 +202,7 @@ class Danook(StigChopper):
             xMultiplier = self.MAX_HORZ_ACCEL / deltaXAcceleration
         if deltaXAcceleration < -self.MAX_HORZ_ACCEL:
             xMultiplier = (-self.MAX_HORZ_ACCEL) / deltaXAcceleration
+        deltaXAcceleration *= xMultiplier
         # repeat for Y
         targetYVelocity = 0.0
         if justStop == False:
@@ -211,25 +215,20 @@ class Danook(StigChopper):
         if deltaYAcceleration < -self.MAX_HORZ_ACCEL:
             yMultiplier = (-self.MAX_HORZ_ACCEL) / deltaYAcceleration
 
-        deltaXAcceleration *= xMultiplier
         deltaYAcceleration *= yMultiplier
-        # Limit size of the vector but do not change the proportion
-        #if xMultiplier < yMultiplier:
-            #deltaXAcceleration *= yMultiplier
-            #deltaYAcceleration *= yMultiplier
-        #else:
-            #deltaXAcceleration *= xMultiplier
-            #deltaYAcceleration *= xMultiplier
         deltaAcceleration = math.sqrt(deltaXAcceleration * deltaXAcceleration + deltaYAcceleration * deltaYAcceleration)
         accelHeading = math.degrees(math.atan2(deltaYAcceleration, deltaXAcceleration))
         if accelHeading < 0.0:
             accelHeading += 360.0
         transformation = base.transformations(self.getId())
-        #deltaAngle = abs(accelHeading - moveHeading)
         deltaAngle = abs(accelHeading - transformation.x)
-        if deltaAngle > 90.0:
+        if deltaAngle < -179.999:
+            deltaAngle += 360.0
+        elif deltaAngle > 179.999:
+            deltaAngle -= 360.0
+        if abs(deltaAngle) > 89.999:
             deltaAcceleration *= -1.0
-        base.dbg(self.TAG, "Dist to target: {:.2f}, Want Accel: {:.2f}, compass heading: {:.2f}, accelHeading: {:.2f}, current pitch: {:.2f}".format(deltaVector.getXy().length(), deltaAcceleration, transformation.x, accelHeading, self.desPitch_Degrees), self.DEBUG_POS_BIT)
+        base.dbg(self.TAG, "Dist to target: {:.2f}, Want Accel: {:.2f} ({:.2f},{:.2f}), deltaAngle: {:.2f}, current pitch: {:.2f}".format(deltaVector.getXy().length(), deltaAcceleration, deltaXAcceleration, deltaYAcceleration, deltaAngle, self.desPitch_Degrees), self.DEBUG_POS_BIT)
         self.desPitch_Degrees += deltaAcceleration * self.HORZ_CONTROL_FACTOR
         if justStop:
             deltaVx = self.estimatedVelocity.x
@@ -376,12 +375,8 @@ class Danook(StigChopper):
 
     def update(self,dt,tick):
         StigChopper.update(self,dt,tick)
-        #transformation = base.transformations(self.getId())
-        # I added the negative sign because pitch looked backwards to me
-        #self.actor.setHpr(transformation.x, -transformation.y, transformation.z)
 
     def runLogic(self,currentTime,elapsedTime):
-        startTime = time.time_ns()
         self.actualPosition = base.gps(self.getId())
         self.currTime = currentTime
         if self.currentDestination is None:
@@ -410,5 +405,3 @@ class Danook(StigChopper):
                 base.dbg(self.TAG, "No physics estimate?", self.DEBUG_POS_BIT)
         self.lastTime = self.currTime
         self.lastPosition = Vec4(self.actualPosition)
-        endTime = time.time_ns()
-        #base.dbg(self.TAG, "Ran Logic in: {} ns".format(endTime-startTime), 0x10000)

@@ -138,7 +138,7 @@ class HeliMain(ShowBase):
         base.userExit()
 
     def generateCityBlock(self,numBldgs, gridX, gridY):
-        bldType = random.randint(1,5)
+        bldType = random.randint(1,4)
         stepX = 30
         stepY = stepX
         offsetX = gridX - 0.5 * numBldgs * stepX
@@ -203,7 +203,7 @@ class HeliMain(ShowBase):
             print("DEBUG: [",tag,"]:", msg, flush=True)
 
     def getStartingPosition(self, chopperID):
-        whichPos = random.randint(0, len(self.landings))
+        whichPos = random.randint(0, len(self.landings)-1)
         landing = self.landings[whichPos]
         del(self.landings[whichPos])
         return landing
@@ -220,7 +220,7 @@ class HeliMain(ShowBase):
             chopper = self.myChoppers[key][gCH_ID]
             targetPoints = []
             for idx in range(0,chopper.itemCount()):
-                whichPos = random.randint(0, len(self.landings))
+                whichPos = random.randint(0, len(self.landings)-1)
                 targetPoints.append(self.landings[whichPos])
                 del(self.landings[whichPos])
             self.dbg(self.TAG, "Chopper {} given waypoints -- {} points left".format(key, len(self.landings)), self.WORLD_DBG)
