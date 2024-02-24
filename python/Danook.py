@@ -32,11 +32,11 @@ class Danook(StigChopper):
         self.VERT_CONTROL_FACTOR   = 3.0   # original 2.5
         self.HORZ_CONTROL_FACTOR   = 0.15  # original 0.15
         self.MAX_VERT_VELOCITY     = 2.90  # original 2.5
-        self.MAX_HORZ_VELOCITY     = 3.00  # original 2.5
+        self.MAX_HORZ_VELOCITY     = 2.90  # original 2.5
         self.MAX_VERT_ACCEL        = 0.50  # original 0.4
         self.MAX_HORZ_ACCEL        = 0.50  # original 0.4
-        self.DECEL_DISTANCE_VERT   = 9.2   # original 12
-        self.DECEL_DISTANCE_HORZ   = 10.0  # original 16
+        self.DECEL_DISTANCE_VERT   = 9.5   # original 12
+        self.DECEL_DISTANCE_HORZ   = 11.0  # original 16
         self.VERT_DECEL_SPEED      = 0.4   # original 0.5
         self.HORZ_DECEL_SPEED      = 1.8   # original 2.0
         self.MAX_STABILIZE         = 10    # original 10

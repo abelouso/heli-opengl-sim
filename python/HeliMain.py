@@ -3,6 +3,7 @@
 # (c) 2015-2024, A Beloussov, D. Lafuze
 
 from direct.showbase.ShowBase import ShowBase
+from direct.gui.OnscreenImage import OnscreenImage
 from panda3d.core import AmbientLight
 from panda3d.core import DirectionalLight
 from panda3d.core import Vec4, Vec3
@@ -59,6 +60,7 @@ class HeliMain(ShowBase):
         self.maxTime = 10000.0
 
         self.worldState = []
+        self.availableDeliveryPoints = []
         self.allPackageLocs = {}
 
         self.m_chopperInfoPanel = None
@@ -106,6 +108,10 @@ class HeliMain(ShowBase):
         plane.setHpr(0,90,0)
         plane.setPos(0.5 * planeSide, 0.5 * planeSide,0)
 
+        self.city = []
+        self.landings = []
+        self.generateCity()
+
         self.myChoppers = {}
         id = 0
         danook = Danook(id,self.getStartingPosition(id))
@@ -114,9 +120,6 @@ class HeliMain(ShowBase):
         id = 1
         apachi = Apachi(id,self.getStartingPosition(id))
         self.insertChopper(apachi)
-
-        self.city = []
-        self.generateCity()
 
         self.updateTask = taskMgr.add(self.update, "update")
         self.exitFunc = self.cleanup
@@ -135,7 +138,6 @@ class HeliMain(ShowBase):
         base.userExit()
 
     def generateCityBlock(self,numBldgs, gridX, gridY):
-
         bldType = random.randint(1,5)
         stepX = 30
         stepY = stepX
@@ -144,9 +146,15 @@ class HeliMain(ShowBase):
         for xIdx in range(0,numBldgs):
             for yIdx in range(0,numBldgs):
                 toPlace = random.randint(0,1)
+                centerX = offsetX + xIdx * stepX
+                centerY = offsetY + yIdx * stepY
+                pos = Vec3(centerX, centerY,0)
                 if toPlace == 1:
-                    pos = Vec3(offsetX + xIdx * stepX, offsetY + yIdx * stepY,0)
                     self.city.append(BuildingCluster(bldType,pos))
+                else:
+                    #TODO: Figure out how to display an image
+                    #imageObject = OnscreenImage(image="resource/helipad_256.png", pos=(centerX, centerY, 0.5), scale=2.0)
+                    self.landings.append(pos)
 
     def generateCity(self):
         cityX = self.sizeX
@@ -195,7 +203,10 @@ class HeliMain(ShowBase):
             print("DEBUG: [",tag,"]:", msg, flush=True)
 
     def getStartingPosition(self, chopperID):
-        return Vec3(50.0, 44.0 + chopperID * 4.0, 0.0)
+        whichPos = random.randint(0, len(self.landings))
+        landing = self.landings[whichPos]
+        del(self.landings[whichPos])
+        return landing
     
     def insertChopper(self, chopper):
         chInfo = ChopperInfo(chopper.id, chopper.fuelCapacity(), chopper.actor.getPos(), 0.0)
@@ -209,12 +220,10 @@ class HeliMain(ShowBase):
             chopper = self.myChoppers[key][gCH_ID]
             targetPoints = []
             for idx in range(0,chopper.itemCount()):
-                whichRow = random.randint(0,self.sizeX) - self.sizeX / 2
-                whichCol = random.randint(0,self.sizeY) - self.sizeY / 2
-                if False: #idx == 0:
-                    whichRow = 45.0
-                    whichCol = 45.0
-                targetPoints.append(Vec3(whichCol, whichRow, 0.1))
+                whichPos = random.randint(0, len(self.landings))
+                targetPoints.append(self.landings[whichPos])
+                del(self.landings[whichPos])
+            self.dbg(self.TAG, "Chopper {} given waypoints -- {} points left".format(key, len(self.landings)), self.WORLD_DBG)
             chopper.setWaypoints(targetPoints)
             self.allPackageLocs[key] = targetPoints
 
