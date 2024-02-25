@@ -60,7 +60,6 @@ class HeliMain(ShowBase):
         self.maxTime = 10000.0
 
         self.worldState = []
-        self.availableDeliveryPoints = []
         self.allPackageLocs = {}
 
         self.m_chopperInfoPanel = None
@@ -73,7 +72,6 @@ class HeliMain(ShowBase):
         ap.add_argument("-d",help="Debug mask",default="0",dest="debugMask")
         ap.add_argument("-c",help="Index of a chopper to follow",dest="camToFollow",default=0)
         ap.add_argument("-f",help="ratio of world to real time 1 - for real-time 10 - 10x faster",default=self.m_rtToRndRatio,dest="rtRatio")
-
 
         args = ap.parse_args()
         self.sizeX = int(args.sizeX)
@@ -126,6 +124,9 @@ class HeliMain(ShowBase):
         self.firstUpdate = True
         self.chaser = HeliCamera(self.cam.getX(),self.cam.getY(),self.cam.getZ())
         self.setChopperWaypoints()
+        for landing in self.landings:
+            # -1 just means don't give it a color
+            self.addLandingPad(-1, landing)
 
     def cleanup(self):
         for chopper in self.myChoppers:
@@ -152,10 +153,6 @@ class HeliMain(ShowBase):
                 if toPlace == 1:
                     self.city.append(BuildingCluster(bldType,pos))
                 else:
-                    #TODO: Figure out how to display an image
-                    imageObject = OnscreenImage(image="resource/helipad_256.png", pos=(centerX, centerY, 0.05), scale=2.0)
-                    imageObject.setHpr(0, -90, 0)
-                    imageObject.reparentTo(render)
                     self.landings.append(pos)
 
     def generateCity(self):
@@ -167,6 +164,21 @@ class HeliMain(ShowBase):
             for gridY in range(-cityY,cityY,blockY):
                 self.generateCityBlock(numBldgs=1,gridX = blockX * gridX, gridY=blockY *gridY)
     
+    def addLandingPad(self, id, pos):
+        colorRed   = 1.0
+        colorGreen = 1.0
+        colorBlue  = 1.0
+        colorAlpha = 1.0
+        if id == 0:
+            colorRed = 0.0
+            colorGreen = 0.0
+        elif id == 1:
+            colorGreen = 0.0
+            colorBlue = 0.0
+        imageObject = OnscreenImage(image="resource/helipad_256.png", pos=(pos.x, pos.y, 0.05), scale=2.0, color=(colorRed, colorGreen, colorBlue, colorAlpha))
+        imageObject.setHpr(0, -90, 0)
+        imageObject.reparentTo(render)
+
     def update(self,task):
         dt = globalClock.getDt()
         self.tick(dt)
@@ -207,6 +219,7 @@ class HeliMain(ShowBase):
     def getStartingPosition(self, chopperID):
         whichPos = random.randint(0, len(self.landings)-1)
         landing = self.landings[whichPos]
+        self.addLandingPad(chopperID, landing)
         del(self.landings[whichPos])
         return landing
     

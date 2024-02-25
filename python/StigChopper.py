@@ -47,6 +47,9 @@ class StigChopper(BaseObject):
         self.id = id
 
     def setWaypoints(self, wp):
+        for point in wp:
+            base.addLandingPad(self.id, point)
+
         self.targetWaypoints = wp
     
     def fuelCapacity(self):
