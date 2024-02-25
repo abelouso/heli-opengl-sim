@@ -41,12 +41,14 @@ class Danook(StigChopper):
         self.HORZ_DECEL_SPEED      = 1.8   # original 2.0
         self.MAX_STABILIZE         = 10    # original 10
         self.SAFE_ALTITUDE         = 60.0  # Must be higher than buildings/terrain -- ask world?
-        self.START_ROTOR_SPEED_RPM = 290.0 # Original 360
+        self.START_ROTOR_SPEED_RPM = 360.0 # Original 360
         self.HEADING_TOL_DEG       = 0.005
         self.TAIL_ROTOR_RANGE      = 10.0
+        self.MAX_TILT_ALLOW        = 10.0  # TODO: Get from ChopperInfo
         self.MAX_ROTATE_DELTA      = 6.0
         self.ALTITUDE_MARGIN = 8.0
         self.TAG = "Danook"
+        self.spunUp = False # Don't start ramping rotor until initial liftoff
         self.FULL_DEBUG_MASK = 0xf000
         self.DEBUG_POS_BIT   = 0x8000
         self.DEBUG_ALT_BIT   = 0x4000
@@ -122,7 +124,6 @@ class Danook(StigChopper):
                 elif deltaRotor < -self.TAIL_ROTOR_RANGE:
                     deltaRotor = -self.TAIL_ROTOR_RANGE
                 self.desTailRotorSpeed_RPM = 100.0 + deltaRotor
-                base.dbg(self.TAG, "Desired Tail Rotor: {:.3f}, deltaHeading: {:.3f}".format(self.desTailRotorSpeed_RPM, deltaHeading), self.DEBUG_POS_BIT)
         return headingOK
 
     def __estimateVelocity(self, deltaTime) -> Vec3:
@@ -228,8 +229,13 @@ class Danook(StigChopper):
             deltaAngle -= 360.0
         if abs(deltaAngle) > 89.999:
             deltaAcceleration *= -1.0
-        base.dbg(self.TAG, "Dist to target: {:.2f}, Want Accel: {:.2f} ({:.2f},{:.2f}), deltaAngle: {:.2f}, current pitch: {:.2f}".format(deltaVector.getXy().length(), deltaAcceleration, deltaXAcceleration, deltaYAcceleration, deltaAngle, self.desPitch_Degrees), self.DEBUG_POS_BIT)
-        self.desPitch_Degrees += deltaAcceleration * self.HORZ_CONTROL_FACTOR
+        if self.spunUp:
+            self.desPitch_Degrees += deltaAcceleration * self.HORZ_CONTROL_FACTOR
+            if self.desPitch_Degrees > self.MAX_TILT_ALLOW:
+                self.desPitch_Degrees = self.MAX_TILT_ALLOW
+            if self.desPitch_Degrees < -self.MAX_TILT_ALLOW:
+                self.desPitch_Degrees = -self.MAX_TILT_ALLOW
+            base.dbg(self.TAG, "Desired Rotor: {:.2f}, Dist to target: {:.2f}, Want Accel: {:.2f} ({:.2f},{:.2f}), deltaAngle: {:.2f}, current pitch: {:.2f}".format(self.desMainRotorSpeed_RPM, deltaVector.getXy().length(), deltaAcceleration, deltaXAcceleration, deltaYAcceleration, deltaAngle, self.desPitch_Degrees), self.DEBUG_POS_BIT)
         if justStop:
             deltaVx = self.estimatedVelocity.x
             deltaVy = self.estimatedVelocity.y
@@ -264,8 +270,9 @@ class Danook(StigChopper):
             if inState == State.APPROACHING:
                 outState = State.LANDED
                 self.desPitch_Degrees = 0.0
-                # Decrease rotor speed 10% to avoid taking off again
-                self.desMainRotorSpeed_RPM *= 0.90
+                if self.spunUp:
+                    # Decrease rotor speed 10% to avoid taking off again
+                    self.desMainRotorSpeed_RPM *= 0.90
             if not self.currentDestination is None:
                 deltaX = self.currentDestination.x - self.actualPosition.x
                 deltaY = self.currentDestination.y - self.actualPosition.y
@@ -293,6 +300,7 @@ class Danook(StigChopper):
         else:
             if inState == State.LANDED:
                 outState = State.CLIMB
+                self.spunUp = True
             self.wasOnGround = False
         targetVertVelocity = self.__computeDesiredVelocity(self.actualPosition.z, self.desiredAltitude, True)
         targetVertAcceleration = self.__computeDesiredAcceleration(self.estimatedVelocity.z, targetVertVelocity, True)
@@ -301,9 +309,12 @@ class Danook(StigChopper):
             deltaAcceleration = self.MAX_VERT_ACCEL
         if deltaAcceleration < (-self.MAX_VERT_ACCEL):
             deltaAcceleration = -self.MAX_VERT_ACCEL
-        base.dbg(self.TAG, "ActHeight: {:.2f}, desHeight: {:.2f}, actVel: {:.2f}, targetVel: {:.2f}, actAccel: {:.2f}, targetAccel: {:.2f}, deltaAccel: {:.2f}".format(self.actualPosition.z,self.desiredAltitude,self.estimatedVelocity.z, targetVertVelocity, self.estimatedAcceleration.z, targetVertAcceleration, deltaAcceleration), self.DEBUG_ALT_BIT)
-        self.desMainRotorSpeed_RPM += deltaAcceleration * self.VERT_CONTROL_FACTOR
-        base.requestSettings(self.getId(), self.desMainRotorSpeed_RPM, self.desPitch_Degrees, self.desTailRotorSpeed_RPM)
+        if self.spunUp:
+            self.desMainRotorSpeed_RPM += deltaAcceleration * self.VERT_CONTROL_FACTOR
+            base.dbg(self.TAG, "Desired Rotor: {:.2f}, ActHeight: {:.2f}, desHeight: {:.2f}, actVel: {:.2f}, targetVel: {:.2f}, actAccel: {:.2f}, targetAccel: {:.2f}, deltaAccel: {:.2f}".format(self.desMainRotorSpeed_RPM, self.actualPosition.z,self.desiredAltitude,self.estimatedVelocity.z, targetVertVelocity, self.estimatedAcceleration.z, targetVertAcceleration, deltaAcceleration), self.DEBUG_ALT_BIT)
+            base.requestSettings(self.getId(), self.desMainRotorSpeed_RPM, self.desPitch_Degrees, self.desTailRotorSpeed_RPM)
+        else:
+            base.requestSettings(self.getId(), self.desMainRotorSpeed_RPM, 0.0, 100.0)
         return outState
 
     def __isSafeAltitude(self, climbing) -> bool:

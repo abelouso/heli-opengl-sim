@@ -85,7 +85,6 @@ class ChopperInfo:
 		
     def updateMainRotorSpeed(self, elapsedTime):
         deltaMainRotor = self.MAX_MAIN_ROTOR_DELTA * elapsedTime
-        
         if (self.desMainRotorSpeed_RPM > self.MAX_MAIN_ROTOR_SPEED):
             self.desMainRotorSpeed_RPM = self.MAX_MAIN_ROTOR_SPEED
             
@@ -103,6 +102,7 @@ class ChopperInfo:
             
         
         # 1 RPM = 6 degrees per second
+        base.dbg(self.TAG, "Chopper {}, Actual Rotor Speed: {:.2f}, Desired Rotor Speed: {:.2f}".format(self.chopperID, self.actMainRotorSpeed_RPM, self.desMainRotorSpeed_RPM), self.CI_DBG)
         self.mainRotorPosition_Degrees += self.actMainRotorSpeed_RPM * elapsedTime * 60.0
         while (self.mainRotorPosition_Degrees >= 360.0):
             self.mainRotorPosition_Degrees -= 360.0 # Just for drawing
@@ -139,7 +139,6 @@ class ChopperInfo:
 	
     def updateTiltLevel(self, elapsedTime):
         
-        deltaTailRotor = self.MAX_TAIL_ROTOR_DELTA * elapsedTime
         if (self.desTilt_Degrees > self.MAX_TILT_MAGNITUDE):
         
             self.desTilt_Degrees = self.MAX_TILT_MAGNITUDE
