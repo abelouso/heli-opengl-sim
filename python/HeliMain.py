@@ -153,7 +153,9 @@ class HeliMain(ShowBase):
                     self.city.append(BuildingCluster(bldType,pos))
                 else:
                     #TODO: Figure out how to display an image
-                    #imageObject = OnscreenImage(image="resource/helipad_256.png", pos=(centerX, centerY, 0.5), scale=2.0)
+                    imageObject = OnscreenImage(image="resource/helipad_256.png", pos=(centerX, centerY, 0.05), scale=2.0)
+                    imageObject.setHpr(0, -90, 0)
+                    imageObject.reparentTo(render)
                     self.landings.append(pos)
 
     def generateCity(self):
