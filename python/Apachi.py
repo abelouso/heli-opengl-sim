@@ -13,7 +13,7 @@ import time
 
 from BaseObject import *
 from StigChopper import *
-from ApachiAlt import *
+from ApachiAlt2 import *
 from ApachiHead import *
 from ApachiVel import *
 from ApachiPos import *

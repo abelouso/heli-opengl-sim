@@ -8,17 +8,24 @@ import struct
 from threading import Thread
 import queue
 import re as RegEx
+import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation
+import datetime
+import math
+import random
 
 #https://stackoverflow.com/questions/603852/how-do-you-udp-multicast-in-python
 MCAST_GRP = '224.1.1.1'
 MCAST_PORT = 50001
 IS_ALL_GROUPS = True
+gAni = None
 
 class ApachiTelem:
     sock = None
     root = None
     queue = queue.Queue()
     thread = None
+    quit = False
     def __init__(self):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -39,7 +46,7 @@ class ApachiTelem:
         rtCol = 2
         self.root = tk.Tk()
         self.root.title("Apachi Telemetry")
-        self.root.geometry("750x450")
+        self.root.geometry("750x450+700+100")
 
         self.posState = tk.Label(self.root,anchor="w")
         self.posState.grid(column=col,row=row, sticky="w")
@@ -65,7 +72,9 @@ class ApachiTelem:
         self.speed = tk.Label(self.root,anchor="w")
         self.speed.grid(column=col,row=row, sticky="w")
         self.accel = tk.Label(self.root,anchor="w")
-        self.accel.grid(column=midCol,row=row-1, sticky="w")
+        self.accel.grid(column=midCol,row=row, sticky="w")
+        self.alt = tk.Label(self.root,anchor="w")
+        self.alt.grid(column=rtCol,row=row, sticky="w")
         row = 4
         self.cp = tk.Label(self.root,anchor="w")
         self.cp.grid(column=col,row=row, sticky="w")
@@ -75,10 +84,26 @@ class ApachiTelem:
         row = 6
 
         print(f"GUI Created...")
+        self.fig, self.ax = plt.subplots()
+        self.xdata = []
+        self.ydata1 = []
+        self.ydata2 = []
+        self.ydata3 = []
+        self.ydata4 = []
+        self.ln1, = plt.plot([], [], "yo") #alt
+        self.ln2, = plt.plot([], [], "gx") # rot spd
+        self.ln3, = plt.plot([], [], "r+") # vel
+        self.ln4, = plt.plot([], [], "b.") # accel
+        self.root.protocol("WM_DELETE_WINDOW", self.exitLoop)
+
+    def plotInit(self):
+        #self.ax.set_ylim(-1000.0, 1000)
+        return self.ln1,
 
     def recvThread(self):
         print(f'Starting to receive telemetry')
         while True:
+            if self.quit: break
             try:
                 data, addr = self.sock.recvfrom(1024)
             except socket.error as e:
@@ -97,12 +122,28 @@ class ApachiTelem:
           res = res.upper()
           res = f"{res:<45}"
           return res
+    
+    def getDatFloat(self,key,msg,endCh = ',',cap = None):
+        regEx = f".*{key}(.*?){endCh}.*"
+        ms = RegEx.match(regEx,msg)
+        if ms is not None:
+            valStr = ms.group(1)
+        else:
+            valStr = "0.001"
+            print(f"NOT FOUND msg: {msg}, ms: {ms.group(1)} regex: {regEx}")
+        try:
+            val = float(valStr)
+        except:
+            val = 0.0
+            print(f"NOT A FLOAT msg: {msg}, ms: {ms.group(1)} regex: {regEx}")
+        return val
+    
 
     def str2State(self, which, statStr):
         match(int(statStr)):
             case 1: statStr = "ON GROUND"
-            case 2: statStr = "UP ACCEL"
-            case 3: statStr = "UP LIN"
+            case 2: statStr = "CHANGE ALT"
+            case 3: statStr = "AT ALT"
             case 4: statStr = "UP DECEL"
             case 5: statStr = "AT ALT"
             case 6: statStr = "DONW ACCEL"
@@ -126,22 +167,28 @@ class ApachiTelem:
             case 107:statStr = "DECEND"
             case 108:statStr = "LANDED"
             case 109:statStr = "DELIVER"
-            case 110:statStr = "TEST"
+            case 111:statStr = "TEST"
         return f"{which:<11}: {statStr:<33}"
 
           
     def parseAndDisplay(self):
         try:
             while not self.queue.empty():
+                if self.quit: break
                 msg = self.queue.get()
                 stI = msg.find(">")
                 dI = msg.find("dist:")
                 fI = msg.find("facing:")
-                altI = msg.find("elapsed:")
+                elT = msg.find("elapsed:")
                 altDes = msg.find("desRS:") #in heading state
                 accI = msg.find("accel:")
                 accSpdI = msg.find("actT") #in velocity state
-                altStI = msg.find("exp rt:") #in altitude state
+                altStI = msg.find("alttrg:") #in altitude state
+                altI = msg.find("altact:")
+                floatVal1 = None
+                floatVal2 = None
+                floatVal3 = None
+                floatVal4 = None
                 if dI >= 0 and fI >=0:
                     self.dist["text"] = self.getData("dist:",msg,',',"DISTANCE:")
                     self.face["text"] = self.getData("facing:",msg)
@@ -156,23 +203,71 @@ class ApachiTelem:
                       self.accel["text"] = self.getData("accel:",msg)
                       state = msg[:stI]
                       self.vState["text"] = self.str2State("VEL STATE",state)
-                if altI >= 0 and altDes >= 0:
+                if elT >= 0 and altDes >= 0:
                       state = msg[:stI]
                       self.hState["text"] = self.str2State("HDG STATE",state)
                       self.elTime["text"] = self.getData("elapsed:",msg,",","elapsed:")
                 if altStI >= 0:
                     state = msg[:stI]
                     self.altState["text"] = self.str2State("ALT STATE",state)
-                
+                    self.alt["text"] = self.getData("altact:",msg,",","alt:")
+                    floatVal1 = self.getDatFloat("altact:",msg,",")
+                    floatVal2 = self.getDatFloat("act rot:",msg,",")
+                    floatVal3 = self.getDatFloat("altrate:",msg,",")
+                    floatVal4 = self.getDatFloat("altaccel:",msg,",")
+                added = False
+                if floatVal1 is not None:
+                    self.ydata1.append(floatVal1 * 0.1); added = True
+                if floatVal2 is not None:
+                    self.ydata2.append(floatVal2 * 0.1); added = True
+                if floatVal3 is not None:
+                    self.ydata3.append(floatVal3 * 100.0); added = True
+                if floatVal4 is not None:
+                    self.ydata4.append(floatVal4 * 10000.0); added = True
+                if added:
+                    self.xdata.append(datetime.datetime.now())
 
                 #self.lbl1["text"] = self.queue.get()
         except Exception as ex:
-            print(f"Unable to set data to lable: {ex}")
-        self.root.after(100, self.parseAndDisplay)
+            print(f"Unable to set data to label: {ex}")
+        
+        while len(self.xdata) > 2000:
+            self.xdata.pop(0)
+            self.ydata1.pop(0)
+            self.ydata2.pop(0)
+            self.ydata3.pop(0)
+            self.ydata4.pop(0)
+        if not self.quit:
+            self.root.after(100, self.parseAndDisplay)
+    
+    def plot(self,frame):
+        #self.xdata.append(datetime.datetime.now())
+        #self.ydata1.append(random.randint(-4,5) )
+        self.ln1.set_data(self.xdata,self.ydata1)
+        self.ln2.set_data(self.xdata,self.ydata2)
+        self.ln3.set_data(self.xdata,self.ydata3)
+        self.ln4.set_data(self.xdata,self.ydata4)
+        self.fig.gca().relim()
+        self.fig.gca().autoscale_view()
+        return self.ln1,
+
+    def exitLoop(self):
+        self.quit = True
+        self.sock.close()
+        self.root.quit()
+        self.root.destroy()
+
+    def showPlotThr(self):
+        #plt.show()
+        self.root.mainloop()
+        pass
 
     def startThread(self):
         self.thread = Thread(target = self.recvThread,daemon=True)
         self.thread.start()
+        self.ani = FuncAnimation(fig = self.fig, func = self.plot, init_func = self.plotInit, blit=False)
+        self.pltThr = Thread(target=self.showPlotThr,daemon=True)
+        self.pltThr.start()
 
 
 if __name__ == "__main__":
@@ -180,5 +275,6 @@ if __name__ == "__main__":
     recv.parseAndDisplay()
     recv.startThread()
     print(f"Strting MAIN LOOP")
-    recv.root.mainloop()
-    recv.sock.close()
+    #recv.root.mainloop()
+    plt.show()
+    print(f"OUT OF MAIN LOOP")

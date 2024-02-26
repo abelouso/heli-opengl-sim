@@ -25,7 +25,7 @@ class ApachiPos(BaseStateMachine):
     DECEND_ST = 107
     LANDED_ST = 108
     DELIVER_ST = 109
-    TEST_ST = 110
+    TEST_ST = 111
 
     GO_EVT = 150
     LEVEL_EVT = 151
@@ -73,6 +73,7 @@ class ApachiPos(BaseStateMachine):
     id = 1000
 
     idx = 0
+    testAltStamp = time.time_ns()
 
     def pv(self, w, v):
         return f"{w:6}:({v.x: 3.4f}, {v.y: 3.4f}, {v.z: 3.4f})|"
@@ -242,21 +243,30 @@ class ApachiPos(BaseStateMachine):
         self.db(f"{wh} faceFwd: {faceFwd}, stable: {stable}, stopped: {stopped}")
 
     def altTests(self):
-        alts = [70, 90, 30, 65, 110, 30, 45, 0.2, 70]
-        idx = 0
-        alt = alts[idx]
-        preLt = alt
+        alts = [700, 40, 20, 65, 110, 30, 45, 0.2, 70, 0.1]
 
         now = time.time_ns()
-        deltaT = now - self.startStamp
-        if idx == 0:
+        atAlt = self.altCtrl.state == self.altCtrl.AT_ALT_ST
+        inTol = abs(self.altCtrl.trg - self.altCtrl.act) < 2.0 * self.altCtrl.tol
+        moreAlts = self.idx < len(alts)
+        if atAlt and inTol and self.testAltStamp is None:
+            self.testAltStamp = now
+        if self.testAltStamp is not None:
+            atTime = (now - self.testAltStamp) > 45.0e9
+        else:
+            atTime = False
+
+        self.db(f" {moreAlts} and {inTol} and {atAlt}")
+        if self.idx == 0:
             #self.velCtrl.setSpeed(0.4)
-            self.altCtrl.setTarget(alt)
-            preAlt = alt
-            idx += 1
-        elif (idx < len(alts) and abs(self.altCtrl.trg - self.altCtrl.act) < self.altCtrl.tol) and self.altCtrl.state == self.altCtrl.AT_ALT_ST:
-            self.altCtrl.setTarget(alts[idx])
-            idx += 1
+            self.altCtrl.setTarget(alts[self.idx])
+            self.idx += 1
+            self.testAltStamp = None
+        elif moreAlts and inTol and atAlt and atTime:
+            self.altCtrl.setTarget(alts[self.idx])
+            self.db(f" ========================== ******************************************************** set new alt ")
+            self.idx += 1
+            self.testAltStamp = None
 
     def headTests(self):
         vals = [290,0.0, 90, 180, 45, 272, 70, 45, 355, 270, 273, 272, 70, 90, 180, 268, 100, 180, 45, 355, 270, 273, 272, 0.0]
@@ -278,7 +288,8 @@ class ApachiPos(BaseStateMachine):
         self.idx = idx
 
     def testHndl(self):
-        self.headTests()
+        #self.headTests()
+        self.altTests()
 
     StateHandlers = {
         INIT_ST: (None, initHndl, None),
@@ -473,7 +484,7 @@ class ApachiPos(BaseStateMachine):
         if (now - self.lastChange > 600e6):
             self.deltaPos = self.calcDistToTarget()
             self.lastChange = time.time_ns()
-        return self.altCtrl.rotSpd, self.headCtrl.desRotSpd, self.velCtrl.desTilt
+        return self.altCtrl.desRotSpd, self.headCtrl.desRotSpd, self.velCtrl.desTilt
 
     def setPosition(self, trg):
         if not self.pos3DInTol(trg, self.curPos):

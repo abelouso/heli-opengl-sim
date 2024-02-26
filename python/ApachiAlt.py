@@ -58,6 +58,11 @@ class ApachiAlt(BaseStateMachine):
     state = GND_ST
     firstTick = True
 
+    def dump(self,source):
+        self.db(f"{source:10}, alttrg: {self.trg: 3.4f}, altact: {self.act: 3.4f}, altrate: {self.altRate: 3.4f}, altaccel: {self.altAccel: 3.8f}, act rot: {self.actMainSpd: 3.4f}, des rot: {self.desRotSpd: 3.4f},")
+        pass
+
+
     def gndHndl(self):
         da = self.getDeltaAlt()
         if da > 0.0:
@@ -99,11 +104,11 @@ class ApachiAlt(BaseStateMachine):
         else:
             chg = self.rateChanged("up")
             if not chg and self.altRate < self.MAX_ALT_RATE:
-                self.setMainRotorSpeed(self.rotSpd + self.rotSpdDelta)
+                self.setMainRotorSpeed(self.desRotSpd + self.rotSpdDelta)
             elif chg and self.altRate > self.MAX_ALT_RATE:
-                self.setMainRotorSpeed(self.rotSpd - self.rotSpdDelta)
+                self.setMainRotorSpeed(self.desRotSpd - self.rotSpdDelta)
             else:
-                self.deltaRot = self.rotSpd - self.takeOfRotorSpeed
+                self.deltaRot = self.desRotSpd - self.takeOfRotorSpeed
             da = self.getDeltaAlt()
 
 
@@ -114,9 +119,9 @@ class ApachiAlt(BaseStateMachine):
         else:
             chg = self.rateChanged("dn")
             if not chg and self.altRate > -self.MAX_ALT_RATE:
-                self.setMainRotorSpeed(self.rotSpd - self.rotSpdDelta)
+                self.setMainRotorSpeed(self.desRotSpd - self.rotSpdDelta)
             elif chg and self.altRate < -self.MAX_ALT_RATE:
-                self.setMainRotorSpeed(self.rotSpd + self.rotSpdDelta)
+                self.setMainRotorSpeed(self.desRotSpd + self.rotSpdDelta)
         
     def upLinHndl(self):
         if self.act > self.linAlt:
@@ -125,13 +130,13 @@ class ApachiAlt(BaseStateMachine):
         else:
             chg = self.rateChanged("up")
             if not chg and self.altRate < self.MAX_ALT_RATE:
-                self.setMainRotorSpeed(self.rotSpd + self.rotSpdDelta)
+                self.setMainRotorSpeed(self.desRotSpd + self.rotSpdDelta)
             elif chg and self.altRate > self.MAX_ALT_RATE:
-                self.setMainRotorSpeed(self.rotSpd - self.rotSpdDelta)
+                self.setMainRotorSpeed(self.desRotSpd - self.rotSpdDelta)
         
     def inUpDecelHndl(self):
         self.db(f"Killing acceleration by {self.deltaRot:,}")
-        self.setMainRotorSpeed(self.rotSpd - self.deltaRot)
+        self.setMainRotorSpeed(self.desRotSpd - self.deltaRot)
 
     def upDecelHndl(self):
         da = self.getDeltaAlt()
@@ -142,12 +147,12 @@ class ApachiAlt(BaseStateMachine):
             self.sendEvent(self.DONE_EVT)
         else:
             if (not chgDn and self.altRate > 0.1) or (chgUp and self.altRate > 0.05): #need to be change rate to zero, not changing up if the rate is positive
-                self.setMainRotorSpeed(self.rotSpd - self.rotSpdDelta)
+                self.setMainRotorSpeed(self.desRotSpd - self.rotSpdDelta)
             elif chgDn and self.altRate < 0.0:
-                self.setMainRotorSpeed(self.rotSpd + self.rotSpdDelta)
+                self.setMainRotorSpeed(self.desRotSpd + self.rotSpdDelta)
             if da > self.tol and not chgUp and self.altRate < 0.1:
                 self.db(f"Slowed down too soon, kick it up")
-                self.setMainRotorSpeed(self.rotSpd + self.rotSpdDelta)
+                self.setMainRotorSpeed(self.desRotSpd + self.rotSpdDelta)
             if math.fabs(da) > (2.0 * self.tol) and da < 0.0:
                 self.db("=== Way way past, go down ===")
                 self.sendEvent(self.DECND_EVT)
@@ -161,12 +166,12 @@ class ApachiAlt(BaseStateMachine):
             self.sendEvent(self.DONE_EVT)
         else:
             if (not chgUp and self.altRate < 0.0) or (chgDn and self.altRate < -0.1):  #have to change rate up if not change or cannot change down with the negative rate
-                self.setMainRotorSpeed(self.rotSpd + self.rotSpdDelta)
+                self.setMainRotorSpeed(self.desRotSpd + self.rotSpdDelta)
             elif chgUp and self.altRate > 0.0:
-                self.setMainRotorSpeed(self.rotSpd - self.rotSpdDelta)
+                self.setMainRotorSpeed(self.desRotSpd - self.rotSpdDelta)
             if math.fabs(da) > self.tol and da < 0 and self.altRate > -0.1 and not chgDn:
                 self.db(f"Slow down the decent too soon, kick it down")
-                self.setMainRotorSpeed(self.rotSpd - self.rotSpdDelta)
+                self.setMainRotorSpeed(self.desRotSpd - self.rotSpdDelta)
 
             if math.fabs(da) > (2.0 * self.tol) and da > 0.0:
                 self.db("=== Way way past, go up ===")
@@ -180,13 +185,13 @@ class ApachiAlt(BaseStateMachine):
         else:
             now = time.time_ns()
             if now - self.changeStamp > self.WAIT_FOR_CHANGE_NS:
-                self.setMainRotorSpeed(self.rotSpd + self.rotSpdDelta)
+                self.setMainRotorSpeed(self.desRotSpd + self.rotSpdDelta)
 
     def leaveTkOffHndl(self):
         #stabilize the flight
         if self.trg >= self.ROT_SLOT_FAST_BREAK:
             self.db("==================== Stabilizing flight")
-            self.setMainRotorSpeed(400) #1.1 * self.rotSpd)
+            self.setMainRotorSpeed(400) #1.1 * self.desRotSpd)
             self.rotSpdDelta = self.ROT_SPD_DELTA_FAST
         else:
             self.rotSpdDelta = self.ROT_SPD_DELTA_SLOW
@@ -197,9 +202,9 @@ class ApachiAlt(BaseStateMachine):
     def atAltHndl(self):
         chg = self.rateChanged("up",False)
         if not chg and self.altRate < 0.0:
-            self.setMainRotorSpeed(self.rotSpd + self.rotSpdDelta)
+            self.setMainRotorSpeed(self.desRotSpd + self.rotSpdDelta)
         elif chg and self.altRate > -0.0075:
-            self.setMainRotorSpeed(self.rotSpd - self.rotSpdDelta)
+            self.setMainRotorSpeed(self.desRotSpd - self.rotSpdDelta)
 
 
     def inAtAltHndl(self):
@@ -303,17 +308,18 @@ class ApachiAlt(BaseStateMachine):
             #sliding average
             self.altRate = self.altRate * self.lgAltShare + self.smAltShare * altRate
             self.act = act
-            self.db(f"trg: {self.trg:5.2f}, act: {self.act:5.2f}, exp rt: {self.rotSpd:5.2f}, act rt: {self.actMainSpd:5.2f}, rate: {self.altRate:5.5f}/{altRate:5.5f}, rt accel: {self.altAccel:5.2f}, dt: {dt:5.5f}, step: {self.rotSpdDelta:5.2f}")
+            self.dump("TICK")
+            #self.db(f"trg: {self.trg:5.2f}, act: {self.act:5.2f}, exp rt: {self.desRotSpd:5.2f}, act rt: {self.actMainSpd:5.2f}, rate: {self.altRate:5.5f}/{altRate:5.5f}, rt accel: {self.altAccel:5.2f}, dt: {dt:5.5f}, step: {self.rotSpdDelta:5.2f}")
             if self.takeOfRotorSpeed is None and self.act > 0.0:
-                self.takeOfRotorSpeed = self.rotSpd
-            if math.fabs(self.rotSpd - self.actMainSpd) > 0.001:
-                self.db(f"Rotor spinning up/down: req: {self.rotSpd:5.2f}, actual {self.actMainSpd:5.2f}, rate: {self.altRate:5.2f}, alt: {self.act:5.2f}")
+                self.takeOfRotorSpeed = self.desRotSpd
+            if math.fabs(self.desRotSpd - self.actMainSpd) > 0.001:
+                self.db(f"Rotor spinning up/down: req: {self.desRotSpd:5.2f}, actual {self.actMainSpd:5.2f}, rate: {self.altRate:5.2f}, alt: {self.act:5.2f}")
             else:
                 if self.handle is not None:
                     self.handle(self)
             self.next()
             self.lastStamp = now
-        return self.rotSpd
+        return self.desRotSpd
     
     def getDeltaAlt(self):
         da = self.trg - self.act
@@ -321,7 +327,7 @@ class ApachiAlt(BaseStateMachine):
     
     def calcDeltaSpd(self,da):
         dSpd = self.spCoeff * da * self.diff * (math.exp(2) - 1.0)
-        self.db(f"calcDeltaSpd: Correction: rate: {self.altRate}, act {self.act}, trg: {self.trg}, spd: {self.rotSpd}, dAlt {da}, dSpd: {dSpd}, new speed {self.rotSpd + dSpd}")
+        self.db(f"calcDeltaSpd: Correction: rate: {self.altRate}, act {self.act}, trg: {self.trg}, spd: {self.desRotSpd}, dAlt {da}, dSpd: {dSpd}, new speed {self.desRotSpd + dSpd}")
         return dSpd
 
     def calcKick(self, curRate, desRate, curSpd):
@@ -342,14 +348,14 @@ class ApachiAlt(BaseStateMachine):
                 self.rotSpdDelta = self.ROT_SPD_DELTA_SLOW
 
     def rotorSpeed(self):
-        return self.rotSpd
+        return self.desRotSpd
     
     def setMainRotorSpeed(self,spd):
         if spd >= 0.0 and spd <= 400.0:
-            self.rotSpd = spd
+            self.desRotSpd = spd
         self.prevAltRate = self.altRate
         self.changeStamp = time.time_ns()
-        self.db(f"Rotor speed changed to {self.rotSpd:5.2f}, alt: {self.act:5.2f}")
+        self.db(f"Rotor speed changed to {self.desRotSpd:5.2f}, alt: {self.act:5.2f}")
 
     def rateChanged(m,dir, update = True):
         drA = math.fabs(m.prevAltRate - m.altRate)
