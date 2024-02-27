@@ -70,6 +70,27 @@ class Danook(StigChopper):
         self.currTime = 0.0
         self.stableCount = 0
         self.desiredAltitude = self.SAFE_ALTITUDE + self.ALTITUDE_MARGIN
+        self.topShaft = None
+        self.mainRotorNode = None
+        self.backShaft = None
+        self.tailRotorNode = None
+
+        for child in self.actor.children:
+            self.__displayNodePath(child, 0)
+
+    def __displayNodePath(self, nodepath, recurse_level):
+        for child in nodepath.children:
+            if not child is None:
+                if nodepath.getName() == "TopShaft" and child.getName() == "Rotor":
+                    self.mainRotorNode = child
+                    self.topShaft = nodepath
+                    self.mainRotorNode.reparentTo(self.topShaft)
+                if nodepath.getName() == "BackShaft" and child.getName() == "Rotor":
+                    self.tailRotorNode = child
+                    self.backShaft = nodepath
+                    self.tailRotorNode.reparentTo(self.backShaft)
+                #base.dbg(self.TAG, "Name -- {}: {}".format((' ' * recurse_level), child.getName()), self.FULL_DEBUG_MASK)
+                self.__displayNodePath(child, recurse_level + 1)
 
     def __findClosestDestination(self) -> Vec3:
         resultPoint = None
@@ -386,6 +407,10 @@ class Danook(StigChopper):
 
     def update(self,dt,tick):
         StigChopper.update(self,dt,tick)
+        if not self.mainRotorNode is None:
+            self.mainRotorNode.setHpr(Vec3(random.randint(0,360), 0, 0))
+        if not self.tailRotorNode is None:
+            self.tailRotorNode.setHpr(Vec3(random.randint(0,360), 0, 0))
 
     def runLogic(self,currentTime,elapsedTime):
         self.actualPosition = base.gps(self.getId())
