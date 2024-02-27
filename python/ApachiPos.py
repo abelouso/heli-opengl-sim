@@ -82,9 +82,9 @@ class ApachiPos(BaseStateMachine):
         cp = self.pv("cur", self.curPos)
         tp = self.pv("trg", self.trgPos)
         dp = self.calcDistToTarget()
-        self.db(f"{source:10}, {cp}, {tp}, dist: {dp:3.4f},facing: {self.velCtrl.facing:3.4f},\
- head: {self.velCtrl.velocityHeading:3.4f}, speed: {self.velCtrl.speed: 3.4f},\
- maxAccel: {self.maxAccel: 3.4f}, trgHdg: {self.trgHdg: 3.4f}")
+        self.db(f"{source:10}, {cp}, {tp}, dist: {dp:3.4f},facing: {self.velCtrl.facing:3.4f},"\
+                "head: {self.velCtrl.velocityHeading:3.4f}, speed: {self.velCtrl.speed: 3.4f},"\
+                "maxAccel: {self.maxAccel: 3.4f}, trgHdg: {self.trgHdg: 3.4f}")
 
     def initHndl(self):
         if self.curPos.getZ() < 0.1:
@@ -114,7 +114,7 @@ class ApachiPos(BaseStateMachine):
             self.db(f"Not at alt, waiting")
             if abs(self.altCtrl.trg - self.trgPos.z) > 0.1:
                 self.altCtrl.setTarget(self.trgPos.z)
-        _,_, mv = self.canMove()
+        _,_, mv = self.canMove(self.headCtrl.tol)
         if mv:
             self.inAccelHndl()
             pass
@@ -128,10 +128,10 @@ class ApachiPos(BaseStateMachine):
         trgHdg = self.calcTargetHeading()
         dist = self.calcDistToTarget()
         turnRt = abs(self.headCtrl.rotRate)
-        trgHdg, turnRt, move = self.canMove()
+        trgHdg, turnRt, move = self.canMove(10.0 * self.headCtrl.tol)
         what = "check for heading target "
-        if abs(trgHdg - self.headCtrl.trg) > self.headCtrl.tol and self.headCtrl.state == self.headCtrl.AT_HEAD_ST:
-            self.inTurnHndl()
+        ##if abs(trgHdg - self.headCtrl.trg) > self.headCtrl.tol and self.headCtrl.state == self.headCtrl.AT_HEAD_ST:
+        ##    self.inTurnHndl()
         what = "Waiting for direction "
         if move or dist < 4.0:
             what = "At heading, going to location "
@@ -520,10 +520,12 @@ class ApachiPos(BaseStateMachine):
     def calcDistToTarget(self):
         return self.calcDistance(self.trgPos, self.curPos)
     
-    def canMove(self):
+    def canMove(self, tol):
         trgHdg = self.calcTargetHeading()
         isStable = self.headCtrl.isStable()
-        res = abs(trgHdg - self.headCtrl.act) <= self.headCtrl.tol and isStable
+        inTol = abs(trgHdg - self.headCtrl.act) <= tol
+        self.db(f" sable: {isStable}, in tol: {inTol}")
+        res = inTol and isStable
         return trgHdg, abs(self.headCtrl.rotRate), res
 
     def wentTooFar(self):

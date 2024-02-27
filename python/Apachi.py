@@ -48,6 +48,7 @@ class Apachi(StigChopper):
 
 
     def setWaypoints(self, wp):
+        super().setWaypoints(wp)
         self.targetWaypoints = wp
         self.cargoIdx = 0
         pt = self.targetWaypoints[self.cargoIdx]
