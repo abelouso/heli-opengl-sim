@@ -31,8 +31,8 @@ class ApachiAlt(BaseStateMachine):
     DECND_EVT = 4
 
     MAX_ALT_RATE = 1.0
-    ROT_SPD_DELTA_SLOW = 6.5
-    ROT_SPD_DELTA_FAST = 10.0
+    ROT_SPD_DELTA_SLOW = 1.4
+    ROT_SPD_DELTA_FAST = 3.5
     ROT_SLOT_FAST_BREAK = 65
     RATE_TOL = 0.001
     WAIT_FOR_CHANGE_NS = 200.0e3 #200 ms
@@ -45,8 +45,8 @@ class ApachiAlt(BaseStateMachine):
     deltaRot = 0
 
     altCnt = 20
-    lgAltShare = 1.0 - (1.0 / altCnt)
-    smAltShare = 1.0 - lgAltShare
+    smAltShare = 1.0 / float(altCnt)
+    lgAltShare = 1.0 - smAltShare
 
     changeStamp = time.time_ns()
     lastStamp = time.time_ns()
@@ -84,13 +84,13 @@ class ApachiAlt(BaseStateMachine):
     def inAccelHndl(self):
         da = self.getDeltaAlt()
         if da > 0:
-            accelInt = math.fabs(0.64 * da)
+            accelInt = math.fabs(0.5 * da)
             decelInt = math.fabs(da) - accelInt
             self.accelAlt = self.act + accelInt
             self.linAlt = self.accelAlt + accelInt
             self.decelAlt = self.accelAlt + decelInt
         else:
-            accelInt = math.fabs(0.36 * da)
+            accelInt = math.fabs(0.4 * da)
             decelInt = math.fabs(da) - accelInt
             self.accelAlt = self.act - accelInt
             self.linAlt = self.accelAlt - accelInt
@@ -103,9 +103,9 @@ class ApachiAlt(BaseStateMachine):
             self.sendEvent(self.ACCND_EVT)
         else:
             chg = self.rateChanged("up")
-            if not chg and self.altRate < self.MAX_ALT_RATE:
+            if not chg and self.altRate < 0.5 * self.MAX_ALT_RATE:
                 self.setMainRotorSpeed(self.desRotSpd + self.rotSpdDelta)
-            elif chg and self.altRate > self.MAX_ALT_RATE:
+            elif chg and self.altRate > 0.9 * self.MAX_ALT_RATE:
                 self.setMainRotorSpeed(self.desRotSpd - self.rotSpdDelta)
             else:
                 self.deltaRot = self.desRotSpd - self.takeOfRotorSpeed
@@ -129,7 +129,7 @@ class ApachiAlt(BaseStateMachine):
             self.sendEvent(self.ACCND_EVT)
         else:
             chg = self.rateChanged("up")
-            if not chg and self.altRate < self.MAX_ALT_RATE:
+            if not chg and self.altRate < 0.8 * self.MAX_ALT_RATE:
                 self.setMainRotorSpeed(self.desRotSpd + self.rotSpdDelta)
             elif chg and self.altRate > self.MAX_ALT_RATE:
                 self.setMainRotorSpeed(self.desRotSpd - self.rotSpdDelta)
@@ -201,10 +201,10 @@ class ApachiAlt(BaseStateMachine):
     
     def atAltHndl(self):
         chg = self.rateChanged("up",False)
-        if not chg and self.altRate < 0.0:
-            self.setMainRotorSpeed(self.desRotSpd + self.rotSpdDelta)
+        if not chg and self.altRate < -0.0025:
+            self.setMainRotorSpeed(self.desRotSpd + 0.77 * self.rotSpdDelta)
         elif chg and self.altRate > -0.0075:
-            self.setMainRotorSpeed(self.desRotSpd - self.rotSpdDelta)
+            self.setMainRotorSpeed(self.desRotSpd - 0.9 * self.rotSpdDelta)
 
 
     def inAtAltHndl(self):
@@ -297,14 +297,15 @@ class ApachiAlt(BaseStateMachine):
         now = time.time_ns()
         dt = (now - self.lastStamp) * 0.00000001 #ns
         self.dt = dt
-        if True:
+        if dt >= 0.3:
             ##TODO: provide service for thisin heli main
             self.actMainSpd = spd
             altRate = (act - self.act) / self.dt
-            if math.fabs(altRate - self.altRate) > 0.5:
-                altRate = self.altRate
+            #if math.fabs(altRate - self.altRate) > 0.5:
+            #    altRate = self.altRate
             
-            self.altAccel = (altRate - self.altRate) / self.dt
+            accel = (altRate - self.altRate) / self.dt
+            self.altAccel = self.altAccel * self.lgAltShare + self.smAltShare * accel
             #sliding average
             self.altRate = self.altRate * self.lgAltShare + self.smAltShare * altRate
             self.act = act

@@ -9,7 +9,7 @@ import socket
 import struct
 
 #https://stackoverflow.com/questions/603852/how-do-you-udp-multicast-in-python
-MCAST_GRP = '224.1.1.1'
+MCAST_GRP = '224.0.0.1'
 MCAST_PORT = 50001
 IS_ALL_GROUPS = True
 MULTICAST_TTL = 2

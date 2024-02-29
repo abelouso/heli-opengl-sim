@@ -15,7 +15,7 @@ import math
 import random
 
 #https://stackoverflow.com/questions/603852/how-do-you-udp-multicast-in-python
-MCAST_GRP = '224.1.1.1'
+MCAST_GRP = '224.0.0.1'
 MCAST_PORT = 50001
 IS_ALL_GROUPS = True
 gAni = None
@@ -210,7 +210,7 @@ class ApachiTelem:
                 if altStI >= 0:
                     state = msg[:stI]
                     self.altState["text"] = self.str2State("ALT STATE",state)
-                    self.alt["text"] = self.getData("altact:",msg,",","alt:")
+                    self.alt["text"] = self.getData("altact:",msg,",","alt:") + "/" + self.getData("alttrg:",msg,",","") 
                     floatVal1 = self.getDatFloat("altact:",msg,",")
                     floatVal2 = self.getDatFloat("act rot:",msg,",")
                     floatVal3 = self.getDatFloat("altrate:",msg,",")
@@ -221,9 +221,9 @@ class ApachiTelem:
                 if floatVal2 is not None:
                     self.ydata2.append(floatVal2 * 0.1); added = True
                 if floatVal3 is not None:
-                    self.ydata3.append(floatVal3 * 100.0); added = True
+                    self.ydata3.append(floatVal3 * 10.0); added = True
                 if floatVal4 is not None:
-                    self.ydata4.append(floatVal4 * 10000.0); added = True
+                    self.ydata4.append(floatVal4 * 100.0); added = True
                 if added:
                     self.xdata.append(datetime.datetime.now())
 

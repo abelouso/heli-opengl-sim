@@ -45,7 +45,18 @@ class Apachi(StigChopper):
         self.velCtrl.setSpeed(0.0)
         '''
         #self.m_fuelCapacity = 100
+        self.spiny1 = None
+        self.spiny2 = None
+        for child in self.actor.children:
+            self.findRotNodes(child, 0)
 
+    def findRotNodes(self, nodepath, recurse_level):
+        for child in nodepath.children:
+            if not child is None:
+                if nodepath.getName() == "Rotor":
+                    self.spiny = nodepath
+                self.ctrl.db("Name -- {}: {}".format((' ' * recurse_level), child.getName()))
+                self.findRotNodes(child, recurse_level + 1)
 
     def setWaypoints(self, wp):
         super().setWaypoints(wp)
@@ -56,6 +67,8 @@ class Apachi(StigChopper):
 
     def update(self,dt,tick):
         StigChopper.update(self,dt,tick)
+        if self.spiny is not None:
+            self.spiny.setHpr(Vec3(random.randint(0,360), 0, 0))
 
     def runLogic(self,dt,tick):
         StigChopper.runLogic(self,dt,tick)

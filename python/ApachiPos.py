@@ -243,7 +243,7 @@ class ApachiPos(BaseStateMachine):
         self.db(f"{wh} faceFwd: {faceFwd}, stable: {stable}, stopped: {stopped}")
 
     def altTests(self):
-        alts = [700, 40, 20, 65, 110, 30, 45, 0.2, 70, 0.1]
+        alts = [170, 0.2, 40, 20, 65, 110, 30, 45, 0.0, 70, 0.0, 20.0]
 
         now = time.time_ns()
         atAlt = self.altCtrl.state == self.altCtrl.AT_ALT_ST
@@ -252,7 +252,7 @@ class ApachiPos(BaseStateMachine):
         if atAlt and inTol and self.testAltStamp is None:
             self.testAltStamp = now
         if self.testAltStamp is not None:
-            atTime = (now - self.testAltStamp) > 45.0e9
+            atTime = (now - self.testAltStamp) > 20.0e9
         else:
             atTime = False
 
