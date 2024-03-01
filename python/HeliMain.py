@@ -272,6 +272,7 @@ class HeliMain(ShowBase):
                     deltaX = avec3.x - myPos.x
                     deltaY = avec3.y - myPos.y
                     delta = math.sqrt(deltaX * deltaX + deltaY * deltaY)
+                    self.dbg(self.TAG,f"Checking: vec {avec3.x:3.4f},{avec3.y:3.4f},{avec3.z:3.4f}, dist: {delta: 3.4f}, id: {id}",self.WORLD_DBG)
                     if delta < self.MAX_PACKAGE_DISTANCE:
                         self.dbg(self.TAG,"Chopper {} delivered package to ({:.2f}, {:.2f})".format(id, avec3.x, avec3.y), self.WORLD_DBG)
                         object.remove(avec3)

@@ -20,6 +20,7 @@ from ApachiPos import *
 
 class Apachi(StigChopper):
     startTime = time.time_ns()
+    cruseAlt = 70
     def __init__(self,id, pos, scale=0.2):
         StigChopper.__init__(self,id,pos,"Models/ArmyCopter", {}, "apachi")
         self.actor.setScale(scale,scale,scale)
@@ -58,12 +59,38 @@ class Apachi(StigChopper):
                 self.ctrl.db("Name -- {}: {}".format((' ' * recurse_level), child.getName()))
                 self.findRotNodes(child, recurse_level + 1)
 
+    def findNearPos(self, myPos):
+        sz = len(self.targetWaypoints)
+        nearIdx = None
+        pt = None
+        if sz > 0:
+            nearPos = self.targetWaypoints[0]
+            nearIdx = 0
+            if sz > 1:
+                idx = 0
+                dist = 1e6
+                for pos in self.targetWaypoints:
+                    deltaX = pos.x - myPos.x
+                    deltaY = pos.y - myPos.y
+                    curDistance = math.sqrt(deltaX * deltaX + deltaY * deltaY)
+                    self.ctrl.db(f" idx: {idx}, dist: {dist: 3.4f}")
+                    if curDistance < dist:
+                        nearPos = pos
+                        dist = curDistance
+                        nearIdx = idx
+                        self.ctrl.db(f"New near: {dist:3.4f}, idx: {idx}")
+                    idx += 1
+        return nearIdx, nearPos
+
     def setWaypoints(self, wp):
         super().setWaypoints(wp)
         self.targetWaypoints = wp
         self.cargoIdx = 0
-        pt = self.targetWaypoints[self.cargoIdx]
-        self.ctrl.setPosition(Vec3(pt.x, pt.y, 50))
+        myPos = base.gps(self.id)
+        self.cargoIdx, pt = self.findNearPos(myPos)
+        self.ctrl.setPosition(Vec3(pt.x, pt.y, self.cruseAlt))
+        self.ctrl.db(f"packages: {len(self.targetWaypoints)},")
+        #del(self.targetWaypoints[self.cargoIdx])
 
     def update(self,dt,tick):
         StigChopper.update(self,dt,tick)
@@ -89,13 +116,14 @@ class Apachi(StigChopper):
             delviered = base.deliverPackage(self.id)
             if delviered:
                 self.ctrl.db(f"================== DELIVERED PACKAGE ===================== #{self.cargoIdx}")
-                self.cargoIdx += 1
-                if self.cargoIdx >= len(self.targetWaypoints):
+                self.cargoIdx, pt = self.findNearPos(pos)
+                if self.cargoIdx is None:
                     self.ctrl.db(f"================== DELIVERED ALL PACKAGES ===================== #{self.cargoIdx}")
                 else:
-                    pt = self.targetWaypoints[self.cargoIdx]
-                    self.ctrl.setPosition(Vec3(pt.x, pt.y, 50))
+                    self.ctrl.setPosition(Vec3(pt.x, pt.y, self.cruseAlt))
                     self.ctrl.sendEvent(self.ctrl.GO_EVT)
+                    self.ctrl.db(f"packages: {len(self.targetWaypoints)},")
+                    #del(self.targetWaypoints[self.cargoIdx])
             else:
                 self.ctrl.db(f"======= TRYING TO DROP OFF =========== #{self.cargoIdx}")
         

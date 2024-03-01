@@ -65,11 +65,11 @@ class ApachiVel(BaseStateMachine):
         pDiff = self.pDiffN()
         cp = self.actPos
         lp = self.lstPos
-        self.db(f"{source:10},T: {self.trg: 3.4f}, spd: {self.speed: 3.4f}, \
-desT: {self.desTilt: 3.4f}, actT: {self.actTilt: 3.4f}, accel: {self.accel: 3.4f}, \
-facing: {self.facing: 3.4f}, moving: {self.velocityHeading: 3.4f} \
-lp: ({lp.x: 3.4f},{lp.y: 3.4f},{lp.z: 3.4f}), cp: ({cp.x: 3.4f},{cp.y: 3.4f},{cp.z: 3.4f}) \
-dir: ({pDiff.x: 3.4f},{pDiff.y: 3.4f},{pDiff.z: 3.4f})")
+        self.db(f"{source:10},T: {self.trg: 3.4f}, velspd: {self.speed: 3.4f}, "\
+                f"desT: {self.desTilt: 3.4f}, velactT: {self.actTilt: 3.6f}, velaccel: {self.accel: 3.9f}, "\
+                f"facing: {self.facing: 3.4f}, moving: {self.velocityHeading: 3.4f} "\
+                f"lp: ({lp.x: 3.4f},{lp.y: 3.4f},{lp.z: 3.4f}), cp: ({cp.x: 3.4f},{cp.y: 3.4f},{cp.z: 3.4f}) "\
+                f"dir: ({pDiff.x: 3.4f},{pDiff.y: 3.4f},{pDiff.z: 3.4f})")
 
     def stopEvt(self):
         self.setTilt(0.0)
@@ -89,7 +89,7 @@ dir: ({pDiff.x: 3.4f},{pDiff.y: 3.4f},{pDiff.z: 3.4f})")
         dva = abs(dV)
         wh = "Handling speed change: "
         reqTilt = 0.0
-        SM_STEP = 0.001 * self.MAX_TILT
+        SM_STEP = 0.0015 * self.MAX_TILT
         '''
         if dva < self.tol:
             #self.sendEvent(self.AT_SPEED_EVT)
@@ -302,11 +302,11 @@ dir: ({pDiff.x: 3.4f},{pDiff.y: 3.4f},{pDiff.z: 3.4f})")
         fcRad = math.radians(self.facing)
         fcVec = Vec2(math.sin(fcRad), math.cos(fcRad))
         dot = vhVec.dot(fcVec)
-        mvFst = abs(self.speed) > self.tol
-        movingFwd = (abs(dot) - 1.0) < 0.01 and mvFst
         stopped = abs(self.speed) <= self.tol
+        along = (abs(dot) - 1.0)
+        movingFwd = abs(abs(dot) - 1.0) < 0.01 and not stopped
         
-        self.db(f" vh: {vh: 3.4f}, fc: {fc: 3.4f}, dot: {dot: 3.4f}, speed: {self.speed: 3.4f}, fwd: {movingFwd} or stopped {stopped}")
+        self.db(f" vh: {vh: 3.4f}, fc: {fc: 3.4f}, dot: {dot: 3.4f}, along: {along: 3.4f}, speed: {self.speed: 3.4f}, fwd: {movingFwd} or stopped {stopped}")
         return  movingFwd or stopped
 
     def isStopped(self):

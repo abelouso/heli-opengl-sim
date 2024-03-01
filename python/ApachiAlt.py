@@ -59,7 +59,9 @@ class ApachiAlt(BaseStateMachine):
     firstTick = True
 
     def dump(self,source):
-        self.db(f"{source:10}, alttrg: {self.trg: 3.4f}, altact: {self.act: 3.4f}, altrate: {self.altRate: 3.4f}, altaccel: {self.altAccel: 3.8f}, act rot: {self.actMainSpd: 3.4f}, des rot: {self.desRotSpd: 3.4f},")
+        self.db(f"{source:10}, alttrg: {self.trg: 3.4f}, altact: {self.act: 3.4f}, "\
+                f"altrate: {self.altRate: 3.4f}, altaccel: {self.altAccel: 3.8f}, "\
+                f"act rot: {self.actMainSpd: 3.4f}, des rot: {self.desRotSpd: 3.4f},")
         pass
 
 
@@ -90,7 +92,7 @@ class ApachiAlt(BaseStateMachine):
             self.linAlt = self.accelAlt + accelInt
             self.decelAlt = self.accelAlt + decelInt
         else:
-            accelInt = math.fabs(0.4 * da)
+            accelInt = math.fabs(0.45 * da)
             decelInt = math.fabs(da) - accelInt
             self.accelAlt = self.act - accelInt
             self.linAlt = self.accelAlt - accelInt
@@ -205,6 +207,27 @@ class ApachiAlt(BaseStateMachine):
             self.setMainRotorSpeed(self.desRotSpd + 0.77 * self.rotSpdDelta)
         elif chg and self.altRate > -0.0075:
             self.setMainRotorSpeed(self.desRotSpd - 0.9 * self.rotSpdDelta)
+
+    def atAltHndlHmm(self):
+        da = self.getDeltaAlt()
+        chgDn = self.rateChanged("dn",False)
+        chgUp = self.rateChanged("up")
+        if (not chgDn and self.altRate > 0.1) or (chgUp and self.altRate > 0.05): #need to be change rate to zero, not changing up if the rate is positive
+            self.setMainRotorSpeed(self.desRotSpd - 0.5 * self.rotSpdDelta)
+        elif chgDn and self.altRate < 0.0:
+            self.setMainRotorSpeed(self.desRotSpd + 0.5 * self.rotSpdDelta)
+        if da > self.tol and not chgUp and self.altRate < 0.1:
+            self.db(f"Slowed down too soon, kick it up")
+            self.setMainRotorSpeed(self.desRotSpd + 0.5 * self.rotSpdDelta)
+        '''
+        if (not chgUp and self.altRate < 0.0) or (chgDn and self.altRate < -0.1):  #have to change rate up if not change or cannot change down with the negative rate
+                self.setMainRotorSpeed(self.desRotSpd + self.rotSpdDelta)
+        elif chgUp and self.altRate > 0.0:
+            self.setMainRotorSpeed(self.desRotSpd - self.rotSpdDelta)
+        if math.fabs(da) > self.tol and da < 0 and self.altRate > -0.1 and not chgDn:
+            self.db(f"Slow down the decent too soon, kick it down")
+            self.setMainRotorSpeed(self.desRotSpd - self.rotSpdDelta)
+        '''
 
 
     def inAtAltHndl(self):

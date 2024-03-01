@@ -78,6 +78,8 @@ class ApachiTelem:
         row = 4
         self.cp = tk.Label(self.root,anchor="w")
         self.cp.grid(column=col,row=row, sticky="w")
+        self.pkgs = tk.Label(self.root,anchor="w")
+        self.pkgs.grid(column=rtCol,row=row,sticky="w")
         row = 5
         self.ap = tk.Label(self.root,anchor="w")
         self.ap.grid(column=col,row=row, sticky="w")
@@ -181,14 +183,18 @@ class ApachiTelem:
                 fI = msg.find("facing:")
                 elT = msg.find("elapsed:")
                 altDes = msg.find("desRS:") #in heading state
-                accI = msg.find("accel:")
-                accSpdI = msg.find("actT") #in velocity state
+                accI = msg.find("velaccel:")
+                accSpdI = msg.find("velactT") #in velocity state
                 altStI = msg.find("alttrg:") #in altitude state
                 altI = msg.find("altact:")
+                velSpdI = msg.find("velspd:")
+                pkgI = msg.find("packages: ")
                 floatVal1 = None
                 floatVal2 = None
                 floatVal3 = None
                 floatVal4 = None
+                if pkgI >= 0:
+                    self.pkgs["text"] = self.getData("packages: ",msg,",")
                 if dI >= 0 and fI >=0:
                     self.dist["text"] = self.getData("dist:",msg,',',"DISTANCE:")
                     self.face["text"] = self.getData("facing:",msg)
@@ -211,19 +217,20 @@ class ApachiTelem:
                     state = msg[:stI]
                     self.altState["text"] = self.str2State("ALT STATE",state)
                     self.alt["text"] = self.getData("altact:",msg,",","alt:") + "/" + self.getData("alttrg:",msg,",","") 
-                    floatVal1 = self.getDatFloat("altact:",msg,",")
-                    floatVal2 = self.getDatFloat("act rot:",msg,",")
-                    floatVal3 = self.getDatFloat("altrate:",msg,",")
-                    floatVal4 = self.getDatFloat("altaccel:",msg,",")
+                if velSpdI >= 0:
+                    floatVal1 = self.getDatFloat("velactT:",msg,",")
+                    floatVal2 = self.getDatFloat(",T:",msg,",")
+                    floatVal3 = self.getDatFloat("velspd: ",msg,",")
+                    floatVal4 = self.getDatFloat("velaccel:",msg,",")
                 added = False
                 if floatVal1 is not None:
-                    self.ydata1.append(floatVal1 * 0.1); added = True
+                    self.ydata1.append(floatVal1 * 10.0); added = True
                 if floatVal2 is not None:
-                    self.ydata2.append(floatVal2 * 0.1); added = True
+                    self.ydata2.append(floatVal2 * 10.0); added = True
                 if floatVal3 is not None:
                     self.ydata3.append(floatVal3 * 10.0); added = True
                 if floatVal4 is not None:
-                    self.ydata4.append(floatVal4 * 100.0); added = True
+                    self.ydata4.append(floatVal4 * 1000.0); added = True
                 if added:
                     self.xdata.append(datetime.datetime.now())
 
