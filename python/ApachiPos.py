@@ -138,10 +138,11 @@ class ApachiPos(BaseStateMachine):
         trgHdg = self.calcTargetHeading()
         dist = self.calcDistToTarget()
         turnRt = abs(self.headCtrl.rotRate)
-        trgHdg, turnRt, move = self.canMove(10.0 * self.headCtrl.tol)
+        trgHdg, turnRt, move = self.canMove(self.headCtrl.tol)
         what = "check for heading target "
         if abs(trgHdg - self.headCtrl.trg) > self.headCtrl.tol and self.headCtrl.state == self.headCtrl.AT_HEAD_ST:
-            self.inTurnHndl()
+            #self.inTurnHndl()
+            pass
         what = "Waiting for direction "
         if move or dist < 4.0:
             what = "At heading, going to location "
@@ -549,7 +550,8 @@ class ApachiPos(BaseStateMachine):
         trgVec = Vec2(math.sin(trgHdg), math.cos(trgHdg))
         myVec = Vec2(math.sin(myHdg), math.cos(myHdg))
         dot = trgVec.dot(myVec)
-        sign = 1.0 if dot >= 0.0 else -1.0
+        sign = 1.0 if dot > 0.0 else -1.0
+        if dot == 0.0: sign = 0.0
 
         #if dist > 0.3:
         #    wh = "going "
