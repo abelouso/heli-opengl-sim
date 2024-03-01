@@ -78,6 +78,7 @@ class ApachiPos(BaseStateMachine):
     idxHdg = 0
     testAltStamp = time.time_ns()
     testVelStamp = time.time_ns()
+    dropOffAlt = 0.30
 
     sock = None
 
@@ -89,7 +90,7 @@ class ApachiPos(BaseStateMachine):
         tp = self.pv("trg", self.trgPos)
         dp = self.calcDistToTarget()
         self.db(f"{source:10}, {cp}, {tp}, dist: {dp:3.4f},facing: {self.velCtrl.facing:3.4f},"\
-                f"head: {self.velCtrl.velocityHeading:3.4f}, speed: {self.velCtrl.speed: 3.4f},"\
+                f"head: {self.velCtrl.velocityHeading:3.4f}, speed: {self.velCtrl.speed: 3.6f},"\
                 f"maxAccel: {self.maxAccel: 3.4f}, trgHdg: {self.trgHdg: 3.4f}")
 
     def initHndl(self):
@@ -145,6 +146,9 @@ class ApachiPos(BaseStateMachine):
         if move or dist < 4.0:
             what = "At heading, going to location "
             self.sendEvent(self.START_MOVE_EVT)
+        elif not self.velCtrl.isStopped():
+            what = "Not stopped, go to hover"
+            self.sendEvent(self.HOVER_EVT)
         
         self.db(f"{what}> headT: {trgHdg:3.4f}, actH: {self.headCtrl.act:3.4f}, rate: {turnRt:3.4f}, dist: {dist:3.4f}")
     
@@ -167,13 +171,16 @@ class ApachiPos(BaseStateMachine):
         what = "Acceleraing "
         vel = self.velCtrl.speed
         acc = self.maxAccel
-        stopDist = 0.89 * ((vel / acc))
+        acc = self.velCtrl.MAX_ACCEL
+        stopDist = 0.06 * ((vel / acc))
         
-        if self.wentTooFar():
-            what = " Went too far, stop, turn around"
-            #reset went too far, before reacting
-            self.deltaPos = self.calcDistToTarget() + 1.0
-            self.sendEvent(self.DIR_EVT)
+        if not self.velCtrl.isToTarget(self.trgHdg) and distR >= 12.0:
+            self.velCtrl.setSpeed(0.0)
+            if self.velCtrl.isStopped():
+                if distR <= 3.0:
+                    self.sendEvent(self.LAND_EVT)
+                else:
+                    self.sendEvent(self.HOVER_EVT)
 
         elif distR < self.decelDist:
             what = "Less than half remain: "
@@ -218,44 +225,59 @@ class ApachiPos(BaseStateMachine):
                     else:
                         what += "Not close enough, need to adjust "
                         self.sendEvent(self.ACCEL_EVT)
+        elif distR < 5.0:
+            what += " adjusting position"
+            self.velTowardsPos()
+            if distR < 2.0:
+                self.sendEvent(self.LAND_EVT)
+                what += "Done, landing...."
+
         self.db(f"{what}> distT: {distR:3.4f}, prevD: {self.deltaPos: 3.4f}, "\
                 f"speed: {self.velCtrl.speed:3.4f}, tilt: {self.velCtrl.actTilt:3.4f},  "\
                 f"hdg: {self.headCtrl.act:3.4f}, trgHdg: {desHdg:3.4f}, noSpd: {lowSpd}, noTilt: {noTilt},")
 
     def inDecHndl(self):
-        self.altCtrl.setTarget(0.14)
+        self.altCtrl.setTarget(self.dropOffAlt)
 
     def decHndl(self):
         wh = "Wating for zero alt "
         dist = self.calcDistToTarget()
         dDp = self.deltaPos - dist
+        self.velTowardsPos()
         if self.curPos.z < 0.2 and abs(self.altCtrl.altRate) < 0.1:
             wh = "Landed!"
             self.sendEvent(self.DROP_EVT)
-        else:
-            self.velTowardsPos()
 
         self.db(f"{wh}: alt: {self.curPos.z: 3.4f}, altRt: {self.altCtrl.altRate: 3.4f}, DDP: {dDp: 3.4f}")
 
     def delHndl(self):
         dist = self.velTowardsPos()
+        landed = self.isLanded()
+        if dist > 1.0 and landed:
+            self.altCtrl.setTarget(1.0)
+            self.sendEvent(self.FLY_EVT)
+            self.db(f"DEBUG1: landed too far, take off")
         #if dist < 0.8 and self.altCtrl.act < 0.2:
         #    self.db(f"Setting negative alt target to land")
         #    self.altCtrl.setTarget(-0.3)
 
 
     def inLandedHndl(self):
-        self.altCtrl.setTarget(0.06)
+        self.altCtrl.setTarget(self.dropOffAlt)
 
     def landedHndl(self):
+        self.velTowardsPos()
         if self.curPos.z < 0.5:
             self.sendEvent(self.DROP_EVT)
             
     def inHoverHndl(self):
         self.headCtrl.setHeading(self.velCtrl.velocityHeading)
+
+    def outDelHndl(self):
+        self.altCtrl.setMainRotorSpeed(400.0)
         
     def hoverHndl(self):
-        faceFwd = self.velCtrl.isFwd()
+        faceFwd = self.velCtrl.isAlongPath()
         stable = self.headCtrl.isStable()
         stopped = self.velCtrl.isStopped()
         wh = "In hover"
@@ -268,6 +290,12 @@ class ApachiPos(BaseStateMachine):
             wh = "all stable, get out"
             self.sendEvent(self.GO_EVT)
         self.db(f"{wh} faceFwd: {faceFwd}, stable: {stable}, stopped: {stopped}")
+
+    def aprHndl(self):
+        landed = self.isLanded()
+        if not landed:
+            self.altCtrl.setTarget(self.dropOffAlt)
+            self.sendEvent(self.DROP_EVT)
 
     def altTests(self):
         alts = [170, 0.2, 40, 20, 65, 110, 30, 45, 0.0, 70, 0.0, 20.0]
@@ -364,159 +392,71 @@ class ApachiPos(BaseStateMachine):
         ALT_CHANGE_ST: (inAltChgHndl, altChHndl, None),
         TURNING_ST: (inTurnHndl, turnHndl, None),
         ACCEL_ST: (inAccelHndl, accelHndl, None),
-        APPROACH_ST: (None, None, None),
+        APPROACH_ST: (None, aprHndl, None),
         DECEL_ST: (inDecelHndl, decelHndl, None),
         HOVER_ST: (inHoverHndl, hoverHndl, None),
         DECEND_ST: (inDecHndl, decHndl, None),
         LANDED_ST: (inLandedHndl, landedHndl, None),
-        DELIVER_ST: (None, delHndl, None),
+        DELIVER_ST: (None, delHndl, outDelHndl),
         TEST_ST: (None, testHndl, None),
     }
 
     StateMachine = {
         INIT_ST: {
                     GO_EVT: (ON_GND_ST, None),
-                    LEVEL_EVT: (INIT_ST, None),
-                    DIR_EVT: (INIT_ST, None),
-                    START_MOVE_EVT: (INIT_ST, None),
-                    ACCEL_EVT: (INIT_ST, None),
-                    FLY_EVT: (INIT_ST, None),
-                    DECEL_EVT: (INIT_ST, None),
-                    LAND_EVT: (INIT_ST, None),
-                    DROP_EVT: (INIT_ST, None),
-                    NULL_EVT: (INIT_ST, None),
-                    HOVER_EVT: (INIT_ST, None),
                     TEST_EVT: (TEST_ST, None),
                 },
         ON_GND_ST: {
                     GO_EVT: (ALT_CHANGE_ST, None),
-                    LEVEL_EVT: (INIT_ST, None),
-                    DIR_EVT: (INIT_ST, None),
-                    START_MOVE_EVT: (INIT_ST, None),
-                    ACCEL_EVT: (INIT_ST, None),
-                    FLY_EVT: (INIT_ST, None),
-                    DECEL_EVT: (INIT_ST, None),
-                    LAND_EVT: (INIT_ST, None),
-                    DROP_EVT: (INIT_ST, None),
-                    NULL_EVT: (INIT_ST, None),
+                    LEVEL_EVT: (ON_GND_ST, None),
+                    DIR_EVT: (ON_GND_ST, None),
                     HOVER_EVT: (HOVER_ST, None),
                     TEST_EVT: (TEST_ST, None),
                 },
         ALT_CHANGE_ST: {
-                    GO_EVT: (INIT_ST, None),
                     LEVEL_EVT: (TURNING_ST, None),
-                    DIR_EVT: (INIT_ST, None),
-                    START_MOVE_EVT: (INIT_ST, None),
-                    ACCEL_EVT: (INIT_ST, None),
-                    FLY_EVT: (INIT_ST, None),
-                    DECEL_EVT: (INIT_ST, None),
-                    LAND_EVT: (INIT_ST, None),
-                    DROP_EVT: (INIT_ST, None),
-                    NULL_EVT: (INIT_ST, None),
                     HOVER_EVT: (HOVER_ST, None),
                 },
         TURNING_ST: {
-                    GO_EVT: (INIT_ST, None),
-                    LEVEL_EVT: (INIT_ST, None),
                     DIR_EVT: (TURNING_ST, None),
                     START_MOVE_EVT: (ACCEL_ST, None),
-                    ACCEL_EVT: (INIT_ST, None),
-                    FLY_EVT: (INIT_ST, None),
-                    DECEL_EVT: (INIT_ST, None),
-                    LAND_EVT: (INIT_ST, None),
-                    DROP_EVT: (INIT_ST, None),
-                    NULL_EVT: (INIT_ST, None),
                     HOVER_EVT: (HOVER_ST, None),
                 },
         ACCEL_ST: {
-                    GO_EVT: (INIT_ST, None),
-                    LEVEL_EVT: (INIT_ST, None),
                     DIR_EVT: (TURNING_ST, None),
-                    START_MOVE_EVT: (INIT_ST, None),
-                    ACCEL_EVT: (INIT_ST, None),
-                    FLY_EVT: (INIT_ST, None),
                     DECEL_EVT: (DECEL_ST, None),
-                    LAND_EVT: (INIT_ST, None),
-                    DROP_EVT: (INIT_ST, None),
-                    NULL_EVT: (INIT_ST, None),
                     HOVER_EVT: (HOVER_ST, None),
                 },
         APPROACH_ST: {
-                    GO_EVT: (INIT_ST, None),
-                    LEVEL_EVT: (INIT_ST, None),
-                    DIR_EVT: (INIT_ST, None),
-                    START_MOVE_EVT: (INIT_ST, None),
-                    ACCEL_EVT: (INIT_ST, None),
-                    FLY_EVT: (INIT_ST, None),
-                    DECEL_EVT: (INIT_ST, None),
-                    LAND_EVT: (INIT_ST, None),
-                    DROP_EVT: (INIT_ST, None),
-                    HOVER_EVT: (HOVER_ST, None),
+                    DROP_EVT: (DELIVER_ST, None),
                 },
         DECEL_ST: {
-                    GO_EVT: (INIT_ST, None),
-                    LEVEL_EVT: (INIT_ST, None),
+                    GO_EVT: (DECEL_ST, None),
+                    LEVEL_EVT: (DECEL_ST, None),
                     DIR_EVT: (TURNING_ST, None),
-                    START_MOVE_EVT: (INIT_ST, None),
+                    START_MOVE_EVT: (DECEL_ST, None),
                     ACCEL_EVT: (ACCEL_ST, None),
-                    FLY_EVT: (INIT_ST, None),
-                    DECEL_EVT: (INIT_ST, None),
+                    FLY_EVT: (DECEL_ST, None),
+                    DECEL_EVT: (DECEL_ST, None),
                     LAND_EVT: (DECEND_ST, None),
-                    DROP_EVT: (INIT_ST, None),
-                    NULL_EVT: (INIT_ST, None),
-                    HOVER_EVT: (HOVER_ST, None),
+                    DROP_EVT: (DECEL_ST, None),
+                    NULL_EVT: (DECEL_ST, None),
+                    HOVER_EVT: (DECEL_ST, None),
                 },
         HOVER_ST: {
                     GO_EVT: (ALT_CHANGE_ST, None),
-                    LEVEL_EVT: (INIT_ST, None),
-                    DIR_EVT: (INIT_ST, None),
-                    START_MOVE_EVT: (INIT_ST, None),
-                    ACCEL_EVT: (INIT_ST, None),
-                    FLY_EVT: (INIT_ST, None),
-                    DECEL_EVT: (INIT_ST, None),
-                    LAND_EVT: (INIT_ST, None),
-                    DROP_EVT: (INIT_ST, None),
-                    NULL_EVT: (INIT_ST, None),
                     HOVER_EVT: (HOVER_ST, None),
                 },
         DECEND_ST: {
-                    GO_EVT: (INIT_ST, None),
-                    LEVEL_EVT: (INIT_ST, None),
-                    DIR_EVT: (INIT_ST, None),
-                    START_MOVE_EVT: (INIT_ST, None),
-                    ACCEL_EVT: (INIT_ST, None),
-                    FLY_EVT: (INIT_ST, None),
-                    DECEL_EVT: (INIT_ST, None),
-                    LAND_EVT: (INIT_ST, None),
                     DROP_EVT: (LANDED_ST, None),
-                    NULL_EVT: (INIT_ST, None),
-                    HOVER_EVT: (HOVER_ST, None),
+                    HOVER_EVT: (DECEND_ST, None),
                 },
         LANDED_ST: {
-                    GO_EVT: (INIT_ST, None),
-                    LEVEL_EVT: (INIT_ST, None),
-                    DIR_EVT: (INIT_ST, None),
-                    START_MOVE_EVT: (INIT_ST, None),
-                    ACCEL_EVT: (INIT_ST, None),
-                    FLY_EVT: (INIT_ST, None),
-                    DECEL_EVT: (INIT_ST, None),
-                    LAND_EVT: (INIT_ST, None),
                     DROP_EVT: (DELIVER_ST, None),
-                    NULL_EVT: (INIT_ST, None),
-                    HOVER_EVT: (INIT_ST, None),
                 },
         DELIVER_ST: {
                     GO_EVT: (ALT_CHANGE_ST, None),
-                    LEVEL_EVT: (INIT_ST, None),
-                    DIR_EVT: (INIT_ST, None),
-                    START_MOVE_EVT: (INIT_ST, None),
-                    ACCEL_EVT: (INIT_ST, None),
-                    FLY_EVT: (INIT_ST, None),
-                    DECEL_EVT: (INIT_ST, None),
-                    LAND_EVT: (INIT_ST, None),
-                    DROP_EVT: (INIT_ST, None),
-                    NULL_EVT: (INIT_ST, None),
-                    HOVER_EVT: (INIT_ST, None),
+                    FLY_EVT: (APPROACH_ST, None),
                     TEST_EVT: (TEST_ST, None),
                 },
         TEST_ST: {
@@ -611,17 +551,22 @@ class ApachiPos(BaseStateMachine):
         dot = trgVec.dot(myVec)
         sign = 1.0 if dot >= 0.0 else -1.0
 
-        if dist > 0.3:
-            wh = "going "
-            self.velCtrl.setSpeed(0.0073 * abs(dist) * sign)
-        else:
-            wh = "set zero vel"
-            self.velCtrl.setSpeed(0.0)
+        #if dist > 0.3:
+        #    wh = "going "
+        prop = 0.008 if sign >= 0.0 else 0.011
+        spd = prop * abs(dist) * sign
+        self.velCtrl.setSpeed(spd)
+        #else:
+        #    wh = "set zero vel"
+        #    self.velCtrl.setSpeed(0.0)
 
         self.db(f"{wh}: dist: {dist: 3.4f}, DDP: {dDp: 3.4f}, dot: {dot: 3.5f}, sign: {sign: 3.4f}")
+        self.db(f"DEBUG1: {prop: 3.4f} spd: {spd: 3.4f},")
         return dist
 
-
+    def isLanded(self):
+        landed = not base.myChoppers[self.id][1].takenOff
+        return landed
 
 
 if __name__ == '__main__':

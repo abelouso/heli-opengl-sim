@@ -25,10 +25,11 @@ class ApachiAlt(BaseStateMachine):
     DOWN_DECEL_ST = 8
     TAKE_OFF_ST = 9
 
-    DONE_EVT = 0
-    NULL_EVT = 1
-    ACCND_EVT = 3
-    DECND_EVT = 4
+    DONE_EVT = 200
+    NULL_EVT = 201
+    ACCND_EVT = 203
+    DECND_EVT = 204
+    DECEL_EVT = 205
 
     MAX_ALT_RATE = 1.0
     ROT_SPD_DELTA_SLOW = 1.4
@@ -40,7 +41,6 @@ class ApachiAlt(BaseStateMachine):
 
     accelAlt = 0
     linAlt = 0
-    decelAlt = 0
 
     deltaRot = 0
 
@@ -87,22 +87,23 @@ class ApachiAlt(BaseStateMachine):
         da = self.getDeltaAlt()
         if da > 0:
             accelInt = math.fabs(0.5 * da)
-            decelInt = math.fabs(da) - accelInt
             self.accelAlt = self.act + accelInt
             self.linAlt = self.accelAlt + accelInt
-            self.decelAlt = self.accelAlt + decelInt
         else:
             accelInt = math.fabs(0.45 * da)
-            decelInt = math.fabs(da) - accelInt
             self.accelAlt = self.act - accelInt
             self.linAlt = self.accelAlt - accelInt
-            self.decelAlt = self.accelAlt - decelInt
         
 
     def upAccelHndl(self):
-        if self.act > self.accelAlt:
+        da = self.getDeltaAlt()
+        
+        #if self.act > self.accelAlt:
+        done = abs(da) <= 32.0
+        self.db(f"DEBUG2: UPACCEL: da {abs(da):3.4f} <= 32.0: = {done},")
+        if done:
             self.db(f"== TRANSITION TO LINEAR == ")
-            self.sendEvent(self.ACCND_EVT)
+            self.sendEvent(self.DECEL_EVT)
         else:
             chg = self.rateChanged("up")
             if not chg and self.altRate < 0.5 * self.MAX_ALT_RATE:
@@ -111,31 +112,22 @@ class ApachiAlt(BaseStateMachine):
                 self.setMainRotorSpeed(self.desRotSpd - self.rotSpdDelta)
             else:
                 self.deltaRot = self.desRotSpd - self.takeOfRotorSpeed
-            da = self.getDeltaAlt()
 
 
     def dnAccelHndl(self):
-        if self.act < self.accelAlt:
+        da = self.getDeltaAlt()
+        #if self.act < self.accelAlt:
+        self.db(f"DEBUG2: DOWN ACC: da {abs(da):3.4f} <= 42.0,")
+        if abs(da) <= 42.0:
             self.db(f" --- TRANSITION TO DOWN DECEL ---")
-            self.sendEvent(self.DECND_EVT)
+            self.sendEvent(self.DECEL_EVT)
         else:
             chg = self.rateChanged("dn")
             if not chg and self.altRate > -self.MAX_ALT_RATE:
                 self.setMainRotorSpeed(self.desRotSpd - self.rotSpdDelta)
             elif chg and self.altRate < -self.MAX_ALT_RATE:
                 self.setMainRotorSpeed(self.desRotSpd + self.rotSpdDelta)
-        
-    def upLinHndl(self):
-        if self.act > self.linAlt:
-            self.db(f"== TRANSITION TO DECEL == ")
-            self.sendEvent(self.ACCND_EVT)
-        else:
-            chg = self.rateChanged("up")
-            if not chg and self.altRate < 0.8 * self.MAX_ALT_RATE:
-                self.setMainRotorSpeed(self.desRotSpd + self.rotSpdDelta)
-            elif chg and self.altRate > self.MAX_ALT_RATE:
-                self.setMainRotorSpeed(self.desRotSpd - self.rotSpdDelta)
-        
+              
     def inUpDecelHndl(self):
         self.db(f"Killing acceleration by {self.deltaRot:,}")
         self.setMainRotorSpeed(self.desRotSpd - self.deltaRot)
@@ -204,9 +196,9 @@ class ApachiAlt(BaseStateMachine):
     def atAltHndl(self):
         chg = self.rateChanged("up",False)
         if not chg and self.altRate < -0.0025:
-            self.setMainRotorSpeed(self.desRotSpd + 0.77 * self.rotSpdDelta)
+            self.setMainRotorSpeed(self.desRotSpd + 0.44 * self.rotSpdDelta)
         elif chg and self.altRate > -0.0075:
-            self.setMainRotorSpeed(self.desRotSpd - 0.9 * self.rotSpdDelta)
+            self.setMainRotorSpeed(self.desRotSpd - 0.67 * self.rotSpdDelta)
 
     def atAltHndlHmm(self):
         da = self.getDeltaAlt()
@@ -236,7 +228,6 @@ class ApachiAlt(BaseStateMachine):
     StateHandlers = {
         GND_ST: (inGndHndl, gndHndl, outGndHndl),
         UP_ACCEL_ST: (inAccelHndl, upAccelHndl, None),
-        UP_LIN_ST: (None, upLinHndl, None),
         UP_DECEL_ST: (inUpDecelHndl, upDecelHndl, None),
         AT_ALT_ST: (inAtAltHndl, atAltHndl, None),
         DOWN_ACCEL_ST: (inAccelHndl, dnAccelHndl, None),
@@ -258,18 +249,13 @@ class ApachiAlt(BaseStateMachine):
         },
         UP_ACCEL_ST: { NULL_EVT: (UP_ACCEL_ST, nullEvt),
                   DONE_EVT: (AT_ALT_ST, None),
-                  ACCND_EVT: (UP_DECEL_ST, None),
-                  DECND_EVT: (DOWN_ACCEL_ST, None),
-        },
-        UP_LIN_ST: { NULL_EVT: (UP_LIN_ST, nullEvt),
-                  DONE_EVT: (AT_ALT_ST, None),
-                  ACCND_EVT: (UP_DECEL_ST, accndEvt),
+                  DECEL_EVT: (UP_DECEL_ST, None),
                   DECND_EVT: (DOWN_ACCEL_ST, None),
         },
         UP_DECEL_ST: { NULL_EVT: (UP_DECEL_ST, nullEvt),
                   DONE_EVT: (AT_ALT_ST, None),
-                  ACCND_EVT: (UP_DECEL_ST, accndEvt),
-                  DECND_EVT: (DOWN_DECEL_ST, None),
+                  ACCND_EVT: (UP_ACCEL_ST, accndEvt),
+                  DECND_EVT: (DOWN_ACCEL_ST, None),
         },
         AT_ALT_ST: { NULL_EVT: (AT_ALT_ST, nullEvt),
                   DONE_EVT: (AT_ALT_ST, None),
@@ -279,17 +265,12 @@ class ApachiAlt(BaseStateMachine):
         DOWN_ACCEL_ST: { NULL_EVT: (DOWN_ACCEL_ST, nullEvt),
                   DONE_EVT: (AT_ALT_ST, None),
                   ACCND_EVT: (UP_ACCEL_ST, accndEvt),
-                  DECND_EVT: (DOWN_DECEL_ST, None),
-        },
-        DOWN_LIN_ST: { NULL_EVT: (DOWN_LIN_ST, nullEvt),
-                  DONE_EVT: (AT_ALT_ST, None),
-                  ACCND_EVT: (UP_ACCEL_ST, accndEvt),
-                  DECND_EVT: (DOWN_LIN_ST, None),
+                  DECEL_EVT: (DOWN_DECEL_ST, None),
         },
         DOWN_DECEL_ST: { NULL_EVT: (DOWN_DECEL_ST, nullEvt),
                   DONE_EVT: (AT_ALT_ST, None),
-                  ACCND_EVT: (UP_DECEL_ST, accndEvt),
-                  DECND_EVT: (DOWN_DECEL_ST, None),
+                  ACCND_EVT: (UP_ACCEL_ST, accndEvt),
+                  DECND_EVT: (DOWN_ACCEL_ST, None),
         },
     }
 
@@ -365,11 +346,13 @@ class ApachiAlt(BaseStateMachine):
                 self.sendEvent(self.ACCND_EVT)
             elif self.trg < self.act:
                     self.sendEvent(self.DECND_EVT)
-            if math.fabs(da) >= self.ROT_SLOT_FAST_BREAK:
+            self.rotSpdDelta = self.ROT_SPD_DELTA_SLOW
+            if (math.fabs(da) >= self.ROT_SLOT_FAST_BREAK) or da > 0.0:
                 self.rotSpdDelta = self.ROT_SPD_DELTA_FAST
                 #self.setMainRotorSpeed(390)
             else:
                 self.rotSpdDelta = self.ROT_SPD_DELTA_SLOW
+        self.db(f"DEBUG1: rotDelta: {self.rotSpdDelta: 3.4f},")
 
     def rotorSpeed(self):
         return self.desRotSpd

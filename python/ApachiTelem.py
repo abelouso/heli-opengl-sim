@@ -84,6 +84,12 @@ class ApachiTelem:
         self.ap = tk.Label(self.root,anchor="w")
         self.ap.grid(column=col,row=row, sticky="w")
         row = 6
+        self.dbg1 =  tk.Label(self.root,anchor="w")
+        self.dbg1.grid(column=col,row=row, sticky="w")
+        row = 7
+        self.dbg2 =  tk.Label(self.root,anchor="w")
+        self.dbg2.grid(column=col,row=row, sticky="w")
+        
 
         print(f"GUI Created...")
         self.fig, self.ax = plt.subplots()
@@ -189,6 +195,8 @@ class ApachiTelem:
                 altI = msg.find("altact:")
                 velSpdI = msg.find("velspd:")
                 pkgI = msg.find("packages: ")
+                dbg1 = msg.find("DEBUG1:")
+                dbg2 = msg.find("DEBUG2:")
                 floatVal1 = None
                 floatVal2 = None
                 floatVal3 = None
@@ -222,6 +230,10 @@ class ApachiTelem:
                     floatVal2 = self.getDatFloat(",T:",msg,",")
                     floatVal3 = self.getDatFloat("velspd: ",msg,",")
                     floatVal4 = self.getDatFloat("velaccel:",msg,",")
+                if dbg1 >= 0:
+                    self.dbg1["text"] = self.getData("DEBUG1:",msg)
+                if dbg2 >= 0:
+                    self.dbg2["text"] = self.getData("DEBUG2:",msg)
                 added = False
                 if floatVal1 is not None:
                     self.ydata1.append(floatVal1 * 10.0); added = True

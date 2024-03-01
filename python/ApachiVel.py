@@ -41,7 +41,7 @@ class ApachiVel(BaseStateMachine):
 
     accel = 0.0
 
-    tol = 0.02
+    tol = 0.005
     alt = 0.0
     
 
@@ -65,7 +65,7 @@ class ApachiVel(BaseStateMachine):
         pDiff = self.pDiffN()
         cp = self.actPos
         lp = self.lstPos
-        self.db(f"{source:10},T: {self.trg: 3.4f}, velspd: {self.speed: 3.4f}, "\
+        self.db(f"{source:10},T: {self.trg: 3.4f}, velspd: {self.speed: 3.6f}, "\
                 f"desT: {self.desTilt: 3.4f}, velactT: {self.actTilt: 3.6f}, velaccel: {self.accel: 3.9f}, "\
                 f"facing: {self.facing: 3.4f}, moving: {self.velocityHeading: 3.4f} "\
                 f"lp: ({lp.x: 3.4f},{lp.y: 3.4f},{lp.z: 3.4f}), cp: ({cp.x: 3.4f},{cp.y: 3.4f},{cp.z: 3.4f}) "\
@@ -78,7 +78,7 @@ class ApachiVel(BaseStateMachine):
         
         dV = self.delta()
         self.db(f" delta V: {dV:3.4f}")
-        if not self.isFwd():
+        if not self.isAlongPath():
             self.sendEvent(self.SIDE_EVT)
         elif abs(dV) > self.tol:
             self.db(f" transition to ACCEL ST")
@@ -95,7 +95,7 @@ class ApachiVel(BaseStateMachine):
             #self.sendEvent(self.AT_SPEED_EVT)
             pass
         '''
-        if not self.isFwd():
+        if not self.isAlongPath():
             self.sendEvent(self.SIDE_EVT)
             wh = "not along axis"
         else:
@@ -160,7 +160,7 @@ class ApachiVel(BaseStateMachine):
         self.db(f"{wh} > speed: {self.speed: 3.4f}, dV: {dV:3.4f}, acc: {self.accel: 3.6f},tilt: {self.desTilt: 3.4f}, step: {reqTilt: 3.4f}")
 
     def sideHndl(self):
-        if self.isFwd() and abs(self.accel) < 0.00001:
+        if self.isAlongPath() and abs(self.accel) < 0.00001:
             self.db(f"Moving forward again...")
             self.sendEvent(self.FWD_EVT)
         else:
@@ -258,7 +258,7 @@ class ApachiVel(BaseStateMachine):
             #self.sendEvent(self.STOP_EVT)
             self.db(f" ============================== STOP, zero: {self.trg:3.4f}")
         else:
-            if abs(self.trg - speed) > self.tol:
+            if True: #abs(self.trg - speed) > self.tol:
                 self.trg = speed
                 self.sendEvent(self.ACCEL_EVT)
                 self.dump("SET SPD")
@@ -293,21 +293,34 @@ class ApachiVel(BaseStateMachine):
         pD = self.lstPos - self.actPos
         pD.normalize()
         return pD
-
-    def isFwd(self):
-        vh = self.velocityHeading
-        fc = self.facing
-        vhRad = math.radians(self.velocityHeading)
+    
+    def getDot(self,h1,h2):
+        vhRad = math.radians(h1)
         vhVec = Vec2(math.sin(vhRad), math.cos(vhRad))
-        fcRad = math.radians(self.facing)
+        fcRad = math.radians(h2)
         fcVec = Vec2(math.sin(fcRad), math.cos(fcRad))
         dot = vhVec.dot(fcVec)
+        return dot
+
+
+    def isAlongPath(self):
+        vh = self.velocityHeading
+        fc = self.facing
+        dot = self.getDot(vh,fc)
         stopped = abs(self.speed) <= self.tol
         along = (abs(dot) - 1.0)
         movingFwd = abs(abs(dot) - 1.0) < 0.01 and not stopped
         
         self.db(f" vh: {vh: 3.4f}, fc: {fc: 3.4f}, dot: {dot: 3.4f}, along: {along: 3.4f}, speed: {self.speed: 3.4f}, fwd: {movingFwd} or stopped {stopped}")
         return  movingFwd or stopped
+    
+    def isToTarget(self,trgHd):
+        fc = self.facing
+        dot = self.getDot(trgHd,fc)
+        fwd = dot >= 0.0
+        self.db(f" DEBUG1: DOT: {dot: 3.4f} to Target:{fwd},")
+        return fwd
+
 
     def isStopped(self):
-        return abs(self.speed) <= self.tol and abs(self.accel) < 0.0005 and abs(self.actTilt) < 0.005
+        return abs(self.speed) <= self.tol and abs(self.accel) < 0.0005 and abs(self.actTilt) < 0.05

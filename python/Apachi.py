@@ -20,7 +20,7 @@ from ApachiPos import *
 
 class Apachi(StigChopper):
     startTime = time.time_ns()
-    cruseAlt = 70
+    cruseAlt = 67
     def __init__(self,id, pos, scale=0.2):
         StigChopper.__init__(self,id,pos,"Models/ArmyCopter", {}, "apachi")
         self.actor.setScale(scale,scale,scale)
