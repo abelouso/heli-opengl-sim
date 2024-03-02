@@ -23,7 +23,7 @@ class ApachiHead(BaseStateMachine):
 
     STABLE_SPEED = 100.0
     MAX_ROT_SPEED = 10.0
-    MAX_ROT_RATE = 2.0
+    MAX_ROT_RATE = 0.38
     SPD_DELTA = 2.0
     trg = 0.0
     act = 0.0
@@ -41,7 +41,7 @@ class ApachiHead(BaseStateMachine):
     smShare = 1.0 / NUM_SAMP
     lgShare = 1.0 - smShare
 
-    tol = 0.15 #degrees
+    tol = 0.1 #degrees
     alt = 0.0
 
     eventQ = queue.Queue()
@@ -82,28 +82,44 @@ class ApachiHead(BaseStateMachine):
         dh = self.deltaHead()
         rrA = abs(self.rotRate)
         ch = abs(rrA) >= 0.03
+        adjRt = 0.0
+        adjRtMax = 0.0
+        adj = 0.0
         if abs(dh) < self.tol:
-            self.db(f" Going to LOCK: {self.trg: 3.4f}, act: {self.act: 3.4f}, dh: {dh: 3.4f}")
+            wh = "Going to lock "
             self.sendEvent(self.STOP_EVT)
             self.setRotorSpeed(self.STABLE_SPEED)
         #elif abs(dh) < 1:
         #    self.sendEvent(self.DONE_EVT)
         else:
+            wh = " OOT "
             if not ch:
+                wh = "not changing, kicking"
                 adjRt = self.rateSign * self.rotRate
                 adjRtMax = self.rateSign * self.MAX_ROT_RATE
                 adj = self.rateSign * self.kickShare()
-                self.db(f"In kick hdn: {adjRt: 3.4f}, MAX: {adjRtMax: 3.4f}, step: {adj: 3.4f}, rotRate: {rrA: 3.4f}, ch: {ch}")
                 if abs(adjRt < adjRtMax):
+                    wh += " getting to max rate"
                     if  adjRt < 0.2 * self.rateSign * adjRtMax:
+                        wh += " up"
                         self.setRotorSpeed(self.desRotSpd + adj)
                     elif adjRt > 0.7 * adjRtMax:
+                        wh += " donw"
                         self.setRotorSpeed(self.desRotSpd - adj)
                 else:
+                    wh += " changing, controlling rate"
                     if adjRt < -adjRtMax:
+                        wh += " up"
                         self.setRotorSpeed(self.desRotSpd + adj)
                     elif adjRt > adjRtMax:
+                        wh += " down"
                         self.setRotorSpeed(self.desRotSpd - adj)
+            elif abs(self.rotRate) > self.MAX_ROT_RATE:
+                wh += "stabilizing..."
+                self.setRotorSpeed(self.STABLE_SPEED)
+
+        self.db(f"{wh} {self.trg: 3.4f}, act: {self.act: 3.4f}, dh: {dh: 3.4f}, {adjRt: 3.4f}, MAX: {adjRtMax: 3.4f}, step: {adj: 3.4f}, rotRate: {rrA: 3.4f}, ch: {ch}")
+
 
     def InTurnLockHndl(self):
         self.setRotorSpeed(self.STABLE_SPEED)
@@ -118,8 +134,8 @@ class ApachiHead(BaseStateMachine):
         if abs(dh) < self.tol and ch:
             wt = "Locked in tol, not moving"
             self.sendEvent(self.LOCK_EVT)
-        elif abs(dh) < self.tol:
-            wt = "In tol, moving"
+        elif abs(dh) < self.tol or abs(self.rotRate) > self.MAX_ROT_RATE:
+            wt = "In tol, moving or moving too fast"
             self.setRotorSpeed(self.STABLE_SPEED)
         elif abs(dh) > self.tol:
             wt = "OOT"

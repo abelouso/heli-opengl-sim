@@ -78,7 +78,7 @@ class ApachiPos(BaseStateMachine):
     idxHdg = 0
     testAltStamp = time.time_ns()
     testVelStamp = time.time_ns()
-    dropOffAlt = 0.30
+    dropOffAlt = -0.4
 
     sock = None
 
@@ -133,15 +133,19 @@ class ApachiPos(BaseStateMachine):
         trgHdg = self.calcTargetHeading()
         self.headCtrl.setHeading(trgHdg)
         self.trgHdg = trgHdg
+        self.turnStart = time.time_ns()
+        self.velCtrl.sendEvent(self.velCtrl.IDLE_EVT)
 
     def turnHndl(self):
         trgHdg = self.calcTargetHeading()
         dist = self.calcDistToTarget()
         turnRt = abs(self.headCtrl.rotRate)
-        trgHdg, turnRt, move = self.canMove(self.headCtrl.tol)
+        trgHdg, turnRt, move = self.canMove(1.0 * self.headCtrl.tol)
         what = "check for heading target "
-        if abs(trgHdg - self.headCtrl.trg) > self.headCtrl.tol and self.headCtrl.state == self.headCtrl.AT_HEAD_ST:
-            #self.inTurnHndl()
+        deltaT = time.time_ns() - self.turnStart
+        tooLong = deltaT >= 3000.0e6 #a second?
+        if abs(trgHdg - self.headCtrl.trg) > self.headCtrl.tol and self.headCtrl.state == self.headCtrl.AT_HEAD_ST and tooLong:
+            self.headCtrl.setHeading(trgHdg)
             pass
         what = "Waiting for direction "
         if move or dist < 4.0:
@@ -152,6 +156,9 @@ class ApachiPos(BaseStateMachine):
             self.sendEvent(self.HOVER_EVT)
         
         self.db(f"{what}> headT: {trgHdg:3.4f}, actH: {self.headCtrl.act:3.4f}, rate: {turnRt:3.4f}, dist: {dist:3.4f}")
+
+    def outTurnHndl(self):
+        self.velCtrl.sendEvent(self.velCtrl.BUSY_EVT)
     
     def inAccelHndl(self):
         if self.velCtrl.trg > 0.031:
@@ -391,7 +398,7 @@ class ApachiPos(BaseStateMachine):
         INIT_ST: (None, initHndl, None),
         ON_GND_ST: (inGndHndl, gndHndl, None),
         ALT_CHANGE_ST: (inAltChgHndl, altChHndl, None),
-        TURNING_ST: (inTurnHndl, turnHndl, None),
+        TURNING_ST: (inTurnHndl, turnHndl, outTurnHndl),
         ACCEL_ST: (inAccelHndl, accelHndl, None),
         APPROACH_ST: (None, aprHndl, None),
         DECEL_ST: (inDecelHndl, decelHndl, None),

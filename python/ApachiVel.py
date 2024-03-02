@@ -15,6 +15,7 @@ class ApachiVel(BaseStateMachine):
     MAINT_ST = 30
     CHANGE_ST = 31
     SIDE_ST = 32
+    IDLE_ST = 33
 
     NULL_EVT = 30
     ACCEL_EVT = 31
@@ -22,6 +23,8 @@ class ApachiVel(BaseStateMachine):
     STOP_EVT = 33
     SIDE_EVT = 34
     FWD_EVT = 35
+    IDLE_EVT = 36
+    BUSY_EVT = 37
 
 
     TILT_STEP = 0.1
@@ -173,25 +176,28 @@ class ApachiVel(BaseStateMachine):
         MAINT_ST: (     None,   maintHndl,   None),
         CHANGE_ST: (   None,   changeHndl,   None),
         SIDE_ST: (   None,   sideHndl,   None),
+        IDLE_ST: ( None, None, None),
     }
 
     StateMachine = {
         MAINT_ST: {
             ACCEL_EVT: (CHANGE_ST, None),
             STOP_EVT: (MAINT_ST, stopEvt),
-            AT_SPEED_EVT: (MAINT_ST, None),
-            NULL_EVT: (MAINT_ST, None),
             SIDE_EVT: (SIDE_ST, None),
+            IDLE_EVT: (IDLE_ST, None),
         },
         CHANGE_ST: {
-            ACCEL_EVT: (CHANGE_ST, None),
             STOP_EVT: (MAINT_ST, stopEvt),
             AT_SPEED_EVT: (MAINT_ST, None),
-            NULL_EVT: (CHANGE_ST, None),
             SIDE_EVT: (SIDE_ST, None),
+            IDLE_EVT: (IDLE_ST, None),
+            ACCEL_EVT: (CHANGE_ST, changeHndl),
         },
         SIDE_ST: {
             FWD_EVT: (MAINT_ST, None),
+        },
+        IDLE_ST: {
+            BUSY_EVT: (MAINT_ST, None),
         },
     }
 
@@ -207,6 +213,7 @@ class ApachiVel(BaseStateMachine):
         pos3d = Vec3(actPos.getX(), actPos.getY(), actPos.getZ())
         self.actTilt = tilt
         self.updateSpeed(pos3d)
+        self.prevFacing = self.facing
         self.facing = facing
         if abs(self.desTilt - self.actTilt) > 0.0001 or (alt < 1.0):
             self.dump("WAIT")

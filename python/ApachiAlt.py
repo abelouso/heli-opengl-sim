@@ -84,6 +84,7 @@ class ApachiAlt(BaseStateMachine):
 
 
     def inAccelHndl(self):
+        '''
         da = self.getDeltaAlt()
         if da > 0:
             accelInt = math.fabs(0.5 * da)
@@ -93,14 +94,13 @@ class ApachiAlt(BaseStateMachine):
             accelInt = math.fabs(0.45 * da)
             self.accelAlt = self.act - accelInt
             self.linAlt = self.accelAlt - accelInt
-        
+        '''
 
     def upAccelHndl(self):
         da = self.getDeltaAlt()
         
-        #if self.act > self.accelAlt:
         done = abs(da) <= 32.0
-        self.db(f"DEBUG2: UPACCEL: da {abs(da):3.4f} <= 32.0: = {done},")
+        #self.db(f"DEBUG2: UPACCEL: da {abs(da):3.4f} <= 32.0: = {done},")
         if done:
             self.db(f"== TRANSITION TO LINEAR == ")
             self.sendEvent(self.DECEL_EVT)
@@ -116,8 +116,7 @@ class ApachiAlt(BaseStateMachine):
 
     def dnAccelHndl(self):
         da = self.getDeltaAlt()
-        #if self.act < self.accelAlt:
-        self.db(f"DEBUG2: DOWN ACC: da {abs(da):3.4f} <= 42.0,")
+        #self.db(f"DEBUG2: DOWN ACC: da {abs(da):3.4f} <= 42.0,")
         if abs(da) <= 42.0:
             self.db(f" --- TRANSITION TO DOWN DECEL ---")
             self.sendEvent(self.DECEL_EVT)
