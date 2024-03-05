@@ -235,12 +235,13 @@ class ApachiVel(BaseStateMachine):
                 p2 = self.actPos.xy
                 pos2d = p1 - p2
                 speed = pos2d.length() / self.dt
-                vc = math.degrees(math.atan2(pos2d.getY(), pos2d.getX()))
-                if vc < 0.0:
-                    vc += 360.0
-                if abs(vc - self.velocityHeading) > 1:
-                    self.db(f" Velocity vector changed: lstPos: ({p1.x:3.4f},{p1.y:3.4f}) now: ({p2.x:3.4f},{p2.y:3.4f})")
-                self.velocityHeading = vc
+                if False: #abs(self.speed <= 0.005):
+                    self.velocityHeading = self.facing
+                else:
+                    vc = math.degrees(math.atan2(pos2d.getY(), pos2d.getX()))
+                    if vc < 0.0:
+                        vc += 360.0
+                    self.velocityHeading = vc
                 self.lstPos = self.actPos
                 self.actPos = actPos
                 vh = self.velocityHeading
@@ -330,4 +331,4 @@ class ApachiVel(BaseStateMachine):
 
 
     def isStopped(self):
-        return abs(self.speed) <= self.tol and abs(self.accel) < 0.0005 and abs(self.actTilt) < 0.05
+        return abs(self.speed) <= self.tol and abs(self.accel) < 0.0007 and abs(self.actTilt) < 0.05

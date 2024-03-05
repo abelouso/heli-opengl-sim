@@ -29,7 +29,7 @@ class Apachi(StigChopper):
         self.mainSpeed = 0.0
         self.tilt = 0.0
         self.tailSpeed = 0.0
-        self.ctrl = ApachiPos(self.id)
+        self.ctrl = ApachiPos(self.id,self.cruseAlt)
         #self.ctrl.sendEvent(self.ctrl.TEST_EVT)
         #self.ctrl.setPosition(Vec3(-100,-105,70))
         #self.ctrl.setPosition(Vec3(15.0,-11.00,70))
@@ -62,6 +62,7 @@ class Apachi(StigChopper):
     def findNearPos(self, myPos):
         sz = len(self.targetWaypoints)
         nearIdx = None
+        newPos = None
         pt = None
         if sz > 0:
             nearPos = self.targetWaypoints[0]
@@ -88,9 +89,10 @@ class Apachi(StigChopper):
         self.cargoIdx = 0
         myPos = base.gps(self.id)
         self.cargoIdx, pt = self.findNearPos(myPos)
-        self.ctrl.setPosition(Vec3(pt.x, pt.y, self.cruseAlt))
-        self.ctrl.db(f"packages: {len(self.targetWaypoints)},")
-        #del(self.targetWaypoints[self.cargoIdx])
+        if pt is not None:
+            self.ctrl.setPosition(Vec3(pt.x, pt.y, self.cruseAlt))
+            self.ctrl.db(f"packages: {len(self.targetWaypoints)},")
+            #del(self.targetWaypoints[self.cargoIdx])
 
     def update(self,dt,tick):
         StigChopper.update(self,dt,tick)

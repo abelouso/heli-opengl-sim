@@ -7,6 +7,8 @@ import inspect
 import time
 import socket
 import struct
+import math
+from panda3d.core import Vec2
 
 #https://stackoverflow.com/questions/603852/how-do-you-udp-multicast-in-python
 MCAST_GRP = '224.0.0.1'
@@ -17,7 +19,7 @@ MULTICAST_TTL = 2
 class BaseStateMachine:
 
     TAG = "BaseStateMachine"
-    DBG_MASK = 0x4
+    DBG_MASK = 0x20
 
     INIT_ST = 0
     ERROR_ST = 1
@@ -111,12 +113,27 @@ class BaseStateMachine:
         try:
             self.sock.sendto(msg.encode(), (MCAST_GRP, MCAST_PORT))
         except Exception as ex:
-            print(f"Exception sendin, {ex}")
+            print(f"BaseStateMachine:db() -> Exception sending: {ex}")
         try:
             base.dbg(self.TAG,msg,self.DBG_MASK)
         except:
             print(msg)
 
+    
+    def getDot(self,h1,h2):
+        vhRad = math.radians(h1)
+        vhVec = Vec2(math.sin(vhRad), math.cos(vhRad))
+        fcRad = math.radians(h2)
+        fcVec = Vec2(math.sin(fcRad), math.cos(fcRad))
+        dot = vhVec.dot(fcVec)
+        return dot
+
+    def clamp(self, val, limit=180.0):
+        if val > limit:
+            val = limit
+        elif val < -limit:
+            val = -limit
+        return val
 
 if __name__ == "__main__":
     head = BaseStateMachine("TEST", 0x2)

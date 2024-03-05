@@ -9,9 +9,9 @@ import queue
 import inspect
 import time
 from BaseStateMachine import *
-from ApachiAlt import *
-from ApachiHead import *
-from ApachiVel import *
+from ApachiAltPID import *
+from ApachiHeadPID import *
+from ApachiVelPID import *
 
 class ApachiPos(BaseStateMachine):
     INIT_ST = 100
@@ -78,9 +78,27 @@ class ApachiPos(BaseStateMachine):
     idxHdg = 0
     testAltStamp = time.time_ns()
     testVelStamp = time.time_ns()
-    dropOffAlt = -0.4
+    dropOffAlt = 0.0
 
     sock = None
+
+    Kp = 0.02
+    Ki = 0.000001
+    Kd = 80.0
+    
+    posIntegLimit = 500.0
+
+    posError = None
+    prevPosError = None
+    posIntegral = None
+    posDerivitive = None
+    lastPosStamp = None
+
+    actPos = None
+
+    posIdx = 0
+    testPosStamp = time.time_ns()
+    crusAlt = 67.0
 
     def pv(self, w, v):
         return f"{w:6}:({v.x: 3.4f}, {v.y: 3.4f}, {v.z: 3.4f})|"
@@ -89,9 +107,12 @@ class ApachiPos(BaseStateMachine):
         cp = self.pv("cur", self.curPos)
         tp = self.pv("trg", self.trgPos)
         dp = self.calcDistToTarget()
-        self.db(f"{source:10}, {cp}, {tp}, dist: {dp:3.4f},facing: {self.velCtrl.facing:3.4f},"\
-                f"head: {self.velCtrl.velocityHeading:3.4f}, speed: {self.velCtrl.speed: 3.6f},"\
-                f"maxAccel: {self.maxAccel: 3.4f}, trgHdg: {self.trgHdg: 3.4f}")
+        try:
+            self.db(f"{source:10}, {cp}, {tp}, dist: {dp:3.4f},facing: {self.velCtrl.facing:3.4f},"\
+                    f"head: {self.velCtrl.velocityHeading:3.4f}, speed: {self.velCtrl.speed: 3.6f},"\
+                    f"maxAccel: {self.maxAccel: 3.4f}, trgHdg: {self.trgHdg: 3.4f}")
+        except:
+            pass
 
     def initHndl(self):
         if self.curPos.getZ() < 0.1:
@@ -109,25 +130,18 @@ class ApachiPos(BaseStateMachine):
 
     def inAltChgHndl(self):
         self.maxAccel = self.MIN_ACCEL
-        if False: #self.velCtrl.isStopped():
-            trgHdg = self.calcTargetHeading()
-            self.headCtrl.setHeading(trgHdg)
-            self.trgHdg = trgHdg
-        else:
-            self.velCtrl.setSpeed(0.0)
+        self.velCtrl.setSpeed(0.0)
 
     def altChHndl(self):
-        if self.curPos.getZ() >= (self.trgPos.getZ() - 15.0): #above certain safe hight
+        aboveAlt = self.altCtrl.act >= (self.crusAlt - 15.0)
+        stopped = self.velCtrl.isStopped()
+        if aboveAlt and stopped: #above certain safe hight
             self.sendEvent(self.LEVEL_EVT)
         else:
             #TODO check if alt changes towards the goal...
             self.db(f"Not at alt, waiting")
             if abs(self.altCtrl.trg - self.trgPos.z) > 0.1:
                 self.altCtrl.setTarget(self.trgPos.z)
-        _,_, mv = self.canMove(self.headCtrl.tol)
-        if mv:
-            #self.inAccelHndl()
-            pass
 
     def inTurnHndl(self):
         trgHdg = self.calcTargetHeading()
@@ -139,13 +153,14 @@ class ApachiPos(BaseStateMachine):
     def turnHndl(self):
         trgHdg = self.calcTargetHeading()
         dist = self.calcDistToTarget()
-        turnRt = abs(self.headCtrl.rotRate)
         trgHdg, turnRt, move = self.canMove(1.0 * self.headCtrl.tol)
         what = "check for heading target "
-        deltaT = time.time_ns() - self.turnStart
-        tooLong = deltaT >= 3000.0e6 #a second?
-        if abs(trgHdg - self.headCtrl.trg) > self.headCtrl.tol and self.headCtrl.state == self.headCtrl.AT_HEAD_ST and tooLong:
+        now = time.time_ns()
+        deltaT = now - self.turnStart
+        tooLong = deltaT >= 10.0e9 #a second?
+        if abs(trgHdg - self.headCtrl.trg) > 1.0 and self.headCtrl.state == self.headCtrl.AT_HEAD_ST and tooLong:
             self.headCtrl.setHeading(trgHdg)
+            self.turnStart = now
             pass
         what = "Waiting for direction "
         if move or dist < 4.0:
@@ -158,16 +173,16 @@ class ApachiPos(BaseStateMachine):
         self.db(f"{what}> headT: {trgHdg:3.4f}, actH: {self.headCtrl.act:3.4f}, rate: {turnRt:3.4f}, dist: {dist:3.4f}")
 
     def outTurnHndl(self):
-        self.velCtrl.sendEvent(self.velCtrl.BUSY_EVT)
+        pass
     
     def inAccelHndl(self):
-        if self.velCtrl.trg > 0.031:
+        if self.velCtrl.trg > 0.0031:
             self.db(f"Already moving at {self.velCtrl.speed:3.4f}, with trg: {self.velCtrl.trg:3.4f}")
         else:
             #calcluate motion profiles to arrive to x,y
             dist = self.calcDistToTarget()
             #speed directly proprotional to distance to target
-            trgSpd = 0.0015 * dist + 0.25 #ensure minimum speed
+            trgSpd = 0.00006 * dist + 0.001 #ensure minimum speed
             #let's make acceleration and deceleration zones, cut them in half
             self.decelDist = 0.525 * dist
             self.velCtrl.setSpeed(trgSpd)
@@ -180,7 +195,7 @@ class ApachiPos(BaseStateMachine):
         vel = self.velCtrl.speed
         acc = self.maxAccel
         acc = self.velCtrl.MAX_ACCEL
-        stopDist = 0.06 * ((vel / acc))
+        stopDist = 0.05 * ((vel / acc))
         
         if not self.velCtrl.isToTarget(self.trgHdg) and distR >= 12.0:
             self.velCtrl.setSpeed(0.0)
@@ -188,7 +203,8 @@ class ApachiPos(BaseStateMachine):
                 if distR <= 3.0:
                     self.sendEvent(self.LAND_EVT)
                 else:
-                    self.sendEvent(self.HOVER_EVT)
+                    #self.sendEvent(self.HOVER_EVT)
+                    pass
 
         elif distR < self.decelDist:
             what = "Less than half remain: "
@@ -208,8 +224,7 @@ class ApachiPos(BaseStateMachine):
         desHdg = self.calcTargetHeading()
         withInDist = distR <= 8.0
         needToTurn = abs(desHdg - self.headCtrl.act) and withInDist
-        spdTol = 0.003 if needToTurn else 0.0096
-        lowSpd = abs(self.velCtrl.speed) < spdTol
+        lowSpd = self.velCtrl.isStopped()
         noTilt = abs(self.velCtrl.actTilt) < 0.095
         stopped = lowSpd and noTilt # and self.velCtrl.actTilt > 0.0
         if stopped:
@@ -218,9 +233,9 @@ class ApachiPos(BaseStateMachine):
                 what += " Went too far, stop, turn around"
                 #self.deltaPos = self.calcDistToTarget() + 1.0
                 #self.sendEvent(self.DIR_EVT)
-                self.velCtrl.setSpeed(-0.03)
+                #self.velCtrl.setSpeed(-0.03)
 
-            elif abs(self.velCtrl.speed) < 0.04:
+            elif (self.velCtrl.isStopped()):
                 #TODO: tighten this
                 if withInDist:
                     self.sendEvent(self.LAND_EVT)
@@ -233,10 +248,11 @@ class ApachiPos(BaseStateMachine):
                     else:
                         what += "Not close enough, need to adjust "
                         self.sendEvent(self.ACCEL_EVT)
-        elif distR < 5.0:
+        elif distR < 8.0:
             what += " adjusting position"
             self.velTowardsPos()
-            if distR < 2.0:
+            #TODO: call is stopped when implemented
+            if distR < 4.0:
                 self.sendEvent(self.LAND_EVT)
                 what += "Done, landing...."
 
@@ -258,17 +274,31 @@ class ApachiPos(BaseStateMachine):
 
         self.db(f"{wh}: alt: {self.curPos.z: 3.4f}, altRt: {self.altCtrl.altRate: 3.4f}, DDP: {dDp: 3.4f}")
 
+    def inDelHndl(self):
+        self.velCtrl.sendEvent(self.velCtrl.IDLE_EVT)
+
     def delHndl(self):
-        dist = self.velTowardsPos()
+        dist = self.calcDistToTarget()
         landed = self.isLanded()
-        if dist > 1.0 and landed:
-            self.altCtrl.setTarget(1.0)
-            self.sendEvent(self.FLY_EVT)
+        if  dist >= 0.1 and not landed:
+            #dist = self.velTowardsPos()
+            pass
+        elif dist > 1.0 and landed:
+            self.altCtrl.setTarget(self.crusAlt)
+            self.sendEvent(self.GO_EVT)
             self.db(f"DEBUG1: landed too far, take off")
+        elif landed:
+            #in landed state, velocity is zero, set vel control to idle
+            self.velCtrl.setSpeed(0.0)
+            self.velCtrl.sendEvent(self.velCtrl.IDLE_EVT)
+            self.posIntegral = 0.0
         #if dist < 0.8 and self.altCtrl.act < 0.2:
         #    self.db(f"Setting negative alt target to land")
         #    self.altCtrl.setTarget(-0.3)
 
+    def outDelHndl(self):
+        self.altCtrl.setMainRotorSpeed(400.0)
+        self.velCtrl.setSpeed(0.0)
 
     def inLandedHndl(self):
         self.altCtrl.setTarget(self.dropOffAlt)
@@ -280,119 +310,45 @@ class ApachiPos(BaseStateMachine):
             
     def inHoverHndl(self):
         self.headCtrl.setHeading(self.velCtrl.velocityHeading)
+        self.velCtrl.sendEvent(self.velCtrl.IDLE_EVT)
 
-    def outDelHndl(self):
-        self.altCtrl.setMainRotorSpeed(400.0)
         
     def hoverHndl(self):
-        faceFwd = self.velCtrl.isAlongPath()
+        faceFwd = self.velCtrl.isFwd()
         stable = self.headCtrl.isStable()
         stopped = self.velCtrl.isStopped()
+        atHead = self.headCtrl.state == self.headCtrl.AT_HEAD_ST
+        isIdle = self.velCtrl.state == self.velCtrl.IDLE_ST
         wh = "In hover"
-        if stable and not faceFwd:
+        if stable and not faceFwd and atHead and isIdle:
             #adjust it again
             self.headCtrl.setHeading(self.velCtrl.velocityHeading)
-            wh = "Heading is not correct"
-        elif faceFwd and stopped:
+            self.velCtrl.sendEvent(self.velCtrl.IDLE_EVT)
+            wh += " Heading is not correct"
+        elif faceFwd and stopped and atHead is not isIdle:
             #we are stable, facing forward and stopped, ready to move
-            wh = "all stable, get out"
+            wh += " all stable, get out"
             self.sendEvent(self.GO_EVT)
-        self.db(f"{wh} faceFwd: {faceFwd}, stable: {stable}, stopped: {stopped}")
+            self.velCtrl.velocityHeading = self.velCtrl.facing
+            self.velCtrl.sendEvent(self.velCtrl.IDLE_EVT)
+        elif faceFwd and stable and atHead and isIdle:
+            wh += " setting zero speed"
+            self.velCtrl.setSpeed(0.0)
+        self.db(f"{wh} faceFwd: {faceFwd}, stable: {stable}, stopped: {stopped}, atHdg: {atHead} idl: {isIdle},")
 
     def aprHndl(self):
         landed = self.isLanded()
-        if not landed:
+        if self.altCtrl.act > 3.0:
             self.altCtrl.setTarget(self.dropOffAlt)
             self.sendEvent(self.DROP_EVT)
 
-    def altTests(self):
-        alts = [170, 0.2, 40, 20, 65, 110, 30, 45, 0.0, 70, 0.0, 20.0]
-
-        now = time.time_ns()
-        atAlt = self.altCtrl.state == self.altCtrl.AT_ALT_ST
-        inTol = abs(self.altCtrl.trg - self.altCtrl.act) < 2.0 * self.altCtrl.tol
-        moreAlts = self.idxAlt < len(alts)
-        if atAlt and inTol and self.testAltStamp is None:
-            self.testAltStamp = now
-        if self.testAltStamp is not None:
-            atTime = (now - self.testAltStamp) > 20.0e9
-        else:
-            atTime = False
-
-        self.db(f" {moreAlts} and {inTol} and {atAlt}")
-        if self.idxAlt == 0:
-            #self.velCtrl.setSpeed(0.4)
-            self.altCtrl.setTarget(alts[self.idxAlt])
-            self.idxAlt += 1
-            self.testAltStamp = None
-        elif moreAlts and inTol and atAlt and atTime:
-            self.altCtrl.setTarget(alts[self.idxAlt])
-            self.db(f" ========================== ******************************************************** set new alt ")
-            self.idxAlt += 1
-            self.testAltStamp = None
-        return self.idxAlt >= len(alts)
-    
-    def velTests(self):
-        vals = [0.4, 0.0, 0.8, 0.0, -.7,-.4,0.0, -100.0]
-
-        now = time.time_ns()
-        atVel = True #self.velCtrl.state == self.velCtrl.MAINT_ST
-        inTol = abs(self.velCtrl.trg - self.velCtrl.speed) <= self.velCtrl.tol
-        moreVels = self.idxVel < len(vals)
-        if atVel and inTol and self.testVelStamp is None:
-            self.testVelStamp = now
-        if self.testVelStamp is not None:
-            atTime = (now - self.testVelStamp) > 25.0e9
-        else:
-            atTime = False
-
-        self.db(f" atVel: {atVel}, inTol: {inTol}, moreVels: {moreVels}, atTime: {atTime}")
-        newVal = None
-        if moreVels: newVal = vals[self.idxVel]
-        
-        if self.idxVel == 0:
-            if self.altCtrl.trg < 0.1:
-                self.altCtrl.setTarget(70)
-            elif self.altCtrl.act > 0.8 * self.altCtrl.trg:
-                self.velCtrl.setSpeed(vals[self.idxVel])
-                self.idxVel += 1
-                self.db(f"Set initial velocity {newVal: 3.4f} ======================================= ")
-        elif atVel and inTol and moreVels and atTime:
-            if newVal < -50.0:
-                #turn an go
-                self.headCtrl.setHeading(45)
-                newVal = 0.34
-            self.velCtrl.setSpeed(newVal)
-            self.db(f"Set next velocity {newVal: 3.4f} ======================================= {newVal:3.4f} ")
-            self.idxVel += 1
-            self.testVelStamp = None
-        
-        return self.idxVel >= len(vals)
-
-    def headTests(self):
-        vals = [290,0.0, 90, 180, 45, 272, 70, 45, 355, 270, 273, 272, 70, 90, 180, 268, 100, 180, 45, 355, 270, 273, 272, 0.0]
-
-        now = time.time_ns()
-        deltaT = now - self.startStamp
-        idx = self.idxHdg
-
-        if idx == 0:
-            #self.velCtrl.setSpeed(0.4)
-            if self.altCtrl.trg < 30:
-                self.altCtrl.setTarget(150)
-            if self.altCtrl.act > 5.0:
-                self.headCtrl.setHeading(vals[idx])
-                idx += 1
-        elif idx < len(vals) and abs(self.headCtrl.trg - self.headCtrl.act) < self.headCtrl.tol and self.headCtrl.state == self.headCtrl.AT_HEAD_ST:
-            self.headCtrl.setHeading(vals[idx])
-            idx += 1
-        self.idxHdg = idx
-        return idx >= len(vals)
     
     
     def testHndl(self):
         #self.headTests()
         self.velTests()
+        #self.altTests()
+        #self.posTests()
 
     StateHandlers = {
         INIT_ST: (None, initHndl, None),
@@ -405,7 +361,7 @@ class ApachiPos(BaseStateMachine):
         HOVER_ST: (inHoverHndl, hoverHndl, None),
         DECEND_ST: (inDecHndl, decHndl, None),
         LANDED_ST: (inLandedHndl, landedHndl, None),
-        DELIVER_ST: (None, delHndl, outDelHndl),
+        DELIVER_ST: (inDelHndl, delHndl, outDelHndl),
         TEST_ST: (None, testHndl, None),
     }
 
@@ -431,7 +387,7 @@ class ApachiPos(BaseStateMachine):
                     HOVER_EVT: (HOVER_ST, None),
                 },
         ACCEL_ST: {
-                    DIR_EVT: (TURNING_ST, None),
+                    DIR_EVT: (ACCEL_ST, None),
                     DECEL_EVT: (DECEL_ST, None),
                     HOVER_EVT: (HOVER_ST, None),
                 },
@@ -472,22 +428,22 @@ class ApachiPos(BaseStateMachine):
         },
     }
 
-    def __init__(self,id):
+    def __init__(self,id, crusAlt):
         super().__init__("ApachiPos",0x10)
         self.state = self.INIT_ST
         self.id = id
         self.startStamp = time.time_ns()
+        self.crusalt = crusAlt
 
     def tick(self, actPos, actHdg, actMainRot, actTailRot, actTilt, dt):
         self.updateTimeStamp()
         alt = actPos.getZ()
+        self.actPos = actPos
         self.prevPos = self.curPos
         self.curPos = Vec3(actPos.x,actPos.y,actPos.z)
         self.altCtrl.tick(alt,actMainRot,dt)
         self.headCtrl.tick(actHdg,actTailRot,alt,dt)
         self.velCtrl.tick(actPos,actTilt,dt,alt,actHdg)
-        if self.maxAccel < self.velCtrl.accel:
-            self.maxAccel = self.velCtrl.accel
         #cap to prevent glitches
         #if self.maxAccel > self.MAX_ACCEL:
         #    self.maxAccel = self.MAX_ACCEL
@@ -541,7 +497,7 @@ class ApachiPos(BaseStateMachine):
         inTol = abs(trgHdg - self.headCtrl.act) <= tol
         self.db(f" sable: {isStable}, in tol: {inTol}")
         res = inTol and isStable
-        return trgHdg, abs(self.headCtrl.rotRate), res
+        return trgHdg, 0.0, res
 
     def wentTooFar(self):
         distR = self.calcDistToTarget()
@@ -549,33 +505,162 @@ class ApachiPos(BaseStateMachine):
         return False
     
     def velTowardsPos(self):
-        wh = "Wating for zero alt "
+        wh = "pos maint "
         dist = self.calcDistToTarget()
+        dot = self.getDot(self.calcTargetHeading(), self.velCtrl.facing)
+        sign = 1.0 if dot >= 0.0 else -1.0
+        dist *= sign
+        try:
+            now = self.actPos.getW() * 1000.0 #ms
+            if self.lastPosStamp is not None:
+                deltaT_ms = now - self.lastPosStamp
+                self.prevPosError = self.posError
+                self.posError = dist
+                if self.prevPosError is not None:
+                    self.posDerivitive = (self.posError - self.prevPosError) / deltaT_ms
+                else:
+                    self.posDerivitive = 0.0
+                area = self.posError * deltaT_ms
+                if self.posIntegral is not None:
+                    self.posIntegral += area
+                else:
+                    self.posIntegral = area
+                
+                self.posIntegral = self.clamp(self.posIntegral,self.posIntegLimit)
+
+                vel = self.Kp * self.posError + self.Ki * self.posIntegral + self.Kd * self.posDerivitive
+                self.velCtrl.setSpeed(vel)
+                self.db(f"DEBUG1: E:{self.posError: 3.9f} I:{self.posIntegral:3.9f} D:{self.posDerivitive:3.9f} spd: {vel: 3.8f},")
+            
+            self.lastPosStamp = now
+        except Exception as ex:
+            wh = f"EXCEPTION: {ex}"
         dDp = self.deltaPos - dist
-        trgHdg = math.radians(self.calcTargetHeading())
-        myHdg =  math.radians(self.headCtrl.act)
-        trgVec = Vec2(math.sin(trgHdg), math.cos(trgHdg))
-        myVec = Vec2(math.sin(myHdg), math.cos(myHdg))
-        dot = trgVec.dot(myVec)
-        sign = 1.0 if dot > 0.0 else -1.0
-        if dot == 0.0: sign = 0.0
-
-        #if dist > 0.3:
-        #    wh = "going "
-        prop = 0.008 if sign >= 0.0 else 0.011
-        spd = prop * abs(dist) * sign
-        self.velCtrl.setSpeed(spd)
-        #else:
-        #    wh = "set zero vel"
-        #    self.velCtrl.setSpeed(0.0)
-
         self.db(f"{wh}: dist: {dist: 3.4f}, DDP: {dDp: 3.4f}, dot: {dot: 3.5f}, sign: {sign: 3.4f}")
-        self.db(f"DEBUG1: {prop: 3.4f} spd: {spd: 3.4f},")
         return dist
 
     def isLanded(self):
         landed = not base.myChoppers[self.id][1].takenOff
         return landed
+    
+    def altTests(self):
+        alts = [67.0, 0.0, 67.0, 20, 65, 110, 30, 45, 0.0, 70, 0.0, 20.0]
+
+        now = time.time_ns()
+        atAlt = self.altCtrl.state == self.altCtrl.AT_ALT_ST
+        inTol = abs(self.altCtrl.trg - self.altCtrl.act) < 2.0 * self.altCtrl.tol
+        moreAlts = self.idxAlt < len(alts)
+        if atAlt and inTol and self.testAltStamp is None:
+            self.testAltStamp = now
+        if self.testAltStamp is not None:
+            atTime = (now - self.testAltStamp) > 5.0e9
+        else:
+            atTime = False
+
+        self.db(f" {moreAlts} and {inTol} and {atAlt}")
+        if self.idxAlt == 0:
+            #self.velCtrl.setSpeed(0.4)
+            self.altCtrl.setTarget(alts[self.idxAlt])
+            self.idxAlt += 1
+            self.testAltStamp = None
+        elif moreAlts and inTol and atAlt and atTime:
+            self.altCtrl.setTarget(alts[self.idxAlt])
+            self.db(f" ========================== ******************************************************** set new alt ")
+            self.idxAlt += 1
+            self.testAltStamp = None
+        return self.idxAlt >= len(alts)
+    
+    def velTests(self):
+        vals = [0.006, 0.0, 0.001, 0.002, 0.0, -.007,-.004,0.0, -100.0]
+
+        now = time.time_ns()
+        atVel = self.velCtrl.isStable() #self.velCtrl.state == self.velCtrl.MAINT_ST
+        inTol = abs(self.velCtrl.trg - self.velCtrl.speed) <= self.velCtrl.tol
+        moreVels = self.idxVel < len(vals)
+        if atVel and inTol and self.testVelStamp is None:
+            self.testVelStamp = now
+        if self.testVelStamp is not None:
+            atTime = (now - self.testVelStamp) > 25.0e9
+        else:
+            atTime = False
+
+        self.db(f" atVel: {atVel}, inTol: {inTol}, moreVels: {moreVels}, atTime: {atTime}")
+        newVal = None
+        if moreVels: newVal = vals[self.idxVel]
+        
+        if self.idxVel == 0:
+            if self.altCtrl.trg < 0.1:
+                self.altCtrl.setTarget(70)
+            elif self.altCtrl.act > 0.03 * self.altCtrl.trg:
+                self.velCtrl.setSpeed(vals[self.idxVel])
+                self.idxVel += 1
+                self.db(f"Set initial velocity {newVal: 3.4f} ======================================= ")
+        elif atVel and inTol and moreVels and atTime:
+            if newVal < -50.0:
+                #turn an go
+                self.headCtrl.setHeading(45)
+                newVal = 0.34
+            self.velCtrl.setSpeed(newVal)
+            self.db(f"Set next velocity {newVal: 3.4f} ======================================= {newVal:3.4f} ")
+            self.idxVel += 1
+            self.testVelStamp = None
+        
+        return self.idxVel >= len(vals)
+
+    def headTests(self):
+        vals = [290, 0.0, 90, 180, 45, 272, 70, 45, 355, 270, 273, 272, 70, 90, 180, 268, 100, 180, 45, 355, 270, 273, 272, 0.0]
+
+        now = time.time_ns()
+        deltaT = now - self.startStamp
+        idx = self.idxHdg
+        moreVals = idx < len(vals)
+        inTol = abs(self.headCtrl.getError()) <= self.headCtrl.tol
+        atHead = self.headCtrl.state == self.headCtrl.AT_HEAD_ST
+        self.db(f" more: {moreVals}, intol: {inTol}, atHead: {atHead}")
+
+        if idx == 0:
+            #self.velCtrl.setSpeed(0.4)
+            if self.altCtrl.trg < 30:
+                self.altCtrl.setTarget(150)
+            if self.altCtrl.act > 5.0:
+                self.headCtrl.setHeading(vals[idx])
+                idx += 1
+        elif moreVals and inTol and atHead:
+            self.headCtrl.setHeading(vals[idx])
+            idx += 1
+        self.idxHdg = idx
+        return idx >= len(vals)
+    
+    def posTests(self):
+        vals = [-8.3, 1.7, 6.54 -5.3, 12.22, -5.67]
+        now = time.time_ns()
+
+        idx = self.posIdx
+        moreVals = idx < len(vals)
+        inTol = abs(self.calcDistToTarget()) <= 0.3
+        if inTol and self.testPosStamp is None:
+            self.testPosStamp = now
+        if self.testPosStamp is not None:
+            atTime = (now - self.testPosStamp) > 4.0e9
+        else:
+            atTime = False
+
+        self.db(f" NEXT: more: {moreVals}, tol: {inTol} t: {atTime}")
+        if idx == 0:
+            if self.altCtrl.trg < 30:
+                self.altCtrl.setTarget(67)
+            if self.altCtrl.act > 5.0:
+                self.trgPos = Vec3(self.actPos.x + vals[idx],self.actPos.y, self.actPos.z)
+                idx += 1
+        elif moreVals and inTol and atTime:
+                self.trgPos = Vec3(self.actPos.x + vals[idx],self.actPos.y, self.actPos.z)
+                idx += 1
+                self.testPosStamp = None
+        if self.altCtrl.act > 5.0:
+            self.velTowardsPos()
+        self.posIdx = idx
+
+        return idx >= len(vals)
 
 
 if __name__ == '__main__':

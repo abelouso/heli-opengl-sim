@@ -85,10 +85,10 @@ class ApachiTelem:
         self.ap.grid(column=col,row=row, sticky="w")
         row = 6
         self.dbg1 =  tk.Label(self.root,anchor="w")
-        self.dbg1.grid(column=col,row=row, sticky="w")
+        self.dbg1.grid(column=col,row=row, columnspan=3, sticky="w")
         row = 7
         self.dbg2 =  tk.Label(self.root,anchor="w")
-        self.dbg2.grid(column=col,row=row, sticky="w")
+        self.dbg2.grid(column=col,row=row, columnspan=3, sticky="w")
         
 
         print(f"GUI Created...")
@@ -159,7 +159,7 @@ class ApachiTelem:
             case 8: statStr = "DOWN DECEL"
             case 9: statStr = "TAKE OFF"
             case 20:statStr = "AT HEADING"
-            case 21:statStr = "TURN_KICK"
+            case 21:statStr = "TURNING"
             case 22:statStr = "TURN_LOCK"
             case 30:statStr = "MAINTAIN SPD"
             case 31:statStr = "CHANGE VEL"
@@ -192,15 +192,16 @@ class ApachiTelem:
                 accI = msg.find("velaccel:")
                 accSpdI = msg.find("velactT") #in velocity state
                 altStI = msg.find("alttrg:") #in altitude state
-                altI = msg.find("altact:")
+                altI = msg.find("ApachiAltPID")
                 velSpdI = msg.find("velspd:")
                 pkgI = msg.find("packages: ")
                 dbg1 = msg.find("DEBUG1:")
                 dbg2 = msg.find("DEBUG2:")
-                floatVal1 = None
-                floatVal2 = None
-                floatVal3 = None
-                floatVal4 = None
+                headI = msg.find("ApachiHeadPID")
+                floatVal1 = None; fact1 = None
+                floatVal2 = None; fact2 = None
+                floatVal3 = None; fact3 = None
+                floatVal4 = None; fact4 = None
                 if pkgI >= 0:
                     self.pkgs["text"] = self.getData("packages: ",msg,",")
                 if dI >= 0 and fI >=0:
@@ -221,28 +222,39 @@ class ApachiTelem:
                       state = msg[:stI]
                       self.hState["text"] = self.str2State("HDG STATE",state)
                       self.elTime["text"] = self.getData("elapsed:",msg,",","elapsed:")
-                if altStI >= 0:
+                if altI >= 0:
                     state = msg[:stI]
                     self.altState["text"] = self.str2State("ALT STATE",state)
                     self.alt["text"] = self.getData("altact:",msg,",","alt:") + "/" + self.getData("alttrg:",msg,",","") 
-                if velSpdI >= 0:
-                    floatVal1 = self.getDatFloat("velactT:",msg,",")
-                    floatVal2 = self.getDatFloat(",T:",msg,",")
-                    floatVal3 = self.getDatFloat("velspd: ",msg,",")
-                    floatVal4 = self.getDatFloat("velaccel:",msg,",")
+                if velSpdI >= 0: #velocity
+                    floatVal1 = self.getDatFloat("veltrg:",msg,","); fact1 = 100.0 #trg speed yellow
+                    floatVal2 = self.getDatFloat("velspd:",msg,","); fact2 = 100.0 #act speed green
+                    floatVal3 = self.getDatFloat("err:",msg,","); fact3 = 100.0 #vel error red 
+                    floatVal4 = self.getDatFloat("velactT:",msg,","); fact4 = .10 #tilt blue
+                if False: #headI >= 0: #heading graphs
+                    floatVal1 = self.getDatFloat("trg: ",msg,","); fact1 = 0.1
+                    floatVal2 = self.getDatFloat("act: ",msg,","); fact2 = 0.1
+                    floatVal3 = self.getDatFloat("actRotSpd: ",msg,","); fact3 = 0.03
+                    floatVal4 = self.getDatFloat("dA: ",msg,","); fact4 = 5.0
+                if False: #altI >= 0: #altitude
+                    floatVal1 = self.getDatFloat("alttrg: ",msg,","); fact1 = 0.1
+                    floatVal2 = self.getDatFloat("altact: ",msg,","); fact2 = 0.1
+                    floatVal3 = self.getDatFloat("act rot: ",msg,","); fact3 = 0.03
+                    floatVal4 = self.getDatFloat("error: ",msg,","); fact4 = 1.0
+                    
                 if dbg1 >= 0:
                     self.dbg1["text"] = self.getData("DEBUG1:",msg)
                 if dbg2 >= 0:
                     self.dbg2["text"] = self.getData("DEBUG2:",msg)
                 added = False
                 if floatVal1 is not None:
-                    self.ydata1.append(floatVal1 * 10.0); added = True
+                    self.ydata1.append(floatVal1 * fact1); added = True
                 if floatVal2 is not None:
-                    self.ydata2.append(floatVal2 * 10.0); added = True
+                    self.ydata2.append(floatVal2 * fact2); added = True
                 if floatVal3 is not None:
-                    self.ydata3.append(floatVal3 * 10.0); added = True
+                    self.ydata3.append(floatVal3 * fact3); added = True
                 if floatVal4 is not None:
-                    self.ydata4.append(floatVal4 * 1000.0); added = True
+                    self.ydata4.append(floatVal4 * fact4); added = True
                 if added:
                     self.xdata.append(datetime.datetime.now())
 
@@ -250,7 +262,7 @@ class ApachiTelem:
         except Exception as ex:
             print(f"Unable to set data to label: {ex}")
         
-        while len(self.xdata) > 2000:
+        while len(self.xdata) > 6000:
             self.xdata.pop(0)
             self.ydata1.pop(0)
             self.ydata2.pop(0)
