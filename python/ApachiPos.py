@@ -133,7 +133,7 @@ class ApachiPos(BaseStateMachine):
         self.velCtrl.setSpeed(0.0)
 
     def altChHndl(self):
-        aboveAlt = self.altCtrl.act >= (self.crusAlt - 37.0)
+        aboveAlt = self.altCtrl.act >= (self.crusAlt - 47.0)
         stopped = self.velCtrl.isStopped()
         if aboveAlt and stopped: #above certain safe hight
             self.sendEvent(self.LEVEL_EVT)
@@ -182,9 +182,9 @@ class ApachiPos(BaseStateMachine):
             #calcluate motion profiles to arrive to x,y
             dist = self.calcDistToTarget()
             #speed directly proprotional to distance to target
-            trgSpd = 0.0001 * dist + 0.001 #ensure minimum speed
+            trgSpd = 0.00008 * dist + 0.001 #ensure minimum speed
             #let's make acceleration and deceleration zones, cut them in half
-            self.decelDist = 0.64 * dist
+            self.decelDist = 0.58 * dist
             self.velCtrl.setSpeed(trgSpd)
             self.db(f"Distance to target: {dist:3.4f}, speed: {trgSpd:3.4f}")
 
@@ -272,13 +272,14 @@ class ApachiPos(BaseStateMachine):
         self.db(f"{wh}: alt: {self.curPos.z: 3.4f}, altRt: {self.altCtrl.altRate: 3.4f}, DDP: {dDp: 3.4f}")
 
     def inDelHndl(self):
+        self.velCtrl.setSpeed(0.0)
         self.velCtrl.sendEvent(self.velCtrl.IDLE_EVT)
 
     def delHndl(self):
         dist = self.calcDistToTarget()
         landed = self.isLanded()
-        if  dist >= 0.1 and not landed:
-            #dist = self.velTowardsPos()
+        if  dist >= 1.2 and not landed:
+            dist = self.velTowardsPos()
             pass
         elif dist > 1.0 and landed or dist > 8.0:
             self.altCtrl.setTarget(self.crusAlt)

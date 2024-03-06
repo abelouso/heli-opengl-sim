@@ -55,8 +55,8 @@ class ApachiAlt(BaseStateMachine):
     MIN_ROT_SPD = 282.0 #2.0 * TAKE_OFF_SPEED - MAX_ROT_SPD
 
     TAKE_OFF_SPEED_0 = 223.0 #5%
-    MAX_ROT_SPD_0 = TAKE_OFF_SPEED_0 + 12.0
-    MIN_ROT_SPD_0 = TAKE_OFF_SPEED_0 - 12.0
+    MAX_ROT_SPD_0 = TAKE_OFF_SPEED_0 + 16.0
+    MIN_ROT_SPD_0 = TAKE_OFF_SPEED_0 - 16.0
 
     
     TAKE_OFF_SPEED_50 = 280.0 #50%
@@ -64,8 +64,8 @@ class ApachiAlt(BaseStateMachine):
     MIN_ROT_SPD_50 = TAKE_OFF_SPEED_50 - 15.0
     
     TAKE_OFF_SPEED_100 = 343.3 #50%
-    MAX_ROT_SPD_100 = TAKE_OFF_SPEED_100 + 22.0
-    MIN_ROT_SPD_100 = TAKE_OFF_SPEED_100 - 22.0
+    MAX_ROT_SPD_100 = TAKE_OFF_SPEED_100 + 26.0
+    MIN_ROT_SPD_100 = TAKE_OFF_SPEED_100 - 26.0
 
     KCTR = (TAKE_OFF_SPEED_100 - TAKE_OFF_SPEED_0) / (1.0 - 0.05)
     BCTR = TAKE_OFF_SPEED_100 - KCTR * 1.0
@@ -105,13 +105,13 @@ class ApachiAlt(BaseStateMachine):
 
 
     #testing things
-    Kp = 17.0
-    Ki = 0.00044
-    Kd = 160000.0
+    Kp = 17.6
+    Ki = 0.00047
+    Kd = 156000.0
 
-    lKp = 17.0
+    lKp = 17.5
     lKi = 0.00044
-    lKd = 300000.0
+    lKd = 187600.0
     integLimit = 110000.0
     #end low fuel
 
