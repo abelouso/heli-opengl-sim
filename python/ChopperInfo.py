@@ -35,7 +35,7 @@ class ChopperInfo:
         self.desMainRotorSpeed_RPM = 0.0
         self.desTailRotorSpeed_RPM = 0.0
         self.desTilt_Degrees = 0.0
-        self.remainingFuel_kg = 1.0 * fuelCap #TODO: put this back to fuelCap
+        self.remainingFuel_kg = fuelCap
         self.takenOff = False
         # In meters per second squared
         self.actAcceleration_ms2 = Vec3(0.0, 0.0, 0.0)

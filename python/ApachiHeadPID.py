@@ -51,17 +51,21 @@ class ApachiHead(BaseStateMachine):
     integLimit = 10000.0
     #end stable kick
 
-    error = 0.0
-    prevError = 0.0
-    integral = 0.0
-    derivitive = 0.0
+    error = None
+    prevError = None
+    integral = None
+    derivitive = None
     lastStamp = lastUpdate
-    lastChange = lastStamp
+    lastChange = None
+    dt = None
 
     def dump(self, source):
-        dH = self.getError()
-        self.db(f"{source:10} ApachiHeadPID trg: {self.trg: 3.4f}, act: {self.act: 3.4f}, dA: {dH: 3.4f}, desRS: {self.desRotSpd: 3.4f}, " \
-                f"actRotSpd: {self.actRotSpd: 3.4}, int: {self.integral: 3.9f}, der: {self.derivitive: 3.9f}, dt: {self.dt: 3.4f}, elapsed: {self.alt: 3.4f},")
+        try:
+            dH = self.getError()
+            self.db(f"{source:10} ApachiHeadPID trg: {self.trg: 3.4f}, act: {self.act: 3.4f}, dA: {dH: 3.4f}, desRS: {self.desRotSpd: 3.4f}, " \
+                    f"actRotSpd: {self.actRotSpd: 3.4}, int: {self.integral: 3.9f}, der: {self.derivitive: 3.9f}, dt: {self.dt: 3.4f}, elapsed: {self.alt: 3.4f},")
+        except:
+            pass
 
     def atHeadHndl(self):
         self.setRotorSpeed(self.STABLE_SPEED)
@@ -94,21 +98,32 @@ class ApachiHead(BaseStateMachine):
 
     
     def tick(self, act, spd, dt, alt):
-        self.updateTimeStamp()
-        now = time.time_ns()
-        deltaT_us = now - self.lastChange
-        deltaT_ms = 0.000001 * deltaT_us
-        self.dt = deltaT_ms
+        #self.updateTimeStamp()
+        now = dt
         self.actRotSpd = spd
         self.act = act
         self.alt = alt
-        self.prevError = self.error
-        self.error = self.getError()
-        self.derivitive = (self.error - self.prevError) / deltaT_ms
-        self.integral += deltaT_ms * (self.error)
-        self.integral = self.clamp(self.integral,self.integLimit)
+        if self.lastChange is None:
+            self.lastChange = now
+        else:
+            deltaT_us = now - self.lastChange
+            deltaT_ms = 1000.0 * deltaT_us
+            self.dt = deltaT_ms
+            deltaT_ms = None
+            self.prevError = self.error
+            self.error = self.getError()
+            if self.prevError is not None:
+                self.derivitive = (self.error - self.prevError) / self.dt
+            else:
+                self.derivitive = 0.0
+            area = self.dt * (self.error)
+            if self.integral is not None:
+                self.integral += area
+            else:
+                self.integral = area
+            self.integral = self.clamp(self.integral,self.integLimit)
 
-        if abs(self.desRotSpd - self.actRotSpd) > 0.001 or not self.alt > 1.0:
+        if not self.alt > 1.0:
             self.dump("WAIT")
         else:
             self.dump("TICK")

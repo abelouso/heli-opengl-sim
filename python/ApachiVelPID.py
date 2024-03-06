@@ -75,7 +75,7 @@ class ApachiVel(BaseStateMachine):
         cp = self.actPos
         lp = self.lstPos
         try:
-            self.db(f"{source:5}, ApachVelPID T:{self.dt: 2.1f},veltrg:{self.trg: 3.6f},velspd:{self.speed: 3.6f}, "\
+            self.db(f"{source:5}, ApachVelPID T:{self.dt: 2.1f},veltrg:{self.trg: 3.6f},velspd:{self.speed: 3.9f}, "\
                     f"desT:{self.desTilt: 3.4f},velactT:{self.actTilt: 3.6f}, "\
                     f"err:{self.error: 3.9f},I:{self.integral: 3.9f},D:{self.derivitive: 3.9f}, "\
                     f"F:{self.facing: 3.4f},M:{self.velocityHeading: 3.4f} "\

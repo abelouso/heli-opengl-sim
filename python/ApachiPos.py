@@ -157,13 +157,13 @@ class ApachiPos(BaseStateMachine):
         what = "check for heading target "
         now = time.time_ns()
         deltaT = now - self.turnStart
-        tooLong = deltaT >= 10.0e9 #a second?
-        if abs(trgHdg - self.headCtrl.trg) > 1.0 and self.headCtrl.state == self.headCtrl.AT_HEAD_ST and tooLong:
+        tooLong = deltaT >= 3.0e9 #a second?
+        if abs(trgHdg - self.headCtrl.trg) > 0.1 and self.headCtrl.state == self.headCtrl.AT_HEAD_ST and tooLong:
             self.headCtrl.setHeading(trgHdg)
             self.turnStart = now
             pass
         what = "Waiting for direction "
-        if move or dist < 4.0:
+        if move or dist < 4.0 and self.altCtrl.act >= 59.0:
             what = "At heading, going to location "
             self.sendEvent(self.START_MOVE_EVT)
         elif not self.velCtrl.isStopped():
@@ -182,9 +182,9 @@ class ApachiPos(BaseStateMachine):
             #calcluate motion profiles to arrive to x,y
             dist = self.calcDistToTarget()
             #speed directly proprotional to distance to target
-            trgSpd = 0.00009 * dist + 0.001 #ensure minimum speed
+            trgSpd = 0.000075 * dist + 0.001 #ensure minimum speed
             #let's make acceleration and deceleration zones, cut them in half
-            self.decelDist = 0.525 * dist
+            self.decelDist = 0.3 * dist
             self.velCtrl.setSpeed(trgSpd)
             self.db(f"Distance to target: {dist:3.4f}, speed: {trgSpd:3.4f}")
 
@@ -195,7 +195,7 @@ class ApachiPos(BaseStateMachine):
         vel = self.velCtrl.speed
         acc = self.maxAccel
         acc = self.velCtrl.MAX_ACCEL
-        stopDist = 0.05 * ((vel / acc))
+        stopDist = 0.09 * ((vel / acc))
         
         if not self.velCtrl.isToTarget(self.trgHdg) and distR >= 12.0:
             self.velCtrl.setSpeed(0.0)
@@ -231,9 +231,6 @@ class ApachiPos(BaseStateMachine):
             what = " Stopped, checking "
             if self.wentTooFar(): #distance increased by whole unit
                 what += " Went too far, stop, turn around"
-                #self.deltaPos = self.calcDistToTarget() + 1.0
-                #self.sendEvent(self.DIR_EVT)
-                #self.velCtrl.setSpeed(-0.03)
 
             elif (self.velCtrl.isStopped()):
                 #TODO: tighten this
@@ -292,9 +289,6 @@ class ApachiPos(BaseStateMachine):
             self.velCtrl.setSpeed(0.0)
             self.velCtrl.sendEvent(self.velCtrl.IDLE_EVT)
             self.posIntegral = 0.0
-        #if dist < 0.8 and self.altCtrl.act < 0.2:
-        #    self.db(f"Setting negative alt target to land")
-        #    self.altCtrl.setTarget(-0.3)
 
     def outDelHndl(self):
         self.altCtrl.setMainRotorSpeed(400.0)
@@ -305,8 +299,9 @@ class ApachiPos(BaseStateMachine):
 
     def landedHndl(self):
         self.velTowardsPos()
-        if self.curPos.z < 0.5:
+        if self.curPos.z < 0.4:
             self.sendEvent(self.DROP_EVT)
+            self.velCtrl.sendEvent(self.velCtrl.IDLE_EVT)
             
     def inHoverHndl(self):
         self.headCtrl.setHeading(self.velCtrl.velocityHeading)
@@ -345,10 +340,11 @@ class ApachiPos(BaseStateMachine):
     
     
     def testHndl(self):
-        #self.headTests()
+        self.headTests()
         #self.velTests()
-        self.altTests()
+        #self.altTests()
         #self.posTests()
+        pass
 
     StateHandlers = {
         INIT_ST: (None, initHndl, None),
@@ -442,7 +438,7 @@ class ApachiPos(BaseStateMachine):
         self.prevPos = self.curPos
         self.curPos = Vec3(actPos.x,actPos.y,actPos.z)
         self.altCtrl.tick(alt,actMainRot,actPos.getW(),fp)
-        self.headCtrl.tick(actHdg,actTailRot,alt,dt)
+        self.headCtrl.tick(actHdg,actTailRot,alt,actPos.getW())
         self.velCtrl.tick(actPos,actTilt,dt,alt,actHdg)
         #cap to prevent glitches
         #if self.maxAccel > self.MAX_ACCEL:
