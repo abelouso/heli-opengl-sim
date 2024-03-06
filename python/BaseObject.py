@@ -37,7 +37,7 @@ class BaseObject():
                 pass
 
         if self.actor is not None:
-            self.actor.cleanup()
+            #self.actor.cleanup()
             self.actor.removeNode()
             self.actor = None
 

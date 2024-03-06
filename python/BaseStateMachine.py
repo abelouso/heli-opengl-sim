@@ -29,6 +29,8 @@ class BaseStateMachine:
     RESET_EVT = 2
     ERROR_EVT = 3
 
+    sock = None
+
     def initHndl(self):
         self.db("In Init state")
 
@@ -111,7 +113,8 @@ class BaseStateMachine:
         calFn = inspect.getouterframes(inspect.currentframe(),2)[1][3]
         msg = f"{self.state}> {msg} [{calFn}]"
         try:
-            self.sock.sendto(msg.encode(), (MCAST_GRP, MCAST_PORT))
+            if self.sock is not None:
+                self.sock.sendto(msg.encode(), (MCAST_GRP, MCAST_PORT))
         except Exception as ex:
             print(f"BaseStateMachine:db() -> Exception sending: {ex}")
         try:
