@@ -133,7 +133,7 @@ class ApachiPos(BaseStateMachine):
         self.velCtrl.setSpeed(0.0)
 
     def altChHndl(self):
-        aboveAlt = self.altCtrl.act >= (self.crusAlt - 15.0)
+        aboveAlt = self.altCtrl.act >= (self.crusAlt - 37.0)
         stopped = self.velCtrl.isStopped()
         if aboveAlt and stopped: #above certain safe hight
             self.sendEvent(self.LEVEL_EVT)
@@ -182,7 +182,7 @@ class ApachiPos(BaseStateMachine):
             #calcluate motion profiles to arrive to x,y
             dist = self.calcDistToTarget()
             #speed directly proprotional to distance to target
-            trgSpd = 0.00006 * dist + 0.001 #ensure minimum speed
+            trgSpd = 0.00009 * dist + 0.001 #ensure minimum speed
             #let's make acceleration and deceleration zones, cut them in half
             self.decelDist = 0.525 * dist
             self.velCtrl.setSpeed(trgSpd)
@@ -346,8 +346,8 @@ class ApachiPos(BaseStateMachine):
     
     def testHndl(self):
         #self.headTests()
-        self.velTests()
-        #self.altTests()
+        #self.velTests()
+        self.altTests()
         #self.posTests()
 
     StateHandlers = {
@@ -435,13 +435,13 @@ class ApachiPos(BaseStateMachine):
         self.startStamp = time.time_ns()
         self.crusalt = crusAlt
 
-    def tick(self, actPos, actHdg, actMainRot, actTailRot, actTilt, dt):
+    def tick(self, actPos, actHdg, actMainRot, actTailRot, actTilt, dt, fp):
         self.updateTimeStamp()
         alt = actPos.getZ()
         self.actPos = actPos
         self.prevPos = self.curPos
         self.curPos = Vec3(actPos.x,actPos.y,actPos.z)
-        self.altCtrl.tick(alt,actMainRot,dt)
+        self.altCtrl.tick(alt,actMainRot,actPos.getW(),fp)
         self.headCtrl.tick(actHdg,actTailRot,alt,dt)
         self.velCtrl.tick(actPos,actTilt,dt,alt,actHdg)
         #cap to prevent glitches
@@ -544,7 +544,7 @@ class ApachiPos(BaseStateMachine):
         return landed
     
     def altTests(self):
-        alts = [67.0, 0.0, 67.0, 20, 65, 110, 30, 45, 0.0, 70, 0.0, 20.0]
+        alts = [67.0, 0.0, 67.0, 20, 65, 110, 30, 45, 0.0, 70, 0.0, 20.0, 67.0, 0.0, 67.1, 0.0, 67.2, 0.0, 67.3, 0.0, 67.4, 0.0, 67.5]
 
         now = time.time_ns()
         atAlt = self.altCtrl.state == self.altCtrl.AT_ALT_ST
@@ -553,7 +553,7 @@ class ApachiPos(BaseStateMachine):
         if atAlt and inTol and self.testAltStamp is None:
             self.testAltStamp = now
         if self.testAltStamp is not None:
-            atTime = (now - self.testAltStamp) > 5.0e9
+            atTime = (now - self.testAltStamp) > 10.0e9
         else:
             atTime = False
 

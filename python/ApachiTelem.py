@@ -13,6 +13,7 @@ from matplotlib.animation import FuncAnimation
 import datetime
 import math
 import random
+from datetime import timedelta
 
 #https://stackoverflow.com/questions/603852/how-do-you-udp-multicast-in-python
 MCAST_GRP = '224.0.0.1'
@@ -83,6 +84,8 @@ class ApachiTelem:
         row = 5
         self.ap = tk.Label(self.root,anchor="w")
         self.ap.grid(column=col,row=row, sticky="w")
+        self.fuel = tk.Label(self.root,anchor="w")
+        self.fuel.grid(column=midCol,row=row, sticky="w")
         row = 6
         self.dbg1 =  tk.Label(self.root,anchor="w")
         self.dbg1.grid(column=col,row=row, columnspan=3, sticky="w")
@@ -198,12 +201,15 @@ class ApachiTelem:
                 dbg1 = msg.find("DEBUG1:")
                 dbg2 = msg.find("DEBUG2:")
                 headI = msg.find("ApachiHeadPID")
+                fuelI = msg.find("REMFUEL")
                 floatVal1 = None; fact1 = None
                 floatVal2 = None; fact2 = None
                 floatVal3 = None; fact3 = None
                 floatVal4 = None; fact4 = None
                 if pkgI >= 0:
                     self.pkgs["text"] = self.getData("packages: ",msg,",")
+                if fuelI >= 0:
+                    self.fuel["text"] = self.getData("REMFUEL:",msg,",","FUEL: ")
                 if dI >= 0 and fI >=0:
                     self.dist["text"] = self.getData("dist:",msg,',',"DISTANCE:")
                     self.face["text"] = self.getData("facing:",msg)
@@ -221,12 +227,16 @@ class ApachiTelem:
                 if elT >= 0 and altDes >= 0:
                       state = msg[:stI]
                       self.hState["text"] = self.str2State("HDG STATE",state)
-                      self.elTime["text"] = self.getData("elapsed:",msg,",","elapsed:")
+                      secsFlt = self.getDatFloat("elapsed:",msg,",")
+                      secsInt = int(secsFlt)
+                      secFmtStr = timedelta(seconds = secsInt)
+                      self.elTime["text"] = secFmtStr
                 if altI >= 0:
                     state = msg[:stI]
                     self.altState["text"] = self.str2State("ALT STATE",state)
                     self.alt["text"] = self.getData("altact:",msg,",","alt:") + "/" + self.getData("alttrg:",msg,",","") 
-                if velSpdI >= 0: #velocity
+                    self.accel["text"] = self.getData("altaccel:",msg,",","ALT ACCEL:")
+                if False: #velSpdI >= 0: #velocity
                     floatVal1 = self.getDatFloat("veltrg:",msg,","); fact1 = 100.0 #trg speed yellow
                     floatVal2 = self.getDatFloat("velspd:",msg,","); fact2 = 100.0 #act speed green
                     floatVal3 = self.getDatFloat("err:",msg,","); fact3 = 100.0 #vel error red 
@@ -236,7 +246,7 @@ class ApachiTelem:
                     floatVal2 = self.getDatFloat("act: ",msg,","); fact2 = 0.1
                     floatVal3 = self.getDatFloat("actRotSpd: ",msg,","); fact3 = 0.03
                     floatVal4 = self.getDatFloat("dA: ",msg,","); fact4 = 5.0
-                if False: #altI >= 0: #altitude
+                if altI >= 0: #altitude
                     floatVal1 = self.getDatFloat("alttrg: ",msg,","); fact1 = 0.1
                     floatVal2 = self.getDatFloat("altact: ",msg,","); fact2 = 0.1
                     floatVal3 = self.getDatFloat("act rot: ",msg,","); fact3 = 0.03

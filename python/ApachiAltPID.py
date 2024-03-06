@@ -24,7 +24,6 @@ class ApachiAlt(BaseStateMachine):
     AT_ALT_EVT = 251
     ROTOR_STARTED_EVT = 252
 
-
     eventQ = queue.Queue()
     leave = None
     handle = None
@@ -34,6 +33,7 @@ class ApachiAlt(BaseStateMachine):
     tol = 2.0
 
     MAX_RATE = 0.000003
+    MAX_ACCEL = 0.00000001
     trgRate = MAX_RATE
     altRate = 0.0
 
@@ -47,10 +47,35 @@ class ApachiAlt(BaseStateMachine):
     
     lastUpdate = time.time_ns()
 
-    MAX_ROT_SPD = 399.0
-    TAKE_OFF_SPEED = 347.0
-    MIN_ROT_SPD = 200.0 #2.0 * TAKE_OFF_SPEED - MAX_ROT_SPD
+    MAX_ROT_SPD = 292.0
+    TAKE_OFF_SPEED = 315.0 #313, half tank#
+    TAKE_OFF_SPEED = 290.0 #313, 5% tank#
+
+
+    MIN_ROT_SPD = 282.0 #2.0 * TAKE_OFF_SPEED - MAX_ROT_SPD
+
+    TAKE_OFF_SPEED_0 = 223.0 #5%
+    MAX_ROT_SPD_0 = TAKE_OFF_SPEED_0 + 12.0
+    MIN_ROT_SPD_0 = TAKE_OFF_SPEED_0 - 12.0
+
     
+    TAKE_OFF_SPEED_50 = 280.0 #50%
+    MAX_ROT_SPD_50 = TAKE_OFF_SPEED_50 + 15.0
+    MIN_ROT_SPD_50 = TAKE_OFF_SPEED_50 - 15.0
+    
+    TAKE_OFF_SPEED_100 = 343.3 #50%
+    MAX_ROT_SPD_100 = TAKE_OFF_SPEED_100 + 22.0
+    MIN_ROT_SPD_100 = TAKE_OFF_SPEED_100 - 22.0
+
+    KCTR = (TAKE_OFF_SPEED_100 - TAKE_OFF_SPEED_0) / (1.0 - 0.05)
+    BCTR = TAKE_OFF_SPEED_100 - KCTR * 1.0
+
+    KLIM = (20.0 - 10.0) / (1.0 - 0.05)
+    BLIM = 20.0 - KLIM * 1.0
+
+    takeOffSpd = TAKE_OFF_SPEED_100
+    maxRotSpd = MAX_ROT_SPD_100
+    minRotSpd = MAX_ROT_SPD_100
     #relative kick -works on first landing
     '''
     Kp = 17.0
@@ -60,35 +85,58 @@ class ApachiAlt(BaseStateMachine):
     '''
     #end relative kick
 
-    Kp = 13.21
-    Ki = 0.00023
-    Kd = 29000.0
+    #absolute
+    Kp = 49.21
+    Ki = 0.0008
+    Kd = 250000.0
+    lKp = 52.21
+    lKi = 0.0008
+    lKd = 2050000.0
 
+    integLimit = 710000.0
+
+    #original worked
+    '''
     lKp = 12.21
     lKi = 0.00023
     lKd = 645000.0
+    '''
+    #end original
 
-    integLimit = 11000000.0
+
+    #testing things
+    Kp = 17.0
+    Ki = 0.00044
+    Kd = 160000.0
+
+    lKp = 17.0
+    lKi = 0.00044
+    lKd = 300000.0
+    integLimit = 110000.0
+    #end low fuel
+
 
     isLanding = False
+    areaKick = 10000.0
 
-    error = 0.0
-    prevError = 0.0
-    integral = 0.0
-    derivitive = 0.0
+    error = None
+    prevError = None
+    integral = None
+    derivitive = None
     lastStamp = lastUpdate
-    lastChange = lastStamp
+    lastChange = None
+    startTime = None
 
     def dump(self,source):
         self.db(f"{source:10}, ApachiAltPID alttrg: {self.trg: 3.4f}, altact: {self.act: 3.4f}, "\
-                f"alttrgrate: {self.trgRate: 3.9f}, altactrate: {self.altRate: 3.9f}, mxki: {self.maxKick:3.4f},"\
-                f"error: {self.error: 3.9f}, integral: {self.integral: 3.8f}, deriv: {self.derivitive: 3.8f},"\
+                f"alttrgrate: {self.trgRate: 3.9f}, altactrate: {self.altRate: 3.9f}, altaccel: {self.accel:3.9f},"\
+                f"error: {self.error: 3.9f}, integral: {self.integral: 3.8f}, deriv: {self.derivitive: 3.8f},TOS:{self.takeOffSpd:>+4.1f}, "\
                 f"act rot: {self.actMainSpd: 3.4f}, des rot: {self.desRotSpd: 3.4f},")
         pass
 
 
     def gndHndl(self):
-        self.setMainRotorSpeed(self.TAKE_OFF_SPEED)
+        #self.setMainRotorSpeed(self.TAKE_OFF_SPEED)
         self.sendEvent(self.ROTOR_STARTED_EVT)
 
     def atAltHndl(self):
@@ -128,28 +176,58 @@ class ApachiAlt(BaseStateMachine):
         super().__init__(self.TAG, self.DBG_MASK)
         self.state = self.GND_ST
         self.sendEvent(self.NULL_EVT)
+        self.startTime = time.time_ns()
     
-    def tick(self, act, spd, dt):
-        self.updateTimeStamp()
-        now = time.time_ns()
-        deltaT_us = now - self.lastChange
-        deltaT_ms = 0.000001 * deltaT_us
-        self.dt = deltaT_ms
-        self.altRate = (act - self.act) / deltaT_ms
-        self.maxKick = 60.0 * 0.001 * deltaT_ms
-        self.act = act
-        self.actMainSpd = spd
-        self.prevError = self.error
-        self.error = self.getError()
-        self.derivitive = (self.error - self.prevError) / deltaT_ms
-        self.integral += 2.0 * deltaT_ms * (self.error)
-        self.integral = self.clamp(self.integral,self.integLimit)
-        if False: #math.fabs(self.desRotSpd - self.actMainSpd) > 0.001:
-            self.dump("WAIT")
+    def tick(self, act, spd, dt,fp):
+        #self.updateTimeStamp()
+        self.fuel = 0.01 * fp
+        self.takeOffSpd = self.KCTR * self.fuel + self.BCTR
+        self.minRotSpd = self.takeOffSpd - (self.KLIM * self.fuel + self.BLIM)
+        self.maxRotSpd = self.takeOffSpd + (self.KLIM * self.fuel + self.BLIM)
+        now = dt
+        if self.lastChange is None:
+            self.lastChange = now
         else:
-            if self.handle is not None:
-                self.handle(self)
-                self.dump("TICK")
+            deltaT_us = now - self.lastChange
+            deltaT_ms = 1000.0 * deltaT_us
+            self.dt = deltaT_ms
+            deltaT_ms = None
+            altRate = (act - self.act) / self.dt
+            if self.altRate is not None:
+                self.accel = (altRate - self.altRate) / self.dt
+            self.altRate = altRate
+            self.maxKick = 60.0 * 0.001 * self.dt
+            self.act = act
+            self.actMainSpd = spd
+            self.prevError = self.error
+            self.error = self.getError()
+            if self.prevError is not None:
+                self.derivitive = (self.error - self.prevError) / self.dt
+            else:
+                self.derivitive = 0.0
+            area = self.areaKick * self.dt * self.error
+            if self.integral is not None:
+                self.integral += area
+            else:
+                self.integral = area
+            self.integral = self.clamp(self.integral,self.integLimit)
+
+            #adjust Kds as function of elapsed time
+            '''
+            elTime_s = 1.0e-9 * (time.time_ns() - self.startTime)
+            tmRat = 0.033
+            self.Kd +=  2.0
+            self.Kp +=  0.001
+            self.Ki +=  0.00000001
+
+            self.lKd -= 1.2
+            self.lKp += 0.0001
+            self.lKi += 0.00000001
+            '''
+
+        if self.handle is not None:
+            self.handle(self)
+            self.dump("TICK")
         self.next()
         self.lastChange = now
         return self.desRotSpd
@@ -185,25 +263,43 @@ class ApachiAlt(BaseStateMachine):
             share = self.lKp * error + self.lKi * self.integral + self.lKd * self.derivitive
         else:
             share = self.Kp * error + self.Ki * self.integral + self.Kd * self.derivitive
-        '''
-        if share >= 0.0:
-            if share > self.maxKick: share = self.maxKick
-        else:
-            if share < -self.maxKick: share = -self.maxKick
-        '''
-        self.db(f"DEBUG2: alt err: {error: 3.9f} int: {self.integral: 3.9f} der: {self.derivitive: 3.9f} kick: {share: 3.9f} L:{self.isLanding},")
+        prop = self.Kp * self.error
+        inte = self.Ki * self.integral
+        deri = self.Kd * self.derivitive
+        self.db(f"DEBUG2: alt err: {prop: >+3.9f} int: {inte: >+3.9f} der: {deri: >+3.9f} kick: {share: >+3.9f} L:{self.isLanding},")
         return share
     
     def adjRotSpd(self):
         share = self.kickShare()
-        #relative kick - works
-        newSpd = self.TAKE_OFF_SPEED + share
-        #end relative kick
+        #fixed base kick - works
+        newSpd = self.takeOffSpd + share
+        #end fixed base kick
         #absolute value
-        newSpd = share
+        '''
+        ac = self.accel
+        if abs(ac) > self.MAX_ACCEL:
+            #take measure to slow down
+            if ac > 0.0:
+                wh = " kicked down"
+                newSpd = self.desRotSpd - 0.01
+            elif ac < 0.0:
+                wh = " kicked up"
+                newSpd = self.desRotSpd + 0.01
+            else:
+                wh = " set to current speed"
+                newSpd = self.actMainSpd
+            self.db(f" ___OVER MAX ACCEL__: {wh}")
+        else:
+            #set new desired speed
+            newSpd = share
+        '''
+        #newSpd = share
         #end absolute value
-        if newSpd > self.MAX_ROT_SPD: newSpd = self.MAX_ROT_SPD
-        if newSpd < self.MIN_ROT_SPD: newSpd = self.MIN_ROT_SPD
+        #relative kick
+        #newSpd = self.desRotSpd + share
+        #end relarive kick
+        if newSpd > self.maxRotSpd: newSpd = self.maxRotSpd
+        if newSpd < self.minRotSpd: newSpd = self.minRotSpd
         self.setMainRotorSpeed(newSpd)
 
     def isStable(self):
