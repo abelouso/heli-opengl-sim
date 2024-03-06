@@ -9,7 +9,8 @@ from panda3d.core import CollisionSphere, CollisionNode
 
 class BaseObject():
     def __init__(self, pos, modelName, anims, colliderName):
-        self.actor = Actor(modelName, anims)
+        #self.actor = Actor(modelName, anims)
+        self.actor = loader.loadModel(modelName)
         self.actor.reparentTo(render)
         self.actor.setPos(pos)
         # Note the "colliderName"--this will be used for
