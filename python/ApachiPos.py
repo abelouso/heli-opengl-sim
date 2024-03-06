@@ -109,7 +109,7 @@ class ApachiPos(BaseStateMachine):
         dp = self.calcDistToTarget()
         try:
             self.db(f"{source:10}, {cp}, {tp}, dist: {dp:3.4f},facing: {self.velCtrl.facing:3.4f},"\
-                    f"head: {self.velCtrl.velocityHeading:3.4f}, speed: {self.velCtrl.speed: 3.6f},"\
+                    f"head: {self.velCtrl.velocityHeading:3.4f}, speed: {self.velCtrl.speed: 3.8f},"\
                     f"maxAccel: {self.maxAccel: 3.4f}, trgHdg: {self.trgHdg: 3.4f}")
         except:
             pass
@@ -159,7 +159,7 @@ class ApachiPos(BaseStateMachine):
         deltaT = now - self.turnStart
         tooLong = deltaT >= 3.0e9 #a second?
         if abs(trgHdg - self.headCtrl.trg) > 0.1 and self.headCtrl.state == self.headCtrl.AT_HEAD_ST and tooLong:
-            self.headCtrl.setHeading(trgHdg)
+            self.inTurnHndl()
             self.turnStart = now
             pass
         what = "Waiting for direction "
@@ -182,9 +182,9 @@ class ApachiPos(BaseStateMachine):
             #calcluate motion profiles to arrive to x,y
             dist = self.calcDistToTarget()
             #speed directly proprotional to distance to target
-            trgSpd = 0.000075 * dist + 0.001 #ensure minimum speed
+            trgSpd = 0.0001 * dist + 0.001 #ensure minimum speed
             #let's make acceleration and deceleration zones, cut them in half
-            self.decelDist = 0.3 * dist
+            self.decelDist = 0.64 * dist
             self.velCtrl.setSpeed(trgSpd)
             self.db(f"Distance to target: {dist:3.4f}, speed: {trgSpd:3.4f}")
 
@@ -280,10 +280,10 @@ class ApachiPos(BaseStateMachine):
         if  dist >= 0.1 and not landed:
             #dist = self.velTowardsPos()
             pass
-        elif dist > 1.0 and landed:
+        elif dist > 1.0 and landed or dist > 8.0:
             self.altCtrl.setTarget(self.crusAlt)
             self.sendEvent(self.GO_EVT)
-            self.db(f"DEBUG1: landed too far, take off")
+            self.db(f"DEBUG1: landed too far or too far, take off")
         elif landed:
             #in landed state, velocity is zero, set vel control to idle
             self.velCtrl.setSpeed(0.0)
@@ -490,7 +490,7 @@ class ApachiPos(BaseStateMachine):
     def canMove(self, tol):
         trgHdg = self.calcTargetHeading()
         isStable = self.headCtrl.isStable()
-        inTol = abs(trgHdg - self.headCtrl.act) <= tol
+        inTol = self.headCtrl.state == self.headCtrl.AT_HEAD_ST
         self.db(f" sable: {isStable}, in tol: {inTol}")
         res = inTol and isStable
         return trgHdg, 0.0, res

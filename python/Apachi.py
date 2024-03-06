@@ -141,7 +141,10 @@ class Apachi(StigChopper):
                         self.ctrl.altCtrl.setMainRotorSpeed(0.0)
                 else:
                     self.ctrl.setPosition(Vec3(pt.x, pt.y, self.cruseAlt))
-                    self.ctrl.sendEvent(self.ctrl.GO_EVT)
+                    if self.ctrl.velCtrl.speed <= 0.00000001:
+                        self.ctrl.sendEvent(self.ctrl.GO_EVT)
+                    else:
+                        self.ctrl.velCtrl.sendEvent(self.ctrl.velCtrl.IDLE_EVT)
                     self.ctrl.db(f"packages: {len(self.targetWaypoints)},")
                     #del(self.targetWaypoints[self.cargoIdx])
             else:
