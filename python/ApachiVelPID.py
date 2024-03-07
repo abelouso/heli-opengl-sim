@@ -293,5 +293,5 @@ class ApachiVel(BaseStateMachine):
         fc = self.facing
         dot = self.getDot(trgHd,fc)
         fwd = dot >= 0.0
-        self.db(f" DEBUG1: DOT: {dot: 3.4f} to Target:{fwd},")
+        self.db(f" DEBUG3: DOT: {dot: 3.4f} to Target:{fwd},")
         return fwd

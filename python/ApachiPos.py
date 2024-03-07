@@ -133,7 +133,7 @@ class ApachiPos(BaseStateMachine):
         self.velCtrl.setSpeed(0.0)
 
     def altChHndl(self):
-        aboveAlt = self.altCtrl.act >= (self.crusAlt - 47.0)
+        aboveAlt = self.altCtrl.act >= (self.crusAlt - 52.0)
         stopped = self.velCtrl.isStopped()
         if aboveAlt and stopped: #above certain safe hight
             self.sendEvent(self.LEVEL_EVT)
@@ -168,7 +168,7 @@ class ApachiPos(BaseStateMachine):
             self.sendEvent(self.START_MOVE_EVT)
         elif not self.velCtrl.isStopped():
             what = "Not stopped, go to hover"
-            self.sendEvent(self.HOVER_EVT)
+            #self.sendEvent(self.HOVER_EVT)
         
         self.db(f"{what}> headT: {trgHdg:3.4f}, actH: {self.headCtrl.act:3.4f}, rate: {turnRt:3.4f}, dist: {dist:3.4f}")
 
@@ -183,6 +183,7 @@ class ApachiPos(BaseStateMachine):
             dist = self.calcDistToTarget()
             #speed directly proprotional to distance to target
             trgSpd = 0.00008 * dist + 0.001 #ensure minimum speed
+            trgSpd = self.clamp(trgSpd,0.0148)
             #let's make acceleration and deceleration zones, cut them in half
             self.decelDist = 0.58 * dist
             self.velCtrl.setSpeed(trgSpd)
@@ -223,7 +224,7 @@ class ApachiPos(BaseStateMachine):
         distR = self.calcDistToTarget()
         desHdg = self.calcTargetHeading()
         withInDist = distR <= 8.0
-        needToTurn = abs(desHdg - self.headCtrl.act) and withInDist
+        needToTurn = abs(desHdg - self.headCtrl.act)
         lowSpd = self.velCtrl.isStopped()
         noTilt = abs(self.velCtrl.actTilt) < 0.095
         stopped = lowSpd and noTilt # and self.velCtrl.actTilt > 0.0
@@ -239,7 +240,7 @@ class ApachiPos(BaseStateMachine):
                     what += "DONE. Close, Landing "
                 else:
                     self.maxAccel = self.MIN_ACCEL
-                    if needToTurn > 0.2:
+                    if needToTurn > 0.001:
                         what += "Need to turn around "
                         self.sendEvent(self.DIR_EVT)
                     else:
@@ -284,7 +285,7 @@ class ApachiPos(BaseStateMachine):
         elif dist > 1.0 and landed or dist > 8.0:
             self.altCtrl.setTarget(self.crusAlt)
             self.sendEvent(self.GO_EVT)
-            self.db(f"DEBUG1: landed too far or too far, take off")
+            self.db(f"DEBUG3: landed too far or too far, take off")
         elif landed:
             #in landed state, velocity is zero, set vel control to idle
             self.velCtrl.setSpeed(0.0)
@@ -527,7 +528,7 @@ class ApachiPos(BaseStateMachine):
 
                 vel = self.Kp * self.posError + self.Ki * self.posIntegral + self.Kd * self.posDerivitive
                 self.velCtrl.setSpeed(vel)
-                self.db(f"DEBUG1: E:{self.posError: 3.9f} I:{self.posIntegral:3.9f} D:{self.posDerivitive:3.9f} spd: {vel: 3.8f},")
+                self.db(f"DEBUG3: E:{self.posError: 3.9f} I:{self.posIntegral:3.9f} D:{self.posDerivitive:3.9f} spd: {vel: 3.8f},")
             
             self.lastPosStamp = now
         except Exception as ex:

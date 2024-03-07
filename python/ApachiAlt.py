@@ -351,7 +351,7 @@ class ApachiAlt(BaseStateMachine):
                 #self.setMainRotorSpeed(390)
             else:
                 self.rotSpdDelta = self.ROT_SPD_DELTA_SLOW
-        self.db(f"DEBUG1: rotDelta: {self.rotSpdDelta: 3.4f},")
+        self.db(f"DEBUG3: rotDelta: {self.rotSpdDelta: 3.4f},")
 
     def rotorSpeed(self):
         return self.desRotSpd

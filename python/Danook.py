@@ -395,6 +395,7 @@ class Danook(StigChopper):
                 self.desMainRotorSpeed_RPM = 0.0
                 self.desiredAltitude = 0.0
                 base.dbg(self.TAG, "Time: {:.2f} -- All packages delivered.  (Powering Down)".format(self.currTime),self.FULL_DEBUG_MASK)
+                print("Time: {:.2f} -- All packages delivered.  (Powering Down)".format(self.currTime))
                 nextState = State.POWER_DOWN
             case State.POWER_DOWN:
                 pass

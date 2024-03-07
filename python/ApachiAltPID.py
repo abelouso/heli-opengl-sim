@@ -19,10 +19,12 @@ class ApachiAlt(BaseStateMachine):
     AT_ALT_ST = 5
     TAKE_OFF_ST = 9
     ALT_CHG_ST = 2
+    SHT_DWN_ST = 6
 
     NEW_ALT_EVT_EVT = 250
     AT_ALT_EVT = 251
     ROTOR_STARTED_EVT = 252
+    STOP_EVT = 253
 
     eventQ = queue.Queue()
     leave = None
@@ -152,11 +154,14 @@ class ApachiAlt(BaseStateMachine):
         if self.isStable():
             self.sendEvent(self.AT_ALT_EVT)
             pass
+    def shtHndl(self):
+        self.setMainRotorSpeed(0.0)
 
     StateHandlers = {
         GND_ST:    (None, gndHndl, None),
         AT_ALT_ST: (None, atAltHndl, None),
         ALT_CHG_ST: (None, altChgHndl, None),
+        SHT_DWN_ST: (None, shtHndl, None),
     }
 
     StateMachine = {
@@ -166,9 +171,13 @@ class ApachiAlt(BaseStateMachine):
         },
         AT_ALT_ST: {
             NEW_ALT_EVT_EVT: (ALT_CHG_ST, None),
+            STOP_EVT: (SHT_DWN_ST, None)
         },
         ALT_CHG_ST: {
             AT_ALT_EVT: (AT_ALT_ST, None),
+        },
+        SHT_DWN_ST: {
+            NEW_ALT_EVT_EVT: (GND_ST, None),
         },
     }
 

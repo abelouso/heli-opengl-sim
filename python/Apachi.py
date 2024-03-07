@@ -22,8 +22,8 @@ from ApachiPos import *
 class Apachi(StigChopper):
     startTime = time.time_ns()
     cruseAlt = 67
-    homeBase = None
     fullTank = None
+    rotAngle = 0.0
     def __init__(self,id, pos, scale=0.2):
         StigChopper.__init__(self,id,pos,"Models/ArmyCopter", {}, "apachi")
         self.actor.setScale(scale,scale,scale)
@@ -53,7 +53,7 @@ class Apachi(StigChopper):
         self.spiny2 = None
         for child in self.actor.children:
             self.findRotNodes(child, 0)
-
+        
     def findRotNodes(self, nodepath, recurse_level):
         for child in nodepath.children:
             if not child is None:
@@ -91,7 +91,6 @@ class Apachi(StigChopper):
         self.targetWaypoints = wp
         self.cargoIdx = 0
         myPos = base.gps(self.id)
-        self.homeBase = myPos
         self.cargoIdx, pt = self.findNearPos(myPos)
         if pt is not None:
             self.ctrl.setPosition(Vec3(pt.x, pt.y, self.cruseAlt))
@@ -99,22 +98,32 @@ class Apachi(StigChopper):
             #del(self.targetWaypoints[self.cargoIdx])
         if self.fullTank is None:
             self.fullTank,_ = self.getRemFuel()
+            
+    def spinRotor(self, tick, rotSpd):
+        aDelta = 0.0
+        try:
+            aDelta = rotSpd * 360.0 / (100000.0 * tick)
+        except:
+            aDelta = 0.0
+        self.rotAngle += aDelta
+        if self.rotAngle > 360.0: self.rotAngle -= 360.0
+        if self.spiny is not None:
+            self.spiny.setHpr(Vec3(self.rotAngle, 0, 0))
+
 
     def update(self,dt,tick):
         StigChopper.update(self,dt,tick)
-        if self.spiny is not None:
-            self.spiny.setHpr(Vec3(random.randint(0,360), 0, 0))
 
     def runLogic(self,dt,tick):
         StigChopper.runLogic(self,dt,tick)
         pos = base.gps(self.id)
-        alt = pos.getZ()
         orient = base.transformations(self.id)
         hdng = orient.getX()
         #TODO: provide access to this
         actSpd = base.myChoppers[self.id][1].actMainRotorSpeed_RPM
         tailSpd = base.myChoppers[self.id][1].actTailRotorSpeed_RPM
         actTilt = base.myChoppers[self.id][1].actTilt_Degrees
+        self.spinRotor(tick,actSpd)
         _,fp = self.getRemFuel()
         self.mainSpeed, self.tailSpeed, self.tilt = self.ctrl.tick(pos, hdng, actSpd, tailSpd, actTilt, dt, fp)
         base.requestSettings(self.id,self.mainSpeed,self.tilt,self.tailSpeed)
@@ -122,33 +131,36 @@ class Apachi(StigChopper):
             #transition to however
             self.ctrl.sendEvent(self.ctrl.HOVER_EVT)
         if self.ctrl.state == self.ctrl.DELIVER_ST:
-            delviered = base.deliverPackage(self.id)
-            if delviered:
-                self.ctrl.db(f"================== DELIVERED PACKAGE ===================== #{self.cargoIdx}")
-                self.cargoIdx, pt = self.findNearPos(pos)
-                if self.cargoIdx is None:
-                    self.ctrl.db(f"packages: {len(self.targetWaypoints)},")
-                    deltaT_s = 1e-9 * (time.time_ns() - self.startTime)
-                    eltimeStr = timedelta(seconds=deltaT_s)
-                    delStr = f"== APACHI DELIVERED ALL PACKAGES: in {eltimeStr}/ {deltaT_s}, returning to base..."
-                    self.ctrl.db(f"DEBUG1 {delStr}")
-                    print(delStr)
-                    if self.homeBase is not None:
-                        self.ctrl.setPosition(Vec3(self.homeBase.x, self.homeBase.y, self.cruseAlt))
-                        self.ctrl.sendEvent(self.ctrl.GO_EVT)
-                        self.homeBase = None
+            if len(self.targetWaypoints) > 0:
+                delviered = base.deliverPackage(self.id)
+                if delviered:
+                    self.ctrl.db(f"================== DELIVERED PACKAGE ===================== #{self.cargoIdx}")
+                    self.cargoIdx, pt = self.findNearPos(pos)
+                    if self.cargoIdx is None:
+                        self.ctrl.db(f"packages: {len(self.targetWaypoints)},")
+                        deltaT_s = pos.getW()
+                        eltimeStr = timedelta(seconds=deltaT_s)
+                        delStr = f"== APACHI DELIVERED ALL PACKAGES: in {eltimeStr}/ {deltaT_s}, returning to base..."
+                        self.ctrl.db(f"DEBUG1 {delStr}")
+                        print(delStr)
+                        if self.homeBase is not None:
+                            self.ctrl.setPosition(Vec3(self.homeBase.x, self.homeBase.y, self.cruseAlt))
+                            self.ctrl.sendEvent(self.ctrl.GO_EVT)
+                        else:
+                            self.ctrl.altCtrl.setMainRotorSpeed(0.0)
                     else:
-                        self.ctrl.altCtrl.setMainRotorSpeed(0.0)
+                        self.ctrl.setPosition(Vec3(pt.x, pt.y, self.cruseAlt))
+                        if self.ctrl.velCtrl.speed <= 0.00000001:
+                            self.ctrl.sendEvent(self.ctrl.GO_EVT)
+                        else:
+                            self.ctrl.velCtrl.sendEvent(self.ctrl.velCtrl.IDLE_EVT)
+                        self.ctrl.db(f"packages: {len(self.targetWaypoints)},")
+                        #del(self.targetWaypoints[self.cargoIdx])
                 else:
-                    self.ctrl.setPosition(Vec3(pt.x, pt.y, self.cruseAlt))
-                    if self.ctrl.velCtrl.speed <= 0.00000001:
-                        self.ctrl.sendEvent(self.ctrl.GO_EVT)
-                    else:
-                        self.ctrl.velCtrl.sendEvent(self.ctrl.velCtrl.IDLE_EVT)
-                    self.ctrl.db(f"packages: {len(self.targetWaypoints)},")
-                    #del(self.targetWaypoints[self.cargoIdx])
+                    self.ctrl.db(f"======= TRYING TO DROP OFF =========== #{self.cargoIdx}")
             else:
-                self.ctrl.db(f"======= TRYING TO DROP OFF =========== #{self.cargoIdx}")
+                self.ctrl.db("Shutting down main rotor...")
+                self.ctrl.altCtrl.sendEvent(self.ctrl.altCtrl.STOP_EVT)
         
 
         '''

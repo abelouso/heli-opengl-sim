@@ -3,6 +3,7 @@
 # (c) 2015-2024, A Beloussov, D. Lafuze
 
 import tkinter as tk
+import tk_tools
 import socket
 import struct
 from threading import Thread
@@ -92,6 +93,13 @@ class ApachiTelem:
         row = 7
         self.dbg2 =  tk.Label(self.root,anchor="w")
         self.dbg2.grid(column=col,row=row, columnspan=3, sticky="w")
+        row = 8
+        self.fuelG = tk_tools.Gauge(self.root, label="FUEL", max_value=100.1, unit="%",red_low=20.0, yellow_low=30.0,  min_value=0.0, red=100.0, yellow=100.0)
+        self.fuelG.grid(column=col,row=row, sticky="w")
+        self.spdG = tk_tools.Gauge(self.root, label="SPEED", unit="u/s", max_value=0.1, min_value=-0.1,red=100.0,yellow=100.0)
+        self.spdG.grid(column=midCol,row=row, sticky="w")
+        self.altG = tk_tools.Gauge(self.root, label="ALT",unit="Ft", min_value=-1.0, max_value=200.0, red_low=2.0,yellow_low=20.0, red=100.0, yellow=100.0)
+        self.altG.grid(column=rtCol,row=row, sticky="w")
         
 
         print(f"GUI Created...")
@@ -209,12 +217,19 @@ class ApachiTelem:
                 if pkgI >= 0:
                     self.pkgs["text"] = self.getData("packages: ",msg,",")
                 if fuelI >= 0:
-                    self.fuel["text"] = self.getData("REMFUEL:",msg,",","FUEL: ")
+                    fStr = self.getData("REMFUEL:",msg,",","FUEL: ")
+                    self.fuel["text"] = fStr
+                    try:
+                        ms = RegEx.match(".*\((.*)%.*",fStr)
+                        if ms is not None and ms.group(1) is not None:
+                            self.fuelG.set_value(float(ms.group(1)))
+                    except: pass
                 if dI >= 0 and fI >=0:
                     self.dist["text"] = self.getData("dist:",msg,',',"DISTANCE:")
                     self.face["text"] = self.getData("facing:",msg)
                     self.head["text"] = self.getData("head:",msg)
                     self.speed["text"] = self.getData("speed:",msg)
+                    self.spdG.set_value(10.0 * self.getDatFloat("speed:",msg,","))
                     statStr = msg[:(stI)]
                     self.posState["text"] = self.str2State("POS STATE",statStr)
                     self.cp["text"] = self.getData("cur   :",msg,"|","CUR POS:")
@@ -229,12 +244,13 @@ class ApachiTelem:
                       self.hState["text"] = self.str2State("HDG STATE",state)
                       secsFlt = self.getDatFloat("elapsed:",msg,",")
                       secsInt = int(secsFlt)
-                      secFmtStr = timedelta(seconds = secsInt)
-                      self.elTime["text"] = secFmtStr
+                      secFmtStr = str(timedelta(seconds = secsInt))
+                      self.elTime["text"] = f"Elapsed: {secFmtStr:>08}"
                 if altI >= 0:
                     state = msg[:stI]
                     self.altState["text"] = self.str2State("ALT STATE",state)
                     self.alt["text"] = self.getData("altact:",msg,",","alt:") + "/" + self.getData("alttrg:",msg,",","") 
+                    self.altG.set_value(1.0 * self.getDatFloat("altact:",msg,","))
                     self.accel["text"] = self.getData("altaccel:",msg,",","ALT ACCEL:")
                 if False: #velSpdI >= 0: #velocity
                     floatVal1 = self.getDatFloat("veltrg:",msg,","); fact1 = 100.0 #trg speed yellow

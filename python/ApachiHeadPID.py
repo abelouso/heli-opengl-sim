@@ -20,7 +20,7 @@ class ApachiHead(BaseStateMachine):
     STABLE_SPEED = 100.0
     desRotSpd = STABLE_SPEED
     actRotSpd = 0.0
-    tol = 0.1 #degrees
+    tol = 0.01 #degrees
     alt = 0.0
 
     trg = 0.0

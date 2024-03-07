@@ -42,7 +42,7 @@ class StigChopper(BaseObject):
         self.m_fuelCapacity = base.TOTAL_CAPACITY * 0.5
         self.landed = True
 
-        self.homeBase = None
+        self.homeBase = pos
         self.targetWaypoints = []
         self.id = id
 
@@ -75,8 +75,6 @@ class StigChopper(BaseObject):
         BaseObject.update(self,currentTime,elapsedTime)
         if base is not None:
             myPos = base.gps(self.id)
-            if self.homeBase is None:
-                self.homeBase = myPos
             '''
             if not self.rotorPath is None:
                 self.rotorPath.setHpr(random.randint(0,359),0.0, 0.0)
