@@ -183,7 +183,7 @@ class ApachiPos(BaseStateMachine):
             dist = self.calcDistToTarget()
             #speed directly proprotional to distance to target
             trgSpd = 0.00008 * dist + 0.001 #ensure minimum speed
-            trgSpd = self.clamp(trgSpd,0.015)
+            trgSpd = self.clamp(trgSpd,0.0195)
             #let's make acceleration and deceleration zones, cut them in half
             self.decelDist = 0.58 * dist
             self.velCtrl.setSpeed(trgSpd)
@@ -246,11 +246,11 @@ class ApachiPos(BaseStateMachine):
                     else:
                         what += "Not close enough, need to adjust "
                         self.sendEvent(self.ACCEL_EVT)
-        elif distR < 8.0:
+        elif distR < 10.0:
             what += " adjusting position"
             self.velTowardsPos()
             #TODO: call is stopped when implemented
-            if distR < 4.0:
+            if distR < 8.0:
                 self.sendEvent(self.LAND_EVT)
                 what += "Done, landing...."
 

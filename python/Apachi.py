@@ -141,7 +141,7 @@ class Apachi(StigChopper):
                         deltaT_s = pos.getW()
                         eltimeStr = timedelta(seconds=deltaT_s)
                         delStr = f"== APACHI DELIVERED ALL PACKAGES: in {eltimeStr}/ {deltaT_s}, returning to base..."
-                        self.ctrl.db(f"DEBUG1 {delStr}")
+                        self.ctrl.db(f"DEBUG1 {delStr},")
                         print(delStr)
                         if self.homeBase is not None:
                             self.ctrl.setPosition(Vec3(self.homeBase.x, self.homeBase.y, self.cruseAlt))
