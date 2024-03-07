@@ -183,7 +183,7 @@ class ApachiPos(BaseStateMachine):
             dist = self.calcDistToTarget()
             #speed directly proprotional to distance to target
             trgSpd = 0.00008 * dist + 0.001 #ensure minimum speed
-            trgSpd = self.clamp(trgSpd,0.0148)
+            trgSpd = self.clamp(trgSpd,0.015)
             #let's make acceleration and deceleration zones, cut them in half
             self.decelDist = 0.58 * dist
             self.velCtrl.setSpeed(trgSpd)
