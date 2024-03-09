@@ -37,16 +37,16 @@ class Danook(StigChopper):
         # constants
         self.VERT_CONTROL_FACTOR   = 2.9   # original 2.5
         self.HORZ_CONTROL_FACTOR   = 0.13  # original 0.15
-        self.MAX_VERT_VELOCITY     = 3.10  # original 2.5
-        self.MAX_HORZ_VELOCITY     = 3.10  # original 2.5
-        self.MAX_VERT_ACCEL        = 0.50  # original 0.4
-        self.MAX_HORZ_ACCEL        = 0.50  # original 0.4
+        self.MAX_VERT_VELOCITY     = 3.25  # original 2.5
+        self.MAX_HORZ_VELOCITY     = 3.25  # original 2.5
+        self.MAX_VERT_ACCEL        = 0.55  # original 0.4
+        self.MAX_HORZ_ACCEL        = 0.55  # original 0.4
         self.DECEL_DISTANCE_VERT   = 9.0   # original 12
-        self.DECEL_DISTANCE_HORZ   = 12.0  # original 16
+        self.DECEL_DISTANCE_HORZ   = 11.0  # original 16
         self.VERT_DECEL_SPEED      = 0.4   # original 0.5
         self.HORZ_DECEL_SPEED      = 1.8   # original 2.0
         self.MAX_STABILIZE         = 10    # original 10
-        self.SAFE_ALTITUDE         = 60.0  # Must be higher than buildings/terrain -- ask world?
+        self.SAFE_ALTITUDE         = 55.0  # Must be higher than buildings/terrain -- ask world?
         self.START_ROTOR_SPEED_RPM = 360.0 # Original 360
         self.HEADING_TOL_DEG       = 0.005
         self.TAIL_ROTOR_RANGE      = 10.0
@@ -339,7 +339,7 @@ class Danook(StigChopper):
         if self.spunUp:
             self.desMainRotorSpeed_RPM += deltaAcceleration * self.VERT_CONTROL_FACTOR
             base.dbg(self.TAG, "Desired Rotor: {:.2f}, ActHeight: {:.2f}, desHeight: {:.2f}, actVel: {:.2f}, targetVel: {:.2f}, actAccel: {:.2f}, targetAccel: {:.2f}, deltaAccel: {:.2f}".format(self.desMainRotorSpeed_RPM, self.actualPosition.z,self.desiredAltitude,self.estimatedVelocity.z, targetVertVelocity, self.estimatedAcceleration.z, targetVertAcceleration, deltaAcceleration), self.DEBUG_ALT_BIT)
-            self.db(self, "rotor: {:.3f}".format(self.desMainRotorSpeed))
+            #self.db(self, "rotor: {:.3f}".format(self.desMainRotorSpeed_RPM))
             base.requestSettings(self.getId(), self.desMainRotorSpeed_RPM, self.desPitch_Degrees, self.desTailRotorSpeed_RPM)
         else:
             base.requestSettings(self.getId(), self.desMainRotorSpeed_RPM, 0.0, 100.0)
