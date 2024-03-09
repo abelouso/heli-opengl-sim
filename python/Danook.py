@@ -12,6 +12,12 @@ from enum import Enum
 from BaseObject import *
 from StigChopper import *
 
+#https://stackoverflow.com/questions/603852/how-do-you-udp-multicast-in-python
+MCAST_GRP = '224.0.0.1'
+MCAST_PORT = 50002
+IS_ALL_GROUPS = True
+MULTICAST_TTL = 2
+
 class State(Enum):
     LANDED = 0,
     CLIMB = 1,
@@ -333,6 +339,7 @@ class Danook(StigChopper):
         if self.spunUp:
             self.desMainRotorSpeed_RPM += deltaAcceleration * self.VERT_CONTROL_FACTOR
             base.dbg(self.TAG, "Desired Rotor: {:.2f}, ActHeight: {:.2f}, desHeight: {:.2f}, actVel: {:.2f}, targetVel: {:.2f}, actAccel: {:.2f}, targetAccel: {:.2f}, deltaAccel: {:.2f}".format(self.desMainRotorSpeed_RPM, self.actualPosition.z,self.desiredAltitude,self.estimatedVelocity.z, targetVertVelocity, self.estimatedAcceleration.z, targetVertAcceleration, deltaAcceleration), self.DEBUG_ALT_BIT)
+            self.db(self, "rotor: {:.3f}".format(self.desMainRotorSpeed))
             base.requestSettings(self.getId(), self.desMainRotorSpeed_RPM, self.desPitch_Degrees, self.desTailRotorSpeed_RPM)
         else:
             base.requestSettings(self.getId(), self.desMainRotorSpeed_RPM, 0.0, 100.0)
@@ -442,3 +449,14 @@ class Danook(StigChopper):
                 base.dbg(self.TAG, "No physics estimate?", self.DEBUG_POS_BIT)
         self.lastTime = self.currTime
         self.lastPosition = Vec4(self.actualPosition)
+
+    def db(self, msg):
+        msg = f"{self.myState}>{msg}"
+        try:
+            self.sock.sendto(msg.encode(), (MCAST_GRP, MCAST_PORT))
+        except Exception as ex:
+            print(f"Exception sendin, {ex}")
+        try:
+            base.dbg(self.TAG,msg,self.DBG_MASK)
+        except:
+            print(msg)
