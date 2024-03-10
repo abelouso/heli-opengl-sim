@@ -12,6 +12,12 @@ from enum import Enum
 from BaseObject import *
 from StigChopper import *
 
+#https://stackoverflow.com/questions/603852/how-do-you-udp-multicast-in-python
+MCAST_GRP = '224.0.0.1'
+MCAST_PORT = 50002
+IS_ALL_GROUPS = True
+MULTICAST_TTL = 2
+
 class State(Enum):
     LANDED = 0,
     CLIMB = 1,
@@ -31,16 +37,16 @@ class Danook(StigChopper):
         # constants
         self.VERT_CONTROL_FACTOR   = 2.9   # original 2.5
         self.HORZ_CONTROL_FACTOR   = 0.13  # original 0.15
-        self.MAX_VERT_VELOCITY     = 3.10  # original 2.5
-        self.MAX_HORZ_VELOCITY     = 3.10  # original 2.5
-        self.MAX_VERT_ACCEL        = 0.50  # original 0.4
-        self.MAX_HORZ_ACCEL        = 0.50  # original 0.4
+        self.MAX_VERT_VELOCITY     = 3.25  # original 2.5
+        self.MAX_HORZ_VELOCITY     = 3.25  # original 2.5
+        self.MAX_VERT_ACCEL        = 0.55  # original 0.4
+        self.MAX_HORZ_ACCEL        = 0.55  # original 0.4
         self.DECEL_DISTANCE_VERT   = 9.0   # original 12
-        self.DECEL_DISTANCE_HORZ   = 12.0  # original 16
+        self.DECEL_DISTANCE_HORZ   = 11.0  # original 16
         self.VERT_DECEL_SPEED      = 0.4   # original 0.5
         self.HORZ_DECEL_SPEED      = 1.8   # original 2.0
         self.MAX_STABILIZE         = 10    # original 10
-        self.SAFE_ALTITUDE         = 60.0  # Must be higher than buildings/terrain -- ask world?
+        self.SAFE_ALTITUDE         = 55.0  # Must be higher than buildings/terrain -- ask world?
         self.START_ROTOR_SPEED_RPM = 360.0 # Original 360
         self.HEADING_TOL_DEG       = 0.005
         self.TAIL_ROTOR_RANGE      = 10.0
@@ -333,6 +339,7 @@ class Danook(StigChopper):
         if self.spunUp:
             self.desMainRotorSpeed_RPM += deltaAcceleration * self.VERT_CONTROL_FACTOR
             base.dbg(self.TAG, "Desired Rotor: {:.2f}, ActHeight: {:.2f}, desHeight: {:.2f}, actVel: {:.2f}, targetVel: {:.2f}, actAccel: {:.2f}, targetAccel: {:.2f}, deltaAccel: {:.2f}".format(self.desMainRotorSpeed_RPM, self.actualPosition.z,self.desiredAltitude,self.estimatedVelocity.z, targetVertVelocity, self.estimatedAcceleration.z, targetVertAcceleration, deltaAcceleration), self.DEBUG_ALT_BIT)
+            #self.db(self, "rotor: {:.3f}".format(self.desMainRotorSpeed_RPM))
             base.requestSettings(self.getId(), self.desMainRotorSpeed_RPM, self.desPitch_Degrees, self.desTailRotorSpeed_RPM)
         else:
             base.requestSettings(self.getId(), self.desMainRotorSpeed_RPM, 0.0, 100.0)
@@ -442,3 +449,14 @@ class Danook(StigChopper):
                 base.dbg(self.TAG, "No physics estimate?", self.DEBUG_POS_BIT)
         self.lastTime = self.currTime
         self.lastPosition = Vec4(self.actualPosition)
+
+    def db(self, msg):
+        msg = f"{self.myState}>{msg}"
+        try:
+            self.sock.sendto(msg.encode(), (MCAST_GRP, MCAST_PORT))
+        except Exception as ex:
+            print(f"Exception sendin, {ex}")
+        try:
+            base.dbg(self.TAG,msg,self.DBG_MASK)
+        except:
+            print(msg)
