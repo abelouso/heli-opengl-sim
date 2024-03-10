@@ -97,25 +97,27 @@ class Apachi(StigChopper):
 
     def findNextPos(self,myPos):
         nxtIdx, nxtPos = self.findNearPos(myPos)
-        return nxtIdx, nxtPos
-        print(f"Closes: {nxtIdx}, at {nxtPos}")
-        sz = len(self.targetWaypoints)
-        if self.tsmObject is None:
-            self.tsmWps = self.targetWaypoints[0:11]
-            self.tsmWps.remove(nxtPos)
-            self.tsmObject = TravSalesman()
-            self.tsmObject.determine(nxtPos,self.tsmWps)
-        elif sz == 8:
-            self.tsmWps = self.targetWaypoints[0:10]
-            self.tsmWps.remove(nxtPos)
-            self.tsmObject.determine(nxtPos,self.tsmWps)
-        elif self.tsmObject.allDone():
-            self.tsmObject.finish()
-            nxTmp = self.tsmObject.nextIndex()
-            if nxTmp is not None:
-                nxtIdx = nxTmp
-                nxtPos = self.tsmWps[nxtIdx]
-        print(f" nxtIDX: {nxtIdx}, at pos {nxtPos}")
+        #return nxtIdx, nxtPos
+        #print(f"Closes: {nxtIdx}, at {nxtPos}")
+        try:
+            sz = len(self.targetWaypoints)
+            if self.tsmObject is None:
+                self.tsmWps = self.targetWaypoints[0:11]
+                self.tsmWps.remove(nxtPos)
+                self.tsmObject = TravSalesman()
+                self.tsmObject.determine(nxtPos,self.tsmWps)
+            elif sz == 8:
+                self.tsmWps = self.targetWaypoints[0:10]
+                self.tsmWps.remove(nxtPos)
+                self.tsmObject.determine(nxtPos,self.tsmWps)
+            elif self.tsmObject.allDone():
+                self.tsmObject.finish()
+                nxTmp = self.tsmObject.nextIndex()
+                if nxTmp is not None:
+                    nxtIdx = nxTmp
+                    nxtPos = self.tsmWps[nxtIdx]
+        except: pass #revert to the closest
+        #print(f" nxtIDX: {nxtIdx}, at pos {nxtPos}")
         return nxtIdx, nxtPos
 
     def setWaypoints(self, wp):

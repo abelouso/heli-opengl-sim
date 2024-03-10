@@ -133,7 +133,7 @@ class ApachiPos(BaseStateMachine):
         self.velCtrl.setSpeed(0.0)
 
     def altChHndl(self):
-        aboveAlt = self.altCtrl.act >= (self.crusAlt - 52.0)
+        aboveAlt = self.altCtrl.act >= (self.crusAlt - 64.0)
         stopped = self.velCtrl.isStopped()
         if aboveAlt and stopped: #above certain safe hight
             self.sendEvent(self.LEVEL_EVT)
@@ -163,7 +163,7 @@ class ApachiPos(BaseStateMachine):
             self.turnStart = now
             pass
         what = "Waiting for direction "
-        if move or dist < 4.0 and self.altCtrl.act >= 59.0:
+        if (move or dist < 4.0) and self.altCtrl.act >= 55.0:
             what = "At heading, going to location "
             self.sendEvent(self.START_MOVE_EVT)
         elif not self.velCtrl.isStopped():
@@ -182,8 +182,8 @@ class ApachiPos(BaseStateMachine):
             #calcluate motion profiles to arrive to x,y
             dist = self.calcDistToTarget()
             #speed directly proprotional to distance to target
-            trgSpd = 0.00008 * dist + 0.001 #ensure minimum speed
-            trgSpd = self.clamp(trgSpd,0.0195)
+            trgSpd = 0.000081 * dist + 0.001 #ensure minimum speed
+            trgSpd = self.clamp(trgSpd,0.02)
             #let's make acceleration and deceleration zones, cut them in half
             self.decelDist = 0.58 * dist
             self.velCtrl.setSpeed(trgSpd)
