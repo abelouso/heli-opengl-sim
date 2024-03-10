@@ -17,3 +17,6 @@ class BuildingCluster(BaseObject):
         self.actor.setScale(scale,scale,scale)
         self.actor.setPos(pos)
         self.actor.setHpr(0,0,0)
+        #TODO: this flattens all buildings, remove this if collissions don't work
+        self.actor.clearModelNodes()
+        self.actor.flattenStrong()

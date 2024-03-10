@@ -18,12 +18,18 @@ from ApachiAlt2 import *
 from ApachiHead import *
 from ApachiVel import *
 from ApachiPos import *
+from TravSalesman import *
 
 class Apachi(StigChopper):
     startTime = time.time_ns()
     cruseAlt = 67
     fullTank = None
     rotAngle = 0.0
+    optimalRouteIdxArr = None
+    tsmObject = None
+    tsmWps = None
+    firstPack = True
+
     def __init__(self,id, pos, scale=0.2):
         StigChopper.__init__(self,id,pos,"Models/ArmyCopter", {}, "apachi")
         self.actor.setScale(scale,scale,scale)
@@ -32,6 +38,7 @@ class Apachi(StigChopper):
         self.mainSpeed = 0.0
         self.tilt = 0.0
         self.tailSpeed = 0.0
+        print(f"curPos = Vec3({pos.x}, {pos.y}, {pos.z})")
         self.ctrl = ApachiPos(self.id,self.cruseAlt)
         #self.ctrl.sendEvent(self.ctrl.TEST_EVT)
         #self.ctrl.setPosition(Vec3(-100,-105,70))
@@ -78,6 +85,8 @@ class Apachi(StigChopper):
                     deltaY = pos.y - myPos.y
                     curDistance = math.sqrt(deltaX * deltaX + deltaY * deltaY)
                     self.ctrl.db(f" idx: {idx}, dist: {dist: 3.4f}")
+                    if self.firstPack:
+                        print(f"wps.append(Vec3({pos.x}, {pos.y}, {pos.z}))")
                     if curDistance < dist:
                         nearPos = pos
                         dist = curDistance
@@ -86,16 +95,41 @@ class Apachi(StigChopper):
                     idx += 1
         return nearIdx, nearPos
 
+    def findNextPos(self,myPos):
+        nxtIdx, nxtPos = self.findNearPos(myPos)
+        return nxtIdx, nxtPos
+        print(f"Closes: {nxtIdx}, at {nxtPos}")
+        sz = len(self.targetWaypoints)
+        if self.tsmObject is None:
+            self.tsmWps = self.targetWaypoints[0:11]
+            self.tsmWps.remove(nxtPos)
+            self.tsmObject = TravSalesman()
+            self.tsmObject.determine(nxtPos,self.tsmWps)
+        elif sz == 8:
+            self.tsmWps = self.targetWaypoints[0:10]
+            self.tsmWps.remove(nxtPos)
+            self.tsmObject.determine(nxtPos,self.tsmWps)
+        elif self.tsmObject.allDone():
+            self.tsmObject.finish()
+            nxTmp = self.tsmObject.nextIndex()
+            if nxTmp is not None:
+                nxtIdx = nxTmp
+                nxtPos = self.tsmWps[nxtIdx]
+        print(f" nxtIDX: {nxtIdx}, at pos {nxtPos}")
+        return nxtIdx, nxtPos
+
     def setWaypoints(self, wp):
         super().setWaypoints(wp)
         self.targetWaypoints = wp
         self.cargoIdx = 0
         myPos = base.gps(self.id)
-        self.cargoIdx, pt = self.findNearPos(myPos)
-        if pt is not None:
-            self.ctrl.setPosition(Vec3(pt.x, pt.y, self.cruseAlt))
-            self.ctrl.db(f"packages: {len(self.targetWaypoints)},")
-            #del(self.targetWaypoints[self.cargoIdx])
+        if self.firstPack:
+            self.cargoIdx, pt = self.findNextPos(myPos)
+            if pt is not None:
+                self.ctrl.setPosition(Vec3(pt.x, pt.y, self.cruseAlt))
+                self.ctrl.db(f"packages: {len(self.targetWaypoints)},")
+                #del(self.targetWaypoints[self.cargoIdx])
+                self.firstPack = False
         if self.fullTank is None:
             self.fullTank,_ = self.getRemFuel()
             
@@ -135,7 +169,7 @@ class Apachi(StigChopper):
                 delviered = base.deliverPackage(self.id)
                 if delviered:
                     self.ctrl.db(f"================== DELIVERED PACKAGE ===================== #{self.cargoIdx}")
-                    self.cargoIdx, pt = self.findNearPos(pos)
+                    self.cargoIdx, pt = self.findNextPos(pos)
                     if self.cargoIdx is None:
                         self.ctrl.db(f"packages: {len(self.targetWaypoints)},")
                         deltaT_s = pos.getW()
