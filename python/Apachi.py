@@ -11,6 +11,7 @@ import math
 import queue
 import time
 from datetime import timedelta
+import copy
 
 from BaseObject import *
 from StigChopper import *
@@ -22,7 +23,7 @@ from TravSalesman import *
 
 class Apachi(StigChopper):
     startTime = time.time_ns()
-    cruseAlt = 67
+    cruseAlt = 62
     fullTank = None
     rotAngle = 0.0
     optimalRouteIdxArr = None
@@ -38,24 +39,11 @@ class Apachi(StigChopper):
         self.mainSpeed = 0.0
         self.tilt = 0.0
         self.tailSpeed = 0.0
-        print(f"curPos = Vec3({pos.x}, {pos.y}, {pos.z})")
         self.ctrl = ApachiPos(self.id,self.cruseAlt)
+        self.ctrl.db("==== STARTING APACHI ====")
         #self.ctrl.sendEvent(self.ctrl.TEST_EVT)
         #self.ctrl.setPosition(Vec3(-100,-105,70))
         #self.ctrl.setPosition(Vec3(15.0,-11.00,70))
-
-        '''
-        self.altCtrl = ApachiAlt()
-        self.altCtrl.trg = 70
-        self.altCtrl.sendEvent(self.altCtrl.NULL_EVT)
-        self.hdCtrl = ApachiHead()
-        self.hdCtrl.setHeading(45)
-        self.tailSpeed = self.hdCtrl.STABLE_SPEED
-        self.velCtrl = ApachiVel()
-        self.velCtrl.sendEvent(self.velCtrl.NULL_EVT)
-        self.velCtrl.setSpeed(0.0)
-        '''
-        #self.m_fuelCapacity = 100
         self.spiny1 = None
         self.spiny2 = None
         for child in self.actor.children:
@@ -69,24 +57,24 @@ class Apachi(StigChopper):
                 self.ctrl.db("Name -- {}: {}".format((' ' * recurse_level), child.getName()))
                 self.findRotNodes(child, recurse_level + 1)
 
-    def findNearPos(self, myPos):
-        sz = len(self.targetWaypoints)
+    def findNearPos(self, myPos, wps):
+        sz = len(wps)
         nearIdx = None
         nearPos = None
         pt = None
         if sz > 0:
-            nearPos = self.targetWaypoints[0]
+            nearPos = wps[0]
             nearIdx = 0
             if sz > 1:
                 idx = 0
                 dist = 1e6
-                for pos in self.targetWaypoints:
+                for pos in wps:
                     deltaX = pos.x - myPos.x
                     deltaY = pos.y - myPos.y
                     curDistance = math.sqrt(deltaX * deltaX + deltaY * deltaY)
                     self.ctrl.db(f" idx: {idx}, dist: {dist: 3.4f}")
                     if self.firstPack:
-                        print(f"wps.append(Vec3({pos.x}, {pos.y}, {pos.z}))")
+                        #print(f"wps.append(Vec3({pos.x}, {pos.y}, {pos.z}))")
                         self.ctrl.db(f"origSet :({pos.x},{pos.y},{pos.z})|")
                     if curDistance < dist:
                         nearPos = pos
@@ -97,27 +85,31 @@ class Apachi(StigChopper):
         return nearIdx, nearPos
 
     def findNextPos(self,myPos):
-        nxtIdx, nxtPos = self.findNearPos(myPos)
+        nxtIdx, nxtPos = self.findNearPos(myPos,self.targetWaypoints)
         #return nxtIdx, nxtPos
         #print(f"Closes: {nxtIdx}, at {nxtPos}")
         try:
             sz = len(self.targetWaypoints)
             if self.tsmObject is None:
-                self.tsmWps = self.targetWaypoints[0:11]
-                self.tsmWps.remove(nxtPos)
+                self.tsmWps = copy.deepcopy(self.targetWaypoints)
+                lastPos = nxtPos
+                for _ in range(4):
+                    _, toElim  = self.findNearPos(lastPos,self.tsmWps)
+                    lastPos = toElim
+                    self.tsmWps.remove(toElim)
                 self.tsmObject = TravSalesman()
-                self.tsmObject.determine(nxtPos,self.tsmWps)
-            elif sz == 8:
-                self.tsmWps = self.targetWaypoints[0:10]
-                self.tsmWps.remove(nxtPos)
-                self.tsmObject.determine(nxtPos,self.tsmWps)
-            elif self.tsmObject.allDone():
+                self.tsmObject.determine(lastPos,self.tsmWps)
+            #elif sz == 8:
+            #    self.tsmWps = self.targetWaypoints[0:10]
+            #    self.tsmWps.remove(nxtPos)
+            #    self.tsmObject.determine(nxtPos,self.tsmWps)
+            elif sz <= 11 and self.tsmObject.allDone():
                 if not self.tsmObject.done:
                     self.tsmObject.finish()
                     for idx in range(len(self.tsmObject.idx)):
                         pos = self.tsmWps[self.tsmObject.idx[idx]]
                         self.ctrl.db(f"tsmpath :({pos.x},{pos.y},{pos.z})|")
-                        print(f"tsmpath :({pos.x},{pos.y},{pos.z})|")
+                        #print(f"tsmpath :({pos.x},{pos.y},{pos.z})|")
                 nxTmp = self.tsmObject.nextIndex()
                 if nxTmp is not None:
                     nxtIdx = nxTmp
@@ -159,18 +151,6 @@ class Apachi(StigChopper):
 
     def runLogic(self,dt,tick):
         StigChopper.runLogic(self,dt,tick)
-        '''
-        try:
-            if self.tsmObject is not None and self.tsmObject.allDone():
-                self.tsmObject.finish()
-                print(f" lenidx: {len(self.tsmObject.idx)}")
-                for idx in range(len(self.tsmObject.idx)):
-                    pos = self.tsmWps[self.tsmObject.idx[idx]]
-                    self.ctrl.db(f"tsmpath :({pos.x},{pos.y},{pos.z})|")
-                    print(f"tsmpath :({pos.x},{pos.y},{pos.z})|")
-        except Exception as ex:
-            print(f" Tryin to display path: {ex}")
-        '''
         pos = base.gps(self.id)
         orient = base.transformations(self.id)
         hdng = orient.getX()

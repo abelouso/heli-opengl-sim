@@ -43,9 +43,11 @@ class TravSalesman:
         trgHdg = math.atan2(diff.y,diff.x)
         hdg = abs(trgHdg - preHdg)
         dist = diff.length()
-        score = hdg / 31.4 + dist / 550.0
+        score = hdg / 16.2 + dist / 550.0
         if dist > 310.0:
             score *= 1.7
+        elif dist < 36.0:
+            score *= 0.7
         return trgHdg, score
 
     def calcTotalScore(self, combo3, lowScore):
@@ -63,54 +65,40 @@ class TravSalesman:
         return score
     
     def determine(self, curPos, wps):
-        idxArr = np.arange(len(wps),dtype=np.int8)
         self.done = False
         self.curPos = curPos
         self.cp2 = curPos.xy
         self.wps = wps
         self.__init__()
         self.thrHndls = []
-        allItr = itertools.permutations(idxArr,len(idxArr))
-        lst = list(allItr)
-        sz = len(lst)
-        step = int(sz / self.numThreads)
-        beg = 0
-        end = step
-        #print(f" SZ: {sz:,}, step: {step:,}")
-        #print(wps)
+        sz = len(wps)
         self.queue = mp.Queue()
         for i in range(0,self.numThreads):
-            #self.thrHndls.append(threading.Thread(target=self.thr_calculate,args=(i,portion)))
-            self.thrHndls.append(Process(target=self.proc_calculate,args=(i,lst[beg:end],self.queue)))
-            beg += step + 1
-            end += step + 1
-            #if (sz - end) < step: end = sz
+            self.thrHndls.append(Process(target=self.proc_calculate,args=(i,sz,self.numThreads,self.queue)))
             self.thrHndls[-1].start()
-        del allItr
-        del lst
-        allItr= None
-        lst = None
-        gc.collect()
 
-
-    def proc_calculate(self,idx,lst,queue):
+    def proc_calculate(self,idx,sz,mx,queue):
         #print(f"Thread {idx}, processing {len(lst):,} entries ")
         then = time.time_ns()
+        idxArr = np.arange(sz,dtype=np.int8)
+        allItr = itertools.permutations(idxArr,len(idxArr))
         lowScore = 1e9
         lowCombo = None
-        for combo in lst:
-            score = self.calcTotalScore(combo,lowScore)
-            #print(f"Scoore: {score} for {combo}                   ",end='\r')
-            if score < lowScore:
-                lowScore = score
-                lowCombo = combo
+        num = 0
+        cnt = 0
+        for combo in allItr:
+            if (num % mx) == idx:
+                score = self.calcTotalScore(combo,lowScore)
+                cnt += 1
+                #print(f"Scoore: {score} for {combo}                   ",end='\r')
+                if score < lowScore:
+                    lowScore = score
+                    lowCombo = combo
+            num += 1
         queue.put((lowScore,lowCombo))
         now = time.time_ns()
         dt = (now - then) * 1e-9
-        del lst
-        lst = None
-        gc.collect()
-        #print(f"Thread {idx} ========= DONE: low score {lowScore}, combo: {lowCombo} in {dt: >.2f} secs")
+        #print(f"Thread {idx} ========= DONE: low score {lowScore}, combo: {lowCombo}; proc {cnt:,} entries in {dt: >.2f} secs")
 
     def allDone(self):
         allDone = True
@@ -160,9 +148,8 @@ if __name__ == '__main__':
     wps.append(Vec3(-215.0, 210.0, 0.0))
     wps.append(Vec3(135.0, 160.0, 0.0))
     wps.append(Vec3(-65.0, -165.0, 0.0)) #completes in 9 secs
-    wps.append(Vec3(-15.0, -140.0, 0.0)) #runs out of memory for indexes
-
-    #wps.append(Vec3(-140.0, 210.0, 0.0))
+    #wps.append(Vec3(-15.0, -140.0, 0.0)) #1.3min
+    #wps.append(Vec3(-140.0, 210.0, 0.0)) #19.9 min
     '''
     wps.append(Vec3(-265.0, 210.0, 0.0))
     wps.append(Vec3(-90.0, -15.0, 0.0))

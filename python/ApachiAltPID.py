@@ -107,9 +107,9 @@ class ApachiAlt(BaseStateMachine):
 
 
     #testing things
-    Kp = 17.6
+    Kp = 19.6
     Ki = 0.00047
-    Kd = 156000.0
+    Kd = 146000.0
 
     lKp = 17.5
     lKi = 0.00044

@@ -133,7 +133,7 @@ class ApachiPos(BaseStateMachine):
         self.velCtrl.setSpeed(0.0)
 
     def altChHndl(self):
-        aboveAlt = self.altCtrl.act >= (self.crusAlt - 64.0)
+        aboveAlt = self.altCtrl.act >= (self.crusAlt - 58.0)
         stopped = self.velCtrl.isStopped()
         if aboveAlt and stopped: #above certain safe hight
             self.sendEvent(self.LEVEL_EVT)

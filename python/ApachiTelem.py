@@ -113,6 +113,7 @@ class ApachiTelem:
         self.pos1 = [[0,0]]
         self.pos2 = [[0,0]]
         self.pos3 = [[0,0]]
+        self.p3First = True
         self.ln1, = self.axs[0].plot([], [], "yo") #alt
         self.ln2, = self.axs[0].plot([], [], "gx") # rot spd
         self.ln3, = self.axs[0].plot([], [], "r+") # vel
@@ -123,6 +124,7 @@ class ApachiTelem:
         self.ln13, = self.axs[1].plot([], [], "y-.") # path line
         self.axs[1].set_xlim(-350,350)
         self.axs[1].set_ylim(-350,350)
+        self.axs[1].set_aspect('equal', adjustable='box')
         self.root.protocol("WM_DELETE_WINDOW", self.exitLoop)
 
     def plotInit(self):
@@ -242,6 +244,11 @@ class ApachiTelem:
                 floatVal2 = None; fact2 = None
                 floatVal3 = None; fact3 = None
                 floatVal4 = None; fact4 = None
+                if msg.find("==== STARTING APACHI ====") >= 0:
+                    self.pos1 = [[0,0]]
+                    self.pos2 = [[0,0]]
+                    self.pos3 = [[0,0]]
+                    self.p3First = True
                 if pkgI >= 0:
                     self.pkgs["text"] = self.getData("packages: ",msg,",")
                 if fuelI >= 0:
@@ -277,6 +284,9 @@ class ApachiTelem:
                     self.pos2.append([oX,oY])
                 if msg.find("tsmpath") >= 0:
                     pX,pY = self.getXY("tsmpath",msg)
+                    if self.p3First:
+                        self.pos3 = []
+                        self.p3First = False
                     self.pos3.append([pX,pY])
                 if accI >= 0 and accSpdI >= 0:
                       self.accel["text"] = self.getData("accel:",msg)
