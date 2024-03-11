@@ -15,6 +15,7 @@ from panda3d.core import ExecutionEnvironment
 import random
 import argparse
 import math
+import multiprocessing as mp
 
 #our imports
 from Apachi import *
@@ -338,10 +339,15 @@ class HeliMain(ShowBase):
     End of World.java port ======================================================================
     '''
 
-# Any config must be loaded before ShowBase is instantiated in constructor
-root = ExecutionEnvironment.getCwd()
-fullPath = root + "/config/Config.prc"
-print("Trying to open config: " + str(fullPath))
-loadPrcFile(fullPath)
-heliMain = HeliMain()
-heliMain.run()
+def main():
+    # Any config must be loaded before ShowBase is instantiated in constructor
+    root = ExecutionEnvironment.getCwd()
+    fullPath = root + "/config/Config.prc"
+    print("Trying to open config: " + str(fullPath))
+    loadPrcFile(fullPath)
+    heliMain = HeliMain()
+    heliMain.run()
+
+if __name__ == "__main__":
+    mp.freeze_support()
+    main()
