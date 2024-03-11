@@ -163,7 +163,7 @@ class ApachiPos(BaseStateMachine):
             self.turnStart = now
             pass
         what = "Waiting for direction "
-        if (move or dist < 4.0) and self.altCtrl.act >= 55.0:
+        if (move or dist < 4.0) and ((dist > 36.0 and self.altCtrl.act >= 55.0) or (dist < 36.0 and self.altCtrl.act > 20.0)):
             what = "At heading, going to location "
             self.sendEvent(self.START_MOVE_EVT)
         elif not self.velCtrl.isStopped():
@@ -183,7 +183,7 @@ class ApachiPos(BaseStateMachine):
             dist = self.calcDistToTarget()
             #speed directly proprotional to distance to target
             trgSpd = 0.000081 * dist + 0.001 #ensure minimum speed
-            trgSpd = self.clamp(trgSpd,0.02)
+            trgSpd = self.clamp(trgSpd,0.023)
             #let's make acceleration and deceleration zones, cut them in half
             self.decelDist = 0.58 * dist
             self.velCtrl.setSpeed(trgSpd)

@@ -15,6 +15,7 @@ import datetime
 import math
 import random
 from datetime import timedelta
+import numpy
 
 #https://stackoverflow.com/questions/603852/how-do-you-udp-multicast-in-python
 MCAST_GRP = '224.0.0.1'
@@ -103,16 +104,25 @@ class ApachiTelem:
         
 
         print(f"GUI Created...")
-        self.fig, self.ax = plt.subplots()
+        self.fig, self.axs = plt.subplots(nrows=2,ncols=1)
         self.xdata = []
         self.ydata1 = []
         self.ydata2 = []
         self.ydata3 = []
         self.ydata4 = []
-        self.ln1, = plt.plot([], [], "yo") #alt
-        self.ln2, = plt.plot([], [], "gx") # rot spd
-        self.ln3, = plt.plot([], [], "r+") # vel
-        self.ln4, = plt.plot([], [], "b.") # accel
+        self.pos1 = [[0,0]]
+        self.pos2 = [[0,0]]
+        self.pos3 = [[0,0]]
+        self.ln1, = self.axs[0].plot([], [], "yo") #alt
+        self.ln2, = self.axs[0].plot([], [], "gx") # rot spd
+        self.ln3, = self.axs[0].plot([], [], "r+") # vel
+        self.ln4, = self.axs[0].plot([], [], "b.") # accel
+        self.ln10 = self.axs[1].scatter([], [], label="POS",s = 0.4)
+        self.ln11 = self.axs[1].scatter([], [], label="TRG",s = 1.8)
+        self.ln12 = self.axs[1].scatter([], [], label="PATHP",s = 1.8)
+        self.ln13, = self.axs[1].plot([], [], "y-.") # path line
+        self.axs[1].set_xlim(-350,350)
+        self.axs[1].set_ylim(-350,350)
         self.root.protocol("WM_DELETE_WINDOW", self.exitLoop)
 
     def plotInit(self):
@@ -156,6 +166,24 @@ class ApachiTelem:
             val = 0.0
             print(f"NOT A FLOAT msg: {msg}, ms: {ms.group(1)} regex: {regEx}")
         return val
+
+    def getXY(self,which,msg):
+        ms = RegEx.match(f".*{which}[ ]*:.(.*?),(.*?),(.*?).|.*",msg)
+        x = 0.0
+        y = 0.0
+        if ms is not None:
+            try:
+                xStr = ms.group(1)
+                yStr = ms.group(2)
+                x = float(xStr)
+                y = float(yStr)
+                #print(f" x = {x}, y = {y}")
+            except Exception as ex:
+                x = 0.0
+                y = 0.0
+                print(f" NOT A FLOAT {xStr} or {yStr} in {msg}: {ex}")
+        return x,y
+
     
 
     def str2State(self, which, statStr):
@@ -235,6 +263,21 @@ class ApachiTelem:
                     self.cp["text"] = self.getData("cur   :",msg,"|","CUR POS:")
                     self.ap["text"] = self.getData("trg   :",msg,"|","TRG POS:")
                     self.headTrg["text"] = self.getData("trgHdg:",msg," [","TRG HGD:")
+                    cX,cY = self.getXY("cur",msg)
+                    p1 = self.pos1[-1]
+                    x1 = p1[0]
+                    y1 = p1[1]
+                    dx = (cX - x1)
+                    dy = (cY - y1)
+                    dist = math.sqrt(dx * dx + dy * dy)
+                    if dist > 0.5:
+                        self.pos1.append([cX,cY])
+                if msg.find("origSet") >= 0:
+                    oX,oY = self.getXY("origSet",msg)
+                    self.pos2.append([oX,oY])
+                if msg.find("tsmpath") >= 0:
+                    pX,pY = self.getXY("tsmpath",msg)
+                    self.pos3.append([pX,pY])
                 if accI >= 0 and accSpdI >= 0:
                       self.accel["text"] = self.getData("accel:",msg)
                       state = msg[:stI]
@@ -294,18 +337,39 @@ class ApachiTelem:
             self.ydata2.pop(0)
             self.ydata3.pop(0)
             self.ydata4.pop(0)
+        while len(self.pos1) > 60000:
+            self.pos1.pop(0)
+
         if not self.quit:
             self.root.after(100, self.parseAndDisplay)
     
-    def plot(self,frame):
+    def plot(self,i):
         #self.xdata.append(datetime.datetime.now())
         #self.ydata1.append(random.randint(-4,5) )
         self.ln1.set_data(self.xdata,self.ydata1)
         self.ln2.set_data(self.xdata,self.ydata2)
         self.ln3.set_data(self.xdata,self.ydata3)
         self.ln4.set_data(self.xdata,self.ydata4)
+        w = "start"
+        try:
+            self.ln10.set_offsets(self.pos1)
+            w = "pos2"
+            self.ln11.set_offsets(self.pos2)
+            w = "pos3"
+            self.ln12.set_offsets(self.pos3)
+            w = "xs"
+            xs,ys = numpy.split(numpy.array(self.pos3),2,axis=1)
+            w = f"set data, {self.ln13}"
+            self.ln13.set_data(xs,ys)
+        except Exception as ex:
+            print(f"{w}: Exception displaying xy: {ex}")
+        '''
         self.fig.gca().relim()
         self.fig.gca().autoscale_view()
+        '''
+        for ax in self.fig.get_axes():
+            ax.relim()
+            ax.autoscale_view()
         return self.ln1,
 
     def exitLoop(self):

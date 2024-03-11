@@ -87,6 +87,7 @@ class Apachi(StigChopper):
                     self.ctrl.db(f" idx: {idx}, dist: {dist: 3.4f}")
                     if self.firstPack:
                         print(f"wps.append(Vec3({pos.x}, {pos.y}, {pos.z}))")
+                        self.ctrl.db(f"origSet :({pos.x},{pos.y},{pos.z})|")
                     if curDistance < dist:
                         nearPos = pos
                         dist = curDistance
@@ -111,12 +112,18 @@ class Apachi(StigChopper):
                 self.tsmWps.remove(nxtPos)
                 self.tsmObject.determine(nxtPos,self.tsmWps)
             elif self.tsmObject.allDone():
-                self.tsmObject.finish()
+                if not self.tsmObject.done:
+                    self.tsmObject.finish()
+                    for idx in range(len(self.tsmObject.idx)):
+                        pos = self.tsmWps[self.tsmObject.idx[idx]]
+                        self.ctrl.db(f"tsmpath :({pos.x},{pos.y},{pos.z})|")
+                        print(f"tsmpath :({pos.x},{pos.y},{pos.z})|")
                 nxTmp = self.tsmObject.nextIndex()
                 if nxTmp is not None:
                     nxtIdx = nxTmp
                     nxtPos = self.tsmWps[nxtIdx]
-        except: pass #revert to the closest
+        except Exception as ex:  #revert to the clos
+            print(f"Exception in findNexPos for next pos: {ex}")
         #print(f" nxtIDX: {nxtIdx}, at pos {nxtPos}")
         return nxtIdx, nxtPos
 
@@ -152,6 +159,18 @@ class Apachi(StigChopper):
 
     def runLogic(self,dt,tick):
         StigChopper.runLogic(self,dt,tick)
+        '''
+        try:
+            if self.tsmObject is not None and self.tsmObject.allDone():
+                self.tsmObject.finish()
+                print(f" lenidx: {len(self.tsmObject.idx)}")
+                for idx in range(len(self.tsmObject.idx)):
+                    pos = self.tsmWps[self.tsmObject.idx[idx]]
+                    self.ctrl.db(f"tsmpath :({pos.x},{pos.y},{pos.z})|")
+                    print(f"tsmpath :({pos.x},{pos.y},{pos.z})|")
+        except Exception as ex:
+            print(f" Tryin to display path: {ex}")
+        '''
         pos = base.gps(self.id)
         orient = base.transformations(self.id)
         hdng = orient.getX()

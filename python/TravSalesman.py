@@ -64,6 +64,7 @@ class TravSalesman:
     
     def determine(self, curPos, wps):
         idxArr = np.arange(len(wps),dtype=np.int8)
+        self.done = False
         self.curPos = curPos
         self.cp2 = curPos.xy
         self.wps = wps
@@ -110,19 +111,7 @@ class TravSalesman:
         lst = None
         gc.collect()
         #print(f"Thread {idx} ========= DONE: low score {lowScore}, combo: {lowCombo} in {dt: >.2f} secs")
-        self.done = True
 
-    def thr_calculate(self,idx,lst):
-        #print(f"Thread {idx}, processing {len(lst):,} entries ")
-        for combo in lst:
-            score = self.calcTotalScore(combo,self.lowScores[idx])
-            #print(f"Scoore: {score} for {combo}                   ",end='\r')
-            if score < self.lowScores[idx]:
-                self.lowScores[idx] = score
-                self.lowScoreCombos[idx] = combo
-        #print(f"Thread {idx} ========= DONE")
-        self.done = True
-        
     def allDone(self):
         allDone = True
         for t in self.thrHndls:
@@ -133,21 +122,23 @@ class TravSalesman:
 
     def finish(self):
         #print(f"Waiting for all to be done")
-        while(not self.allDone()):
-            pass
-        self.lowScore = 1e9
-        idx = 0
-        while not self.queue.empty():
-            sc, combo = self.queue.get()
-            #print(f" New low score of {sc} with {combo}")
-            if sc < self.lowScore:
-                self.lowScore = sc
-                self.lowScoreCombo = combo
-            idx += 1
-        self.idx = self.lowScoreCombo
-        #print("")
-        #print(f"====== the lowest score of {self.lowScore} of {self.lowScoreCombo}")
-        #print(f" Indexes: {self.idx}")
+        if not self.done:
+            while(not self.allDone()):
+                pass
+            self.lowScore = 1e9
+            idx = 0
+            while not self.queue.empty():
+                sc, combo = self.queue.get()
+                #print(f" New low score of {sc} with {combo}")
+                if sc < self.lowScore:
+                    self.lowScore = sc
+                    self.lowScoreCombo = combo
+                idx += 1
+            self.idx = self.lowScoreCombo
+            #print("")
+            #print(f"====== the lowest score of {self.lowScore} of {self.lowScoreCombo}")
+            #print(f" Indexes: {self.idx}")
+            self.done = True
 
     def nextIndex(self):
         idx = self.curIdx
