@@ -255,7 +255,7 @@ class ApachiTelem:
                     fStr = self.getData("REMFUEL:",msg,",","FUEL: ")
                     self.fuel["text"] = fStr
                     try:
-                        ms = RegEx.match(".*\((.*)%.*",fStr)
+                        ms = RegEx.match(".*\\((.*)%.*",fStr)
                         if ms is not None and ms.group(1) is not None:
                             self.fuelG.set_value(float(ms.group(1)))
                     except: pass

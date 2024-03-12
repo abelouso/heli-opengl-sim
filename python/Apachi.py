@@ -93,10 +93,12 @@ class Apachi(StigChopper):
             if self.tsmObject is None:
                 self.tsmWps = copy.deepcopy(self.targetWaypoints)
                 lastPos = nxtPos
-                for _ in range(4):
+                self.tsmWps.remove(nxtPos)
+                for _ in range(3):
                     _, toElim  = self.findNearPos(lastPos,self.tsmWps)
                     lastPos = toElim
                     self.tsmWps.remove(toElim)
+                print(self.tsmWps)
                 self.tsmObject = TravSalesman()
                 self.tsmObject.determine(lastPos,self.tsmWps)
             #elif sz == 8:
