@@ -100,19 +100,24 @@ class ApachiPos(BaseStateMachine):
     testPosStamp = time.time_ns()
     crusAlt = 67.0
 
+    dumpTime = time.time_ns()
+
     def pv(self, w, v):
         return f"{w:6}:({v.x: 3.4f}, {v.y: 3.4f}, {v.z: 3.4f})|"
 
     def dump(self,source):
-        cp = self.pv("cur", self.curPos)
-        tp = self.pv("trg", self.trgPos)
-        dp = self.calcDistToTarget()
-        try:
-            self.db(f"{source:10}, {cp}, {tp}, dist: {dp:3.4f},facing: {self.velCtrl.facing:3.4f},"\
-                    f"head: {self.velCtrl.velocityHeading:3.4f}, speed: {self.velCtrl.speed: 3.8f},"\
-                    f"maxAccel: {self.maxAccel: 3.4f}, trgHdg: {self.trgHdg: 3.4f}")
-        except:
-            pass
+        now = time.time_ns()
+        if (now - self.dumpTime) > 5e8:
+            cp = self.pv("cur", self.curPos)
+            tp = self.pv("trg", self.trgPos)
+            dp = self.calcDistToTarget()
+            try:
+                self.db(f"{source:10}, {cp}, {tp}, dist: {dp:3.4f},facing: {self.velCtrl.facing:3.4f},"\
+                        f"head: {self.velCtrl.velocityHeading:3.4f}, speed: {self.velCtrl.speed: 3.8f},"\
+                        f"maxAccel: {self.maxAccel: 3.4f}, trgHdg: {self.trgHdg: 3.4f}")
+            except:
+                pass
+            self.dumpTime = now
 
     def initHndl(self):
         if self.curPos.getZ() < 0.1:
@@ -138,8 +143,6 @@ class ApachiPos(BaseStateMachine):
         if aboveAlt and stopped: #above certain safe hight
             self.sendEvent(self.LEVEL_EVT)
         else:
-            #TODO check if alt changes towards the goal...
-            self.db(f"Not at alt, waiting")
             if abs(self.altCtrl.trg - self.trgPos.z) > 0.1:
                 self.altCtrl.setTarget(self.trgPos.z)
 
@@ -177,7 +180,7 @@ class ApachiPos(BaseStateMachine):
     
     def inAccelHndl(self):
         if self.velCtrl.trg > 0.0031:
-            self.db(f"Already moving at {self.velCtrl.speed:3.4f}, with trg: {self.velCtrl.trg:3.4f}")
+            pass
         else:
             #calcluate motion profiles to arrive to x,y
             dist = self.calcDistToTarget()
@@ -187,7 +190,6 @@ class ApachiPos(BaseStateMachine):
             #let's make acceleration and deceleration zones, cut them in half
             self.decelDist = 0.58 * dist
             self.velCtrl.setSpeed(trgSpd)
-            self.db(f"Distance to target: {dist:3.4f}, speed: {trgSpd:3.4f}")
 
     def accelHndl(self):
         distR = self.calcDistToTarget()
@@ -253,10 +255,11 @@ class ApachiPos(BaseStateMachine):
             if distR < 8.0:
                 self.sendEvent(self.LAND_EVT)
                 what += "Done, landing...."
-
+        '''
         self.db(f"{what}> distT: {distR:3.4f}, prevD: {self.deltaPos: 3.4f}, "\
                 f"speed: {self.velCtrl.speed:3.4f}, tilt: {self.velCtrl.actTilt:3.4f},  "\
                 f"hdg: {self.headCtrl.act:3.4f}, trgHdg: {desHdg:3.4f}, noSpd: {lowSpd}, noTilt: {noTilt},")
+        '''
 
     def inDecHndl(self):
         self.altCtrl.setTarget(self.dropOffAlt)
@@ -269,8 +272,6 @@ class ApachiPos(BaseStateMachine):
         if self.curPos.z < 0.2 and abs(self.altCtrl.altRate) < 0.1:
             wh = "Landed!"
             self.sendEvent(self.DROP_EVT)
-
-        self.db(f"{wh}: alt: {self.curPos.z: 3.4f}, altRt: {self.altCtrl.altRate: 3.4f}, DDP: {dDp: 3.4f}")
 
     def inDelHndl(self):
         self.velCtrl.setSpeed(0.0)
@@ -285,7 +286,6 @@ class ApachiPos(BaseStateMachine):
         elif dist > 1.0 and landed or dist > 8.0:
             self.altCtrl.setTarget(self.crusAlt)
             self.sendEvent(self.GO_EVT)
-            self.db(f"DEBUG3: landed too far or too far, take off")
         elif landed:
             #in landed state, velocity is zero, set vel control to idle
             self.velCtrl.setSpeed(0.0)
@@ -493,7 +493,7 @@ class ApachiPos(BaseStateMachine):
         trgHdg = self.calcTargetHeading()
         isStable = self.headCtrl.isStable()
         inTol = self.headCtrl.state == self.headCtrl.AT_HEAD_ST
-        self.db(f" sable: {isStable}, in tol: {inTol}")
+        #self.db(f" sable: {isStable}, in tol: {inTol}")
         res = inTol and isStable
         return trgHdg, 0.0, res
 
@@ -528,13 +528,12 @@ class ApachiPos(BaseStateMachine):
 
                 vel = self.Kp * self.posError + self.Ki * self.posIntegral + self.Kd * self.posDerivitive
                 self.velCtrl.setSpeed(vel)
-                self.db(f"DEBUG3: E:{self.posError: 3.9f} I:{self.posIntegral:3.9f} D:{self.posDerivitive:3.9f} spd: {vel: 3.8f},")
             
             self.lastPosStamp = now
         except Exception as ex:
             wh = f"EXCEPTION: {ex}"
         dDp = self.deltaPos - dist
-        self.db(f"{wh}: dist: {dist: 3.4f}, DDP: {dDp: 3.4f}, dot: {dot: 3.5f}, sign: {sign: 3.4f}")
+        #self.db(f"{wh}: dist: {dist: 3.4f}, DDP: {dDp: 3.4f}, dot: {dot: 3.5f}, sign: {sign: 3.4f}")
         return dist
 
     def isLanded(self):

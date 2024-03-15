@@ -15,9 +15,6 @@ import copy
 
 from BaseObject import *
 from StigChopper import *
-from ApachiAlt2 import *
-from ApachiHead import *
-from ApachiVel import *
 from ApachiPos import *
 from TravSalesman import *
 
@@ -143,7 +140,7 @@ class Apachi(StigChopper):
         except:
             aDelta = 0.0
         self.rotAngle += aDelta
-        if self.rotAngle > 360.0: self.rotAngle -= 360.0
+        #if self.rotAngle > 360.0: self.rotAngle -= 360.0
         if self.spiny is not None:
             self.spiny.setHpr(Vec3(self.rotAngle, 0, 0))
 
@@ -179,7 +176,7 @@ class Apachi(StigChopper):
                         eltimeStr = timedelta(seconds=deltaT_s)
                         delStr = f"== APACHI DELIVERED ALL PACKAGES: in {eltimeStr}/ {deltaT_s}, returning to base..."
                         self.ctrl.db(f"DEBUG1 {delStr},")
-                        print(delStr)
+                        print(delStr,flush=True)
                         if self.homeBase is not None:
                             self.ctrl.setPosition(Vec3(self.homeBase.x, self.homeBase.y, self.cruseAlt))
                             self.ctrl.sendEvent(self.ctrl.GO_EVT)
@@ -198,28 +195,7 @@ class Apachi(StigChopper):
             else:
                 self.ctrl.db("Shutting down main rotor...")
                 self.ctrl.altCtrl.sendEvent(self.ctrl.altCtrl.STOP_EVT)
-        
 
-        '''
-        self.mainSpeed = self.altCtrl.tick(alt,actSpd,dt)
-        self.tailSpeed = self.hdCtrl.tick(hdng,tailSpd,dt,alt)
-        self.tilt = self.velCtrl.tick(pos,actTilt,dt,alt,hdng)
-
-
-        base.requestSettings(self.id,self.mainSpeed,self.tilt,self.tailSpeed)
-        deltalNs = time.time_ns() - self.startTime
-        TIME_IVAL = 50e9
-        if self.altCtrl.state == self.altCtrl.AT_ALT_ST:
-            if deltalNs > TIME_IVAL and self.altCtrl.trg == 70:
-                self.hdCtrl.db(f"=================== Requesting heading of 45 and velocity ===========================")
-                self.altCtrl.setTarget(50)
-                #self.hdCtrl.setHeading(45)
-                self.velCtrl.setSpeed(0.7)
-            elif deltalNs > (2 * TIME_IVAL) and self.altCtrl.trg == 50:
-                self.altCtrl.setTarget(0.0)
-                self.velCtrl.setSpeed(0.0)
-                #self.hdCtrl.setHeading(234)
-        '''
     def getRemFuel(self):
         fuelPercent = 100.0
         fuel = base.myChoppers[self.id][1].remainingFuel_kg

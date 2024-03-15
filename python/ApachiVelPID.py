@@ -69,20 +69,24 @@ class ApachiVel(BaseStateMachine):
     NUM_SAMP = 150
     smShare = 1.0 / NUM_SAMP
     lgShare = 1.0 - smShare
+    dumpTime = time.time_ns()
 
     def dump(self, source):
         pDiff = self.pDiffN()
         cp = self.actPos
         lp = self.lstPos
-        try:
-            self.db(f"{source:5}, ApachVelPID T:{self.dt: 2.1f},veltrg:{self.trg: 3.6f},velspd:{self.speed: 3.9f}, "\
-                    f"desT:{self.desTilt: 3.4f},velactT:{self.actTilt: 3.6f}, "\
-                    f"err:{self.error: 3.9f},I:{self.integral: 3.9f},D:{self.derivitive: 3.9f}, "\
-                    f"F:{self.facing: 3.4f},M:{self.velocityHeading: 3.4f} "\
-                    f"lp:({lp.x: 3.4f},{lp.y: 3.4f},{lp.z: 3.4f}),cp:({cp.x: 3.4f},{cp.y: 3.4f},{cp.z: 3.4f})"\
-                    f"dir:({pDiff.x: 3.4f},{pDiff.y: 3.4f},{pDiff.z: 3.4f})")
-        except:
-            pass
+        now = time.time_ns()
+        if (now - self.dumpTime) > 5e8:
+            try:
+                self.db(f"{source:5}, ApachVelPID T:{self.dt: 2.1f},veltrg:{self.trg: 3.6f},velspd:{self.speed: 3.9f}, "\
+                        f"desT:{self.desTilt: 3.4f},velactT:{self.actTilt: 3.6f}, "\
+                        f"err:{self.error: 3.9f},I:{self.integral: 3.9f},D:{self.derivitive: 3.9f}, "\
+                        f"F:{self.facing: 3.4f},M:{self.velocityHeading: 3.4f} "\
+                        f"lp:({lp.x: 3.4f},{lp.y: 3.4f},{lp.z: 3.4f}),cp:({cp.x: 3.4f},{cp.y: 3.4f},{cp.z: 3.4f})"\
+                        f"dir:({pDiff.x: 3.4f},{pDiff.y: 3.4f},{pDiff.z: 3.4f})")
+            except:
+                pass
+            self.dumpTime = now
 
     def stopEvt(self):
         pass
@@ -203,12 +207,8 @@ class ApachiVel(BaseStateMachine):
 
     
     def setSpeed(self, speed):
-        self.db(f" ============================== requested velocity: {speed:3.4f}")
-        #if speed > self.MAX_SPEED: speed = self.MAX_SPEED
         if abs(speed) < 0.0001:
             self.trg = 0.0
-            #self.sendEvent(self.STOP_EVT)
-            self.db(f" ============================== STOP, zero: {self.trg:3.4f}")
         else:
             if True: #abs(self.trg - speed) > self.tol:
                 self.integral = 0.0
@@ -216,7 +216,6 @@ class ApachiVel(BaseStateMachine):
                 self.sendEvent(self.ACCEL_EVT)
                 self.dump("SET SPD")
                 self.velocityHeading = self.facing #reset the lock if a new speed target is set to start moving
-                self.db(f" ============================== set velocity: {self.trg:3.4f}")
 
     def delta(self):
         if self.speed is not None:
@@ -277,7 +276,7 @@ class ApachiVel(BaseStateMachine):
         along = (abs(dot) - 1.0)
         movingFwd = abs(abs(dot) - 1.0) < 0.01 and not stopped
         
-        self.db(f" vh: {vh: 3.4f}, fc: {fc: 3.4f}, dot: {dot: 3.4f}, along: {along: 3.4f}, speed: {self.speed: 3.4f}, fwd: {movingFwd} or stopped {stopped}")
+        #self.db(f" vh: {vh: 3.4f}, fc: {fc: 3.4f}, dot: {dot: 3.4f}, along: {along: 3.4f}, speed: {self.speed: 3.4f}, fwd: {movingFwd} or stopped {stopped}")
         return  movingFwd or stopped
     
     def isFwd(self):
@@ -293,5 +292,5 @@ class ApachiVel(BaseStateMachine):
         fc = self.facing
         dot = self.getDot(trgHd,fc)
         fwd = dot >= 0.0
-        self.db(f" DEBUG3: DOT: {dot: 3.4f} to Target:{fwd},")
+        #self.db(f" DEBUG3: DOT: {dot: 3.4f} to Target:{fwd},")
         return fwd

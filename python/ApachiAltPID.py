@@ -128,12 +128,16 @@ class ApachiAlt(BaseStateMachine):
     lastStamp = lastUpdate
     lastChange = None
     startTime = None
+    dumpTime = time.time_ns()
 
     def dump(self,source):
-        self.db(f"{source:10}, ApachiAltPID alttrg: {self.trg: 3.4f}, altact: {self.act: 3.4f}, "\
-                f"alttrgrate: {self.trgRate: 3.9f}, altactrate: {self.altRate: 3.9f}, altaccel: {self.accel:3.9f},"\
-                f"error: {self.error: 3.9f}, integral: {self.integral: 3.8f}, deriv: {self.derivitive: 3.8f},TOS:{self.takeOffSpd:>+4.1f}, "\
-                f"act rot: {self.actMainSpd: 3.4f}, des rot: {self.desRotSpd: 3.4f},")
+        now = time.time_ns()
+        if (now - self.dumpTime) >= 5e8:
+            self.db(f"{source:10}, ApachiAltPID alttrg: {self.trg: 3.4f}, altact: {self.act: 3.4f}, "\
+                    f"alttrgrate: {self.trgRate: 3.9f}, altactrate: {self.altRate: 3.9f}, altaccel: {self.accel:3.9f},"\
+                    f"error: {self.error: 3.9f}, integral: {self.integral: 3.8f}, deriv: {self.derivitive: 3.8f},TOS:{self.takeOffSpd:>+4.1f}, "\
+                    f"act rot: {self.actMainSpd: 3.4f}, des rot: {self.desRotSpd: 3.4f},")
+            self.dumpTime = now
         pass
 
 
@@ -264,7 +268,7 @@ class ApachiAlt(BaseStateMachine):
         '''
         self.desRotSpd = spd
         self.changeStamp = time.time_ns()
-        self.db(f"Rotor speed changed to {self.desRotSpd:5.2f}, alt: {self.act:5.2f}")
+        #self.db(f"Rotor speed changed to {self.desRotSpd:5.2f}, alt: {self.act:5.2f}")
 
     def kickShare(self):
         error = self.error
@@ -275,38 +279,13 @@ class ApachiAlt(BaseStateMachine):
         prop = self.Kp * self.error
         inte = self.Ki * self.integral
         deri = self.Kd * self.derivitive
-        self.db(f"DEBUG2: alt err: {prop: >+3.9f} int: {inte: >+3.9f} der: {deri: >+3.9f} kick: {share: >+3.9f} L:{self.isLanding},")
+        #self.db(f"DEBUG2: alt err: {prop: >+3.9f} int: {inte: >+3.9f} der: {deri: >+3.9f} kick: {share: >+3.9f} L:{self.isLanding},")
         return share
     
     def adjRotSpd(self):
         share = self.kickShare()
         #fixed base kick - works
         newSpd = self.takeOffSpd + share
-        #end fixed base kick
-        #absolute value
-        '''
-        ac = self.accel
-        if abs(ac) > self.MAX_ACCEL:
-            #take measure to slow down
-            if ac > 0.0:
-                wh = " kicked down"
-                newSpd = self.desRotSpd - 0.01
-            elif ac < 0.0:
-                wh = " kicked up"
-                newSpd = self.desRotSpd + 0.01
-            else:
-                wh = " set to current speed"
-                newSpd = self.actMainSpd
-            self.db(f" ___OVER MAX ACCEL__: {wh}")
-        else:
-            #set new desired speed
-            newSpd = share
-        '''
-        #newSpd = share
-        #end absolute value
-        #relative kick
-        #newSpd = self.desRotSpd + share
-        #end relarive kick
         if newSpd > self.maxRotSpd: newSpd = self.maxRotSpd
         if newSpd < self.minRotSpd: newSpd = self.minRotSpd
         self.setMainRotorSpeed(newSpd)

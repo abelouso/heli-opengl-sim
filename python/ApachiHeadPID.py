@@ -58,14 +58,18 @@ class ApachiHead(BaseStateMachine):
     lastStamp = lastUpdate
     lastChange = None
     dt = None
+    dumpTime = time.time_ns()
 
     def dump(self, source):
-        try:
-            dH = self.getError()
-            self.db(f"{source:10} ApachiHeadPID trg: {self.trg: 3.4f}, act: {self.act: 3.4f}, dA: {dH: 3.4f}, desRS: {self.desRotSpd: 3.4f}, " \
-                    f"actRotSpd: {self.actRotSpd: 3.4}, int: {self.integral: 3.9f}, der: {self.derivitive: 3.9f}, dt: {self.dt: 3.4f}, elapsed: {self.alt: 3.4f},")
-        except:
-            pass
+        now = time.time_ns()
+        if (now - self.dumpTime) > 5e8:
+            try:
+                dH = self.getError()
+                self.db(f"{source:10} ApachiHeadPID trg: {self.trg: 3.4f}, act: {self.act: 3.4f}, dA: {dH: 3.4f}, desRS: {self.desRotSpd: 3.4f}, " \
+                        f"actRotSpd: {self.actRotSpd: 3.4}, int: {self.integral: 3.9f}, der: {self.derivitive: 3.9f}, dt: {self.dt: 3.4f}, elapsed: {self.alt: 3.4f},")
+            except:
+                pass
+            self.dumpTime = now
 
     def atHeadHndl(self):
         self.setRotorSpeed(self.STABLE_SPEED)
@@ -135,14 +139,12 @@ class ApachiHead(BaseStateMachine):
         return self.desRotSpd
 
     def setHeading(self, heading):
-        self.db(f" ============================================= Requested heading: {heading: 3.4f}")
         if heading < 0.0:
             heading = 360.0 + heading
         if True: #abs(heading - self.act) > self.tol:
             self.trg = heading
             self.sendEvent(self.NEW_HEAD_EVT)
             self.dump("SET HDG")
-        self.db(f" ============================================= Set heading: {self.trg: 3.4f}")
 
     def deltaHead(self):
         return self.trg - self.act
@@ -165,7 +167,6 @@ class ApachiHead(BaseStateMachine):
     def kickShare(self):
         error = self.error
         share = self.Kp * error + self.Ki * self.integral + self.Kd * self.derivitive
-        ###self.db(f"DEBUG1: err: {error: 3.9f} int: {self.integral: 3.9f} der: {self.derivitive: 3.9f} kick: {share: 3.9f},")
         return share
 
     def adjRotSpd(self):

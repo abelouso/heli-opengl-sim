@@ -75,14 +75,14 @@ class BaseStateMachine:
     def next(self):
         while not self.eventQ.empty():
             evt = self.eventQ.get()
-            self.db(f"processing evt: {evt}")
+            #self.db(f"processing evt: {evt}")
             stMap = self.StateMachine[self.state]
             newState = self.state
             if evt in stMap:
                 newState, evtHndl = stMap[evt]
                 enter, handle, leave = self.StateHandlers[newState]
                 if newState != self.state or self.firstTick:
-                    self.db(f"State TX: {self.state}: {evt} -> {newState}")
+                    #self.db(f"State TX: {self.state}: {evt} -> {newState}")
                     if self.leave is not None:
                         self.leave(self)
                     if evtHndl is not None:
@@ -110,8 +110,7 @@ class BaseStateMachine:
         self.lastStamp = now
 
     def db(self, msg):
-        calFn = inspect.getouterframes(inspect.currentframe(),2)[1][3]
-        msg = f"{self.state}> {msg} [{calFn}]"
+        msg = f"{self.state}> {msg}"
         try:
             if self.sock is not None:
                 self.sock.sendto(msg.encode(), (MCAST_GRP, MCAST_PORT))
