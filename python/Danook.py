@@ -418,7 +418,7 @@ class Danook(StigChopper):
         if not self.mainRotorNode is None:
             self.mainRotorNode.setHpr(Vec3(random.randint(0,360), 0, 0))
         if not self.tailRotorNode is None:
-            self.tailRotorNode.setHpr(Vec3(random.randint(0,360), 0, 0))
+            self.tailRotorNode.setHpr(Vec3(0, random.randint(0,360), 0))
 
     def runLogic(self,currentTime,elapsedTime):
         self.actualPosition = base.gps(self.getId())
